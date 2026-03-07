@@ -1,0 +1,36 @@
+// 数组综合测试
+pln("=== 数组综合测试 ===")
+
+// 测试1: 不同类型元素混合
+var mixed = [1, "hello", true, 3.14, [10, 20, 30]]
+pln("混合类型数组: ", mixed)
+pln("数组长度: ", len(mixed))
+pln("mixed[0] = ", mixed[0])
+pln("mixed[1] = ", mixed[1])
+pln("mixed[2] = ", mixed[2])
+pln("mixed[3] = ", mixed[3])
+pln("混合数组子数组: ", mixed[4])
+pln("子数组元素: ", mixed[4][1])
+
+// 测试2: 数组修改
+var arr = [10, 20, 30, 40, 50]
+arr[2] = "changed"
+arr[4] = false
+pln("修改后的数组: ", arr)
+
+// 测试3: 二维数组
+var matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+var matrixSum = 0
+for (var i = 0; i < 3; i = i + 1) {
+    for (var j = 0; j < 3; j = j + 1) {
+        matrixSum = matrixSum + matrix[i][j]
+    }
+}
+pln("二维数组元素总和: ", matrixSum)
+if (matrixSum == 45) {
+    pln("✓ 二维数组测试通过")
+} else {
+    pln("✗ 二维数组测试失败，预期45，得到", matrixSum)
+}
+
+pln("=== 所有数组测试完成 ===")

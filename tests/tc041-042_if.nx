@@ -1,0 +1,19 @@
+// TC041: if语句
+var a = 10
+pln("TC041:")
+if (a > 5) {
+    pln("  大于5")
+} else {
+    pln("  小于等于5")
+}
+
+// TC042: 多重if判断
+var score = 85
+pln("\nTC042:")
+if (score >= 90) {
+    pln("  A")
+} else if (score >= 80) {
+    pln("  B")
+} else {
+    pln("  C")
+}

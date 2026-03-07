@@ -1,0 +1,14 @@
+// 测试逻辑或运算符
+pln("true || false = ", true || false)
+pln("false || true = ", false || true)
+pln("false || false = ", false || false)
+pln("true || true = ", true || true)
+
+// 测试短路特性
+var a = 1
+var b = 2
+var c = false || (a = 100)
+pln("a = ", a, ", c = ", c)
+
+var d = true || (b = 200)
+pln("b = ", b, ", d = ", d)

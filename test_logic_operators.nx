@@ -1,0 +1,31 @@
+// Test logical operators with short circuit
+pln("Testing logical AND (&&):")
+var a = true
+var b = false
+var c = true
+
+pln("true && true = ", a && c) // should be true
+pln("true && false = ", a && b) // should be false
+pln("false && true = ", b && a) // should be false
+pln("false && false = ", b && b) // should be false
+
+// Test short circuit
+var x = 0
+var result = (x == 0) || (x = 1) // should short circuit, x remains 0
+pln("\nTesting logical OR (||):")
+pln("true || false = ", a || b) // should be true
+pln("false || true = ", b || a) // should be true
+pln("false || false = ", b || b) // should be false
+pln("x after || test = ", x) // should be 0, not 1
+
+// Test mixed
+pln("\nTesting mixed logical operators:")
+pln("true && (false || true) = ", a && (b || c)) // should be true
+pln("(true && false) || true = ", (a && b) || c) // should be true
+
+// Test complex expressions
+pln("\nTesting complex expressions:")
+var num = 10
+pln("num > 5 && num < 15 = ", num > 5 && num < 15) // true
+pln("num < 5 || num > 15 = ", num <5 || num >15) // false
+pln("num == 10 || num == 20 = ", num == 10 || num ==20) // true

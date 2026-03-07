@@ -1,0 +1,17 @@
+// TC001: var声明变量
+var a = 10
+pln("TC001: ", a)
+
+// TC002: let声明变量
+let b = 20.5
+pln("TC002: ", b)
+
+// TC003: const声明常量
+const c = "hello"
+pln("TC003: ", c)
+
+// TC004: 多变量声明
+var x = 1
+var y = 2
+var z = 3
+pln("TC004: ", x + y + z)

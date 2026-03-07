@@ -1,0 +1,10 @@
+var c = ' '
+pln("c = ", c)
+pln("typeName(c) = ", typeName(c))
+pln("typeCode(c) = ", typeCode(c))
+
+var s = "ab c"
+pln("s[2] typeName = ", typeName(s[2]))
+pln("s[2] typeCode = ", typeCode(s[2]))
+
+pln("c == s[2] = ", c == s[2])

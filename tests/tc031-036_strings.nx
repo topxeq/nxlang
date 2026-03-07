@@ -1,0 +1,31 @@
+// TC031: 字符串拼接
+var s1 = "Hello"
+var s2 = "World"
+pln("TC031: ", s1 + " " + s2)
+
+// TC032: 字符串重复
+var s = "abc"
+pln("TC032: ", s * 3)
+
+// TC033: 转义字符
+pln("TC033:")
+pln("Line1\nLine2\n\tIndented")
+
+// TC034: 索引访问 TODO
+// var s = "Hello"
+// pln("TC034: ", s[0], " ", s[4])
+
+// TC035: 字符串函数
+var s3 = "  Hello World  "
+pln("\nTC035:")
+pln("  toUpper: ", toUpper(s3))
+pln("  toLower: ", toLower(s3))
+pln("  trim: ", trim(s3))
+pln("  contains World: ", contains(s3, "World"))
+
+// TC036: 分割与合并
+var s4 = "a,b,c,d"
+var arr = split(s4, ",")
+pln("\nTC036:")
+pln("  split length: ", len(arr))
+pln("  join with |: ", join(arr, "|"))

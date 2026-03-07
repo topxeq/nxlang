@@ -1,0 +1,6 @@
+var sum = 0
+for (var i = 1; i <= 3; i = i + 1) {
+    pln("i = ", i)
+    sum = sum + i
+}
+pln("sum = ", sum)

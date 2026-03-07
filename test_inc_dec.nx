@@ -1,0 +1,41 @@
+// Test increment and decrement operators
+pln("=== Testing increment/decrement operators ===")
+
+// Test postfix increment
+let a = 5
+pln("a =", a)
+pln("a++ =", a++)
+pln("after a++, a =", a)
+
+// Test postfix decrement
+let b = 10
+pln("\nb =", b)
+pln("b-- =", b--)
+pln("after b--, b =", b)
+
+// Test prefix increment
+let c = 15
+pln("\nc =", c)
+pln("++c =", ++c)
+pln("after ++c, c =", c)
+
+// Test prefix decrement
+let d = 20
+pln("\nd =", d)
+pln("--d =", --d)
+pln("after --d, d =", d)
+
+// Test in for loop
+pln("\n=== Testing in for loop ===")
+for var i = 0; i < 5; i++ {
+    pln("i =", i)
+}
+
+// Test with expressions
+let x = 10
+let y = x++ + 5
+pln("\nx =", x, ", y =", y) // Should be x=11, y=15
+
+let m = 10
+let n = ++m + 5
+pln("m =", m, ", n =", n) // Should be m=11, n=16

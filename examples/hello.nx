@@ -1,0 +1,62 @@
+// Hello World example for Nxlang
+
+pln("Hello, World! 👋")
+pln("Welcome to Nxlang!")
+
+// Calculate factorial recursively
+func factorial(n) {
+    if n <= 1 {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+
+pln("Factorial of 10: ", factorial(10))
+
+// Calculate Fibonacci sequence
+func fibonacci(n) {
+    if n <= 1 {
+        return n
+    }
+    return fibonacci(n-1) + fibonacci(n-2)
+}
+
+pln("Fibonacci(15): ", fibonacci(15))
+
+// Test arrays and maps
+var fruits = array("Apple", "Banana", "Cherry")
+pln("\nFruits:")
+for (var i = 0; i < len(fruits); i++) {
+    pln("  - ", fruits[i])
+}
+
+var person = map(
+    "name", "Bob",
+    "age", 28,
+    "city", "Shanghai"
+)
+
+pln("\nPerson info:")
+pln("  Name: ", person["name"])
+pln("  Age: ", person["age"])
+pln("  City: ", person["city"])
+
+// Test math and string functions
+pln("\nMath tests:")
+pln("  sqrt(25) = ", sqrt(25))
+pln("  abs(-10) = ", abs(-10))
+pln("  random() = ", random())
+
+pln("\nString tests:")
+var str = "Nxlang is awesome!"
+pln("  Original: ", str)
+pln("  Uppercase: ", toUpper(str))
+pln("  Lowercase: ", toLower(str))
+pln("  Length: ", len(str))
+pln("  Contains 'awesome': ", contains(str, "awesome"))
+
+// Test time
+pln("\nCurrent time: ", formatTime())
+pln("Unix timestamp: ", unix())
+
+pln("\nAll examples completed successfully! 🚀")

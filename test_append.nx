@@ -1,0 +1,21 @@
+// 测试append函数
+var arr = [1, 2, 3]
+pln("初始数组: ", arr)
+
+append(arr, 4)
+pln("append 4后: ", arr)
+
+append(arr, 5, 6, 7)
+pln("append多个元素后: ", arr)
+
+// 测试追加不同类型
+append(arr, "string", true, 3.14)
+pln("追加不同类型后: ", arr)
+
+// 测试追加数组
+var arr2 = [10, 20, 30]
+append(arr, arr2)
+pln("追加数组后: ", arr)
+pln("最后一个元素: ", arr[len(arr)-1])
+
+pln("✓ append函数测试完成")

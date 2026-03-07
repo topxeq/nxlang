@@ -1,0 +1,4 @@
+// 简单时间测试
+pln("now = ", now())
+pln("unixMilli = ", unixMilli())
+pln("formatTime(now()) = ", formatTime(now()))

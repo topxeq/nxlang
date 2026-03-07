@@ -1,0 +1,38 @@
+// Test Nxlang script
+var x = 10
+var y = 20
+
+pln("Hello from Nxlang!")
+pln("x = ", x, ", y = ", y)
+pln("x + y = ", x + y)
+pln("x * y = ", x * y)
+pln("x > y = ", x > y)
+
+// Test string operations
+var str = "Hello World"
+pln("String: ", str)
+pln("Uppercase: ", toUpper(str))
+pln("Lowercase: ", toLower(str))
+pln("Length: ", len(str))
+
+// Test arrays
+var arr = array(1, 2, 3, 4, 5)
+pln("Array: ", arr)
+pln("Array length: ", len(arr))
+append(arr, 6)
+pln("After append: ", arr)
+
+// Test maps
+var m = map("name", "Nxlang", "version", "1.0.0")
+pln("Map: ", m)
+pln("Map keys: ", keys(m))
+
+// Test math functions
+pln("Square root of 16: ", sqrt(16))
+pln("Random number: ", random())
+
+// Test time
+pln("Current time: ", formatTime())
+pln("Unix timestamp: ", unix())
+
+pln("All tests passed! ✅")

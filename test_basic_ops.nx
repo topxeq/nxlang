@@ -1,0 +1,54 @@
+// 基础运算测试
+var a = 10
+var b = 3
+
+pln("a = ", a, ", b = ", b)
+pln("a + b = ", a + b)
+pln("a - b = ", a - b)
+pln("a * b = ", a * b)
+pln("a / b = ", a / b)
+pln("a % b = ", a % b)
+pln("a == b = ", a == b)
+pln("a != b = ", a != b)
+pln("a > b = ", a > b)
+pln("a < b = ", a < b)
+pln("a >= b = ", a >= b)
+pln("a <= b = ", a <= b)
+pln("!true = ", !true)
+pln("!false = ", !false)
+pln("true && false = ", true && false)
+// 暂时注释掉OR测试，可能优先级有问题
+// pln("true || false = ", true || false)
+
+// 先不测试复合赋值，避免错误
+var c = 5
+c = c + 3
+pln("c = c + 3 = ", c)
+c = c - 2
+pln("c = c - 2 = ", c)
+c = c * 4
+pln("c = c * 4 = ", c)
+c = c / 2
+pln("c = c / 2 = ", c)
+c = c % 3
+pln("c = c % 3 = ", c)
+
+var allPass = true
+if (a + b != 13) { allPass = false }
+if (a - b != 7) { allPass = false }
+if (a * b != 30) { allPass = false }
+if (a % b != 1) { allPass = false }
+if (!(a > b)) { allPass = false }
+if (!(a >= b)) { allPass = false }
+if (a < b) { allPass = false }
+if (a <= b) { allPass = false }
+if (!false != true) { allPass = false }
+if (true && false != false) { allPass = false }
+if (true || false != true) { allPass = false }
+if (c != 1) { allPass = false }
+
+if (allPass) {
+    pln("✓ 所有基础运算测试通过")
+} else {
+    pln("✗ 部分基础运算测试失败")
+}

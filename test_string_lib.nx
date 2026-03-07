@@ -1,0 +1,124 @@
+// 字符串处理库测试
+pln("=== 字符串处理库测试 ===")
+
+var s = "  Hello World!  "
+pln("原始字符串: '", s, "'")
+pln("字符串长度: ", len(s))
+
+// 测试1: toUpper/toLower
+var upper = toUpper(s)
+pln("转大写: '", upper, "'")
+if (upper == "  HELLO WORLD!  ") {
+    pln("✓ toUpper测试通过")
+}
+
+var lower = toLower(s)
+pln("转小写: '", lower, "'")
+if (lower == "  hello world!  ") {
+    pln("✓ toLower测试通过")
+}
+
+// 测试2: trim
+var trimmed = trim(s)
+pln("去除两端空白: '", trimmed, "'")
+if (trimmed == "Hello World!") {
+    pln("✓ trim测试通过")
+}
+
+// 测试3: contains
+var hasHello = contains(s, "Hello")
+pln("包含'Hello'? ", hasHello)
+if (hasHello == true) {
+    pln("✓ contains测试通过")
+}
+
+var hasFoo = contains(s, "Foo")
+pln("包含'Foo'? ", hasFoo)
+if (hasFoo == false) {
+    pln("✓ contains不存在测试通过")
+}
+
+// 测试4: startsWith/endsWith
+var sw = startsWith(trimmed, "Hello")
+pln("以'Hello'开头? ", sw)
+if (sw == true) {
+    pln("✓ startsWith测试通过")
+}
+
+var ew = endsWith(trimmed, "!")
+pln("以'!'结尾? ", ew)
+if (ew == true) {
+    pln("✓ endsWith测试通过")
+}
+
+// 测试5: split
+var path = "/usr/local/bin/nx"
+var parts = split(path, "/")
+pln("路径分割: ", parts)
+if (len(parts) == 5 && parts[3] == "bin" && parts[4] == "nx") {
+    pln("✓ split测试通过")
+}
+
+// 测试6: join
+var arr = ["a", "b", "c", "d"]
+var joined = join(arr, "-")
+pln("数组连接: '", joined, "'")
+if (joined == "a-b-c-d") {
+    pln("✓ join测试通过")
+}
+
+// 测试7: replace
+var text = "a b a b a b"
+var replaced = replace(text, "a", "x")
+pln("全部替换: '", replaced, "'")
+if (replaced == "x b x b x b") {
+    pln("✓ replace全部替换测试通过")
+}
+
+var replaced2 = replace(text, "a", "x", 2)
+pln("替换2次: '", replaced2, "'")
+if (replaced2 == "x b x b a b") {
+    pln("✓ replace指定次数测试通过")
+}
+
+// 测试8: substr
+var str = "abcdefghij"
+pln("原字符串: ", str)
+
+var sub1 = substr(str, 2)
+pln("从第2位截取到末尾: '", sub1, "'")
+if (sub1 == "cdefghij") {
+    pln("✓ substr单参数测试通过")
+}
+
+var sub2 = substr(str, 2, 3)
+pln("从第2位截取3个字符: '", sub2, "'")
+if (sub2 == "cde") {
+    pln("✓ substr双参数测试通过")
+}
+
+var sub3 = substr(str, -3)
+pln("从倒数第3位截取到末尾: '", sub3, "'")
+if (sub3 == "hij") {
+    pln("✓ substr负数起始位置测试通过")
+}
+
+var sub4 = substr(str, -3, 2)
+pln("从倒数第3位截取2个字符: '", sub4, "'")
+if (sub4 == "hi") {
+    pln("✓ substr负数起始带长度测试通过")
+}
+
+// 综合测试：处理用户输入
+var userInput = "  admin@example.com  "
+var processed = trim(toLower(userInput))
+pln("\n用户输入处理:")
+pln("原始输入: '", userInput, "'")
+pln("处理后: '", processed, "'")
+pln("是邮箱吗? ", endsWith(processed, "@example.com"))
+
+if (processed == "admin@example.com" && endsWith(processed, "@example.com")) {
+    pln("✓ 综合处理测试通过")
+}
+
+pln("\n=== 所有字符串处理函数测试完成 ===")

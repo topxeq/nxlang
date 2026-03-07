@@ -1,0 +1,57 @@
+// 时间处理库测试
+pln("=== 时间处理库测试 ===")
+
+// 测试1: 获取当前时间戳
+var ts = now()
+pln("当前Unix时间戳(秒): ", ts)
+pln("当前Unix时间戳(毫秒): ", unixMilli())
+
+// 测试2: 格式化时间
+var formatted = formatTime(ts)
+pln("默认格式时间: ", formatted)
+pln("len(formatted) = ", len(formatted))
+
+var customFormat = formatTime(ts, "2006/01/02")
+pln("自定义格式(年/月/日): ", customFormat)
+pln("len(customFormat) = ", len(customFormat))
+
+// 测试3: 解析时间
+var timeStr = "2024-12-25 14:30:00"
+var parsedTs = parseTime(timeStr)
+pln("解析时间'", timeStr, "'得到时间戳: ", parsedTs)
+
+// 验证解析后再格式化是否和原字符串一致
+var formattedAgain = formatTime(parsedTs)
+pln("解析后再格式化: ", formattedAgain)
+
+// 自定义格式解析
+var customTimeStr = "2024/12/25"
+var parsedCustom = parseTime(customTimeStr, "2006/01/02")
+pln("解析自定义格式时间'", customTimeStr, "'得到: ", parsedCustom)
+pln("格式化回原格式: ", formatTime(parsedCustom, "2006/01/02"))
+
+// 测试4: sleep函数
+pln("\n测试sleep函数，睡眠1秒...")
+var start = now()
+sleep(1)
+var end = now()
+var diff = end - start
+pln("睡眠耗时: ", diff, "秒")
+
+// 测试5: 时间计算
+var oneHourLater = ts + 3600
+pln("一小时后的时间: ", formatTime(oneHourLater))
+
+// 综合测试：统计代码执行时间
+pln("\n统计循环执行时间:")
+var startTime = unixMilli()
+var sum = 0
+for (var i = 0; i < 1000000; i = i + 1) {
+    sum = sum + i
+}
+var endTime = unixMilli()
+var costMs = endTime - startTime
+pln("100万次循环耗时: ", costMs, "毫秒")
+pln("循环总和: ", sum)
+
+pln("\n=== 所有时间处理函数测试完成 ===")

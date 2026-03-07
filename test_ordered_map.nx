@@ -1,0 +1,71 @@
+// 有序Map测试
+pln("=== 有序Map测试 ===")
+
+// 测试1: 基本有序Map，保持插入顺序
+var om = orderedMap()
+om["z"] = "Zebra"
+om["a"] = "Apple"
+om["m"] = "Monkey"
+om["b"] = "Banana"
+pln("插入顺序: z, a, m, b")
+pln("有序Map内容: ", om)
+pln("keys顺序: ", keys(om))
+// 验证顺序是否正确
+var ks = keys(om)
+if (ks[0] == "z" && ks[1] == "a" && ks[2] == "m" && ks[3] == "b") {
+    pln("✓ 插入顺序保持正确")
+} else {
+    pln("✗ 插入顺序错误")
+}
+
+// 测试2: 修改已存在的key不改变顺序
+om["a"] = "Apricot"
+pln("修改a的值后: ", om)
+var ks2 = keys(om)
+if (ks2[0] == "z" && ks2[1] == "a" && ks2[2] == "m" && ks2[3] == "b") {
+    pln("✓ 修改已存在key不改变顺序")
+}
+
+// 测试3: 删除后再添加会排在最后
+delete(om, "m")
+om["m"] = "Mouse"
+pln("删除m再添加后: ", om)
+var ks3 = keys(om)
+if (ks3[3] == "m") {
+    pln("✓ 删除后重新添加排在最后")
+}
+
+// 测试4: 排序功能
+sortMap(om)
+pln("按key排序后: ", om)
+var ks4 = keys(om)
+if (ks4[0] == "a" && ks4[1] == "b" && ks4[2] == "m" && ks4[3] == "z") {
+    pln("✓ 按字母顺序排序正确")
+}
+
+// 测试5: 反转功能
+reverseMap(om)
+pln("反转顺序后: ", om)
+var ks5 = keys(om)
+if (ks5[0] == "z" && ks5[1] == "m" && ks5[2] == "b" && ks5[3] == "a") {
+    pln("✓ 反转顺序正确")
+}
+
+// 测试6: 从普通Map转换
+var regularMap = {"b": 2, "a": 1, "c": 3}
+var om2 = orderedMap(regularMap)
+pln("从普通Map转换的有序Map: ", om2)
+
+// 测试7: 嵌套有序Map
+var nested = orderedMap()
+nested["user"] = orderedMap()
+nested["user"]["name"] = "张三"
+nested["user"]["age"] = 25
+nested["user"]["email"] = "zhangsan@example.com"
+pln("嵌套有序Map: ", nested)
+pln("嵌套keys顺序: ", keys(nested["user"]))
+if (keys(nested["user"])[0] == "name" && keys(nested["user"])[1] == "age" && keys(nested["user"])[2] == "email") {
+    pln("✓ 嵌套有序Map顺序保持正确")
+}
+
+pln("=== 所有有序Map测试完成 ===")

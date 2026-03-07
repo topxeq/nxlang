@@ -1,0 +1,10 @@
+var c = 'a'
+pln("c = ", c)
+pln("typeName(c) = ", typeName(c))
+pln("typeCode(c) = ", typeCode(c))
+
+var d = ' '
+pln("\nd = ", d)
+pln("typeName(d) = ", typeName(d))
+pln("typeCode(d) = ", typeCode(d))
+

@@ -1,0 +1,17 @@
+// 斐波那契数列测试 - 计算第8项
+func fib(n) {
+    if (n <= 1) {
+        return n
+    }
+    return fib(n - 1) + fib(n - 2)
+}
+
+var result = fib(8)
+pln("fib(8) = ", result)
+
+// 验证结果
+if (result == 21) {
+    pln("✓ 测试通过: 斐波那契第8项计算正确")
+} else {
+    pln("✗ 测试失败: 预期21，实际得到", result)
+}

@@ -1,0 +1,30 @@
+// Test float modulo operations
+pln("=== Float modulo tests ===")
+
+// Int mod int should still work
+pln("10 % 3 = ", 10 % 3)
+if (10 % 3 == 1) {
+    pln("✓ int % int works")
+}
+
+// Float mod int
+pln("10.5 % 3 = ", 10.5 % 3)
+if (10.5 % 3 == 1.5) {
+    pln("✓ float % int works")
+}
+
+// Int mod float
+pln("10 % 3.5 = ", 10 % 3.5)
+if (10 % 3.5 == 3) {
+    pln("✓ int % float works")
+}
+
+// Float mod float
+pln("7.8 % 2.5 = ", 7.8 % 2.5)
+if (7.8 % 2.5 == 0.30000000000000027) { // floating point precision expected
+    pln("✓ float % float works")
+}
+
+// Test edge cases
+pln("0 % 5 = ", 0 % 5)
+pln("5 % 0 = ", 5 % 0) // Should error

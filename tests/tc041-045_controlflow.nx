@@ -1,0 +1,46 @@
+// TC041: if语句
+var a = 10
+pln("TC041:")
+if (a > 5) {
+    pln("  大于5")
+} else {
+    pln("  小于等于5")
+}
+
+// TC042: 多重if判断
+var score = 85
+pln("\nTC042:")
+if (score >= 90) {
+    pln("  A")
+} else if (score >= 80) {
+    pln("  B")
+} else {
+    pln("  C")
+}
+
+// TC043: for循环
+var sum = 0
+for (var i = 1; i <= 5; i++) {
+    sum += i
+}
+pln("\nTC043: 1-5的和是 ", sum)
+
+// TC044: break语句
+var i = 0
+for (true) {
+    i++
+    if (i == 5) {
+        break
+    }
+}
+pln("\nTC044: break跳出后i=", i)
+
+// TC045: continue语句
+var sumOdd = 0
+for (var j = 1; j <= 10; j++) {
+    if (j % 2 == 0) {
+        continue
+    }
+    sumOdd += j
+}
+pln("\nTC045: 1-10奇数和是 ", sumOdd)

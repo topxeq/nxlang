@@ -1,0 +1,8 @@
+func countDown(n) {
+    pln("Count: ", n)
+    if (n > 0) {
+        countDown(n - 1)
+    }
+}
+
+countDown(3)

@@ -1,0 +1,3 @@
+pln("now() = ", now())
+pln("typeName(now()) = ", typeName(now()))
+pln("typeCode(now()) = ", typeCode(now()))

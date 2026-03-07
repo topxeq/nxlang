@@ -1,0 +1,6 @@
+// Test function definition
+func test() {
+    pln("Function called!")
+}
+
+pln("Function defined")

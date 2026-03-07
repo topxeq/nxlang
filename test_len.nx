@@ -1,0 +1,8 @@
+var arr = [1, 2, 3, 4, 5]
+pln("arr = ", arr)
+pln("len(arr) = ", len(arr))
+pln("len(arr) type = ", typeName(len(arr)))
+
+var str = "hello"
+pln("str = ", str)
+pln("len(str) = ", len(str))

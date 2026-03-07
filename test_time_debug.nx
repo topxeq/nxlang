@@ -1,0 +1,4 @@
+var t = now()
+pln("t = ", t)
+pln("typeName(t) = ", typeName(t))
+pln("typeCode(t) = ", typeCode(t))

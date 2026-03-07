@@ -1,0 +1,75 @@
+// Map字典类型测试
+pln("=== Map字典测试 ===")
+
+// 测试1: 基本Map定义和访问
+var user = {
+    "name": "张三",
+    "age": 25,
+    "isAdmin": true,
+    "score": 95.5
+}
+pln("用户信息: ", user)
+pln("用户姓名: ", user["name"])
+pln("用户年龄: ", user["age"])
+pln("是否管理员: ", user["isAdmin"])
+pln("分数: ", user["score"])
+
+// 测试2: 不存在的key返回undefined
+pln("不存在的key: ", user["nonexistent"])
+
+// 测试3: 修改元素
+user["age"] = 26
+user["email"] = "zhangsan@example.com"
+pln("修改后的用户信息: ", user)
+pln("新添加的邮箱: ", user["email"])
+
+// 测试4: len函数
+pln("Map长度: ", len(user))
+if (len(user) == 5) {
+    pln("✓ len()函数测试通过")
+}
+
+// 测试5: keys和values函数
+var ks = keys(user)
+pln("所有keys: ", ks)
+
+var vs = values(user)
+pln("所有values: ", vs)
+
+// 测试6: delete函数
+delete(user, "score")
+pln("删除score后: ", user)
+pln("删除后长度: ", len(user))
+
+// 测试7: 遍历Map
+var sumAge = 0
+var userList = [
+    {"name": "张三", "age": 25},
+    {"name": "李四", "age": 30},
+    {"name": "王五", "age": 35}
+]
+
+for (var i = 0; i < len(userList); i = i + 1) {
+    sumAge = sumAge + userList[i]["age"]
+}
+pln("用户年龄总和: ", sumAge)
+if (sumAge == 90) {
+    pln("✓ Map遍历测试通过")
+}
+
+// 测试8: 复杂嵌套结构
+var data = {
+    "code": 200,
+    "message": "success",
+    "data": {
+        "items": [1, 2, 3],
+        "total": 3,
+        "page": 1
+    }
+}
+pln("嵌套Map访问: ", data["data"]["items"][1])
+if (data["data"]["total"] == 3) {
+    pln("✓ 嵌套Map访问测试通过")
+}
+
+pln("=== 所有Map测试完成 ===")

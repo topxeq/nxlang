@@ -1,0 +1,8 @@
+var i = 0
+var sum = 0
+while (i <= 3) {
+    pln("i = ", i)
+    sum = sum + i
+    i = i + 1
+}
+pln("sum = ", sum)

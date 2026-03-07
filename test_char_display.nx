@@ -1,0 +1,14 @@
+var s = "ab c"
+pln("s = ", s)
+pln("s[0] = ", s[0]) // 'a' 应该显示为a
+pln("typeName(s[0]) = ", typeName(s[0]))
+pln("typeCode(s[0]) = ", typeCode(s[0]))
+
+var c = 'a'
+pln("\nc = ", c) // 现在显示97，应该显示为'a'
+pln("typeName(c) = ", typeName(c))
+pln("typeCode(c) = ", typeCode(c))
+
+// 测试相等性
+pln("\ns[0] == c = ", s[0] == c) // 应该返回true
+pln("c == s[0] = ", c == s[0]) // 应该返回true

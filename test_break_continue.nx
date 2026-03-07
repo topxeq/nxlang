@@ -1,0 +1,38 @@
+// break和continue测试
+var sum = 0
+var i = 0
+
+pln("测试continue: 计算1-10的奇数和")
+while (i < 10) {
+    i = i + 1
+    if (i % 2 == 0) {
+        continue // 跳过偶数
+    }
+    sum = sum + i
+}
+
+pln("1-10奇数和 = ", sum)
+if (sum == 25) {
+    pln("✓ continue测试通过")
+} else {
+    pln("✗ continue测试失败: 预期25，实际", sum)
+}
+
+pln("\n测试break: 累加直到超过20")
+sum = 0
+i = 0
+while (true) {
+    i = i + 1
+    sum = sum + i
+    if (sum > 20) {
+        break
+    }
+}
+
+pln("累加和超过20时的和 = ", sum)
+pln("累加的最后一个数 = ", i)
+if (sum == 21 && i == 6) {
+    pln("✓ break测试通过")
+} else {
+    pln("✗ break测试失败: 预期和21，最后一个数6，实际和", sum, "最后一个数", i)
+}

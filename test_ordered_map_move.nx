@@ -1,0 +1,80 @@
+// 有序Map调整位置测试
+pln("=== 有序Map位置调整测试 ===")
+
+var om = orderedMap()
+om["a"] = 1
+om["b"] = 2
+om["c"] = 3
+om["d"] = 4
+om["e"] = 5
+
+pln("初始顺序: ", keys(om)) // [a, b, c, d, e]
+pln("初始值: ", om)
+
+// 测试1: 移动到指定位置
+var res = moveKey(om, "d", 1)
+pln("移动d到位置1: ", keys(om)) // [a, d, b, c, e]
+if (res && keys(om)[1] == "d") {
+    pln("✓ moveKey移动到指定位置成功")
+}
+
+// 测试2: 移动到第一个位置
+res = moveKeyToFirst(om, "e")
+pln("移动e到最前面: ", keys(om)) // [e, a, d, b, c]
+if (res && keys(om)[0] == "e") {
+    pln("✓ moveKeyToFirst成功")
+}
+
+// 测试3: 移动到最后位置
+res = moveKeyToLast(om, "a")
+pln("移动a到最后面: ", keys(om)) // [e, d, b, c, a]
+if (res && keys(om)[len(om)-1] == "a") {
+    pln("✓ moveKeyToLast成功")
+}
+
+// 测试4: 移动不存在的key返回false
+res = moveKey(om, "nonexistent", 2)
+if (!res) {
+    pln("✓ 移动不存在的key返回false正确")
+}
+
+// 测试5: 移动到越界位置返回false
+res = moveKey(om, "b", 100)
+if (!res) {
+    pln("✓ 移动到越界位置返回false正确")
+}
+res = moveKey(om, "b", -1)
+if (!res) {
+    pln("✓ 移动到负数位置返回false正确")
+}
+
+// 测试6: 移动到当前相同位置返回false
+res = moveKey(om, "d", 1)
+if (!res) {
+    pln("✓ 移动到相同位置返回false正确")
+}
+
+pln("最终顺序: ", keys(om))
+pln("最终值: ", om)
+
+// 测试7: 实际使用场景 - 置顶常用功能
+var menu = orderedMap()
+menu["首页"] = "/"
+menu["产品"] = "/product"
+menu["关于"] = "/about"
+menu["联系我们"] = "/contact"
+pln("\n初始菜单顺序: ", keys(menu))
+
+// 把"产品"置顶
+moveKeyToFirst(menu, "产品")
+pln("置顶产品后菜单顺序: ", keys(menu))
+
+// 把"联系我们"移到第二个位置
+moveKey(menu, "联系我们", 1)
+pln("调整联系我们到第二个位置后: ", keys(menu))
+
+if (keys(menu)[0] == "产品" && keys(menu)[1] == "联系我们") {
+    pln("✓ 实际场景使用测试通过")
+}
+
+pln("=== 所有位置调整测试完成 ===")

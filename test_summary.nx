@@ -1,0 +1,64 @@
+// 核心功能综合测试
+pln("=== Nxlang 核心功能测试 ===")
+
+// 测试1: 基本运算
+var a = 5 + 3 * 2
+if (a == 11) {
+    pln("✓ 运算优先级测试通过")
+} else {
+    pln("✗ 运算优先级测试失败，预期11，得到", a)
+}
+
+// 测试2: if分支
+var score = 85
+var grade = ""
+if (score >= 90) {
+    grade = "A"
+} else if (score >= 80) {
+    grade = "B"
+} else if (score >= 60) {
+    grade = "C"
+} else {
+    grade = "D"
+}
+if (grade == "B") {
+    pln("✓ if-else分支测试通过")
+} else {
+    pln("✗ if-else分支测试失败，预期B，得到", grade)
+}
+
+// 测试3: for循环求和
+var sum = 0
+for (var i = 1; i <= 10; i = i + 1) {
+    sum = sum + i
+}
+if (sum == 55) {
+    pln("✓ for循环求和测试通过")
+} else {
+    pln("✗ for循环求和测试失败，预期55，得到", sum)
+}
+
+// 测试4: while循环求乘积
+var product = 1
+var i = 1
+while (i <= 5) {
+    product = product * i
+    i = i + 1
+}
+if (product == 120) {
+    pln("✓ while循环乘积测试通过")
+} else {
+    pln("✗ while循环乘积测试失败，预期120，得到", product)
+}
+
+// 测试5: 函数调用
+func add(x, y) {
+    return x + y
+}
+if (add(10, 20) == 30) {
+    pln("✓ 函数调用测试通过")
+} else {
+    pln("✗ 函数调用测试失败，预期30，得到", add(10,20))
+}
+
+pln("=== 测试完成 ===")
