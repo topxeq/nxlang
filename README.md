@@ -1,97 +1,80 @@
-# Nxlang (能效语言)
+# Nxlang (Efficiency Language)
 
-Nxlang is a Go-based scripting language with Go-like syntax, bytecode virtual machine, and cross-platform support.
+A lightweight, Go-based scripting language with Go-like syntax, bytecode virtual machine, and cross-platform support.
 
-## Features
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Report Card](https://goreportcard.com/badge/github.com/topxeq/nxlang)](https://goreportcard.com/report/github.com/topxeq/nxlang)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-blue.svg)](https://golang.org/dl/)
 
-- **Go-like syntax** with simplified constraints and weak typing
-- **Bytecode compilation**: Compile `.nx` source files to portable `.nxb` bytecode
-- **Fast execution**: Stack-based virtual machine optimized for performance
-- **Cross-platform**: Runs on Windows and Linux with zero dependencies
-- **Rich standard library** with support for:
-  - Strings, collections (arrays, maps, stacks, queues)
-  - Math, time, JSON serialization
-  - Concurrency with threads and synchronization primitives (mutex, rwmutex)
-- **REPL mode** for interactive development
-- **Built-in syntax-highlighted editor** (coming soon)
-- **UTF-8 support** for all strings and source files
+[中文版本](./README_zh-CN.md)
 
-## Installation
+## ✨ Core Features
 
+- **Familiar Syntax**: Go-like syntax design, low learning curve, seamless adaptation for Go developers
+- **Weak Type System**: Automatic type conversion, flexible and efficient coding, reduces redundant type declarations
+- **Bytecode Execution**: Compiles to platform-agnostic bytecode (.nxb), runs faster than traditional interpreted languages
+- **Built-in REPL**: Interactive command line with syntax highlighting for quick debugging and prototyping
+- **Integrated Editor**: Built-in code editor, write and run scripts without additional tools
+- **Rich Standard Library**: Built-in support for concurrency, HTTP, file I/O, data processing, graphics, and more
+- **Cross-Platform Support**: Runs perfectly on Windows, Linux, macOS with no external dependencies
+- **Module System**: Supports module import/export with consistent function references, suitable for large project development
+- **Native UTF-8**: Full stack UTF-8 support, strings and files use UTF-8 encoding by default
+- **High Performance**: Built on Go, runtime performance far exceeds dynamic languages like Python/JavaScript
+
+## 🚀 Quick Start
+
+### Installation
+Download prebuilt binaries from [Releases](https://github.com/topxeq/nxlang/releases) or build from source.
+
+### Run REPL (Interactive Mode)
 ```bash
-# Build from source
-git clone https://github.com/topxeq/nxlang.git
-cd nxlang
-go build -o nx ./cmd/nx
-
-# Add to PATH (optional)
-mv nx /usr/local/bin/
+nx
 ```
 
-## Quick Start
-
-### Run a script
+### Execute a Script
 ```bash
-nx run examples/hello.nx
+nx path/to/script.nx
 ```
 
-### Start REPL
+### Compile to Bytecode
 ```bash
-nx repl
-> pln("Hello Nxlang!")
-Hello Nxlang!
-> x = 10 + 20
-> pln(x)
-30
+nx compile path/to/script.nx -o output.nxb
 ```
 
-### Compile to bytecode
+### Run Precompiled Bytecode
 ```bash
-nx compile myscript.nx -o myscript.nxb
-nx run myscript.nxb
+nx run output.nxb
 ```
 
-## Example Usage
-
+## 📝 Example Code
 ```nx
-// Variables
-var name = "Nxlang"
-var version = 1.0
-var isGreat = true
+// Hello World
+pln("Hello, Nxlang! 👋")
 
-// Functions
-func add(a, b) {
-    return a + b
+// Function definition
+func factorial(n) {
+    if n <= 1 { return 1 }
+    return n * factorial(n - 1)
 }
 
-pln("10 + 20 = ", add(10, 20))
+pln("Factorial of 10:", factorial(10))
 
-// Arrays
-var arr = array(1, 2, 3, 4, 5)
-append(arr, 6)
-pln("Array: ", arr, " Length: ", len(arr))
+// Module import
+import { sqrt, random } from "math"
+pln("sqrt(25) =", sqrt(25))
+pln("Random number:", random())
 
-// Maps
-var user = map(
-    "name", "Alice",
-    "age", 30,
-    "email", "alice@example.com"
-)
-pln("User: ", user)
-pln("Keys: ", keys(user))
+// Built-in data structures
+var fruits = array("Apple", "Banana", "Cherry")
+var person = map("name", "Bob", "age", 28, "city", "Shanghai")
 
 // Control flow
-for var i = 0; i < 5; i++ {
-    pln("Count: ", i)
+for (var i = 0; i < 5; i++) {
+    pln("Count:", i)
 }
-
-// Standard library
-pln("Square root of 25: ", sqrt(25))
-pln("Uppercase: ", toUpper("hello world"))
-pln("Current time: ", formatTime())
 ```
 
-## Standard Library
+## 📦 Standard Library
 
 ### Math Functions
 `abs`, `sqrt`, `sin`, `cos`, `tan`, `floor`, `ceil`, `round`, `pow`, `random`
@@ -118,8 +101,29 @@ pln("Current time: ", formatTime())
 `pr(...)` - Print values without newline
 `printf(format, ...)` - Print formatted string
 
-## Architecture
+## 🏗️ Build from Source
+```bash
+# Clone repository
+git clone https://github.com/topxeq/nxlang.git
+cd nxlang
 
+# Build binary
+go build -o nx ./cmd/nx
+
+# Install to system (Linux/macOS)
+sudo mv nx /usr/local/bin/
+```
+
+## 🧪 Running Tests
+```bash
+# Run all tests
+go test ./...
+
+# Run specific package tests
+go test ./vm -v
+```
+
+## 🏛️ Architecture
 Nxlang follows a standard compiler-VM architecture:
 1. **Lexer**: Converts source code to token stream
 2. **Parser**: Builds Abstract Syntax Tree (AST) from tokens
@@ -127,6 +131,9 @@ Nxlang follows a standard compiler-VM architecture:
 4. **Virtual Machine**: Executes bytecode with stack-based evaluation
 5. **Standard Library**: Built-in functions and types implemented in Go
 
-## License
+## 📄 License
+MIT License - see [LICENSE](LICENSE) for details.
 
-MIT License - see LICENSE file for details
+---
+
+Made with ❤️ by the Nxlang Team
