@@ -136,4 +136,4 @@ MIT License - 查看 [LICENSE](LICENSE) 文件获取详细信息。
 
 ---
 
-Made with ❤️ by the Nxlang Team
+Made with ❤️ by TopXeQ

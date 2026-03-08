@@ -136,4 +136,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-Made with ❤️ by the Nxlang Team
+Made with ❤️ by TopXeQ
