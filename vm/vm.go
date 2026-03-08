@@ -1161,19 +1161,24 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 				} else if argCount == fn.NumParameters {
 					// User provided an array for the variadic parameter
 					// Check if it's already an array
-					if arr, ok := args[variadicIdx].(*collections.Array); ok {
-						// Already an array, use it directly
-						processedArgs[variadicIdx] = arr
-					} else {
-						// Wrap single value in array
-						variadicArgs = []types.Object{args[variadicIdx]}
+					if args[variadicIdx] != nil {
+						if arr, ok := args[variadicIdx].(*collections.Array); ok {
+							// Already an array, use it directly
+							processedArgs[variadicIdx] = arr
+						} else {
+							// Wrap single value in array
+							variadicArgs = []types.Object{args[variadicIdx]}
+						}
 					}
 				}
 
 				// If we have variadic args, create array
 				if variadicArgs != nil {
 					processedArgs[variadicIdx] = collections.NewArrayWithElements(variadicArgs)
-				} else if processedArgs[variadicIdx] == nil {
+				}
+
+				// Ensure we always have an array for variadic parameter
+				if processedArgs[variadicIdx] == nil {
 					// No variadic args provided, create empty array
 					processedArgs[variadicIdx] = collections.NewArrayWithElements([]types.Object{})
 				}
