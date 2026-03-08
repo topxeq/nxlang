@@ -874,7 +874,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 		return nil
 
 	case *parser.ClassDeclaration:
-		// Add class name to symbol table so it can be referenced
+		// Add class name to outer symbol table first, so it can be referenced
 		c.symbolTable.Define(n.Name.Value)
 
 		// Compile all methods
