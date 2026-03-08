@@ -246,6 +246,7 @@ type Class struct {
 	Name       string
 	SuperClass *Class
 	Methods    map[string]*Function // Map of method name to function
+	StaticFields map[string]Object // Static properties of the class
 }
 
 func (c *Class) TypeCode() uint8          { return TypeClass }

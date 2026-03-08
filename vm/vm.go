@@ -1594,7 +1594,11 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 		// Check if it's a class
 		if class, ok := objVal.(*types.Class); ok {
-			// Look up method on the class
+			// First check static fields
+			if val, ok := class.StaticFields[memberName]; ok {
+				return vm.stack.Push(val)
+			}
+			// Then look up static methods
 			if method, ok := class.Methods[memberName]; ok {
 				if method.IsStatic {
 					// Static method: return plain function, no binding needed
@@ -1622,6 +1626,17 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		if instance, ok := objVal.(*types.Instance); ok {
 			// Set property on instance
 			instance.Properties[memberName] = value
+			return vm.stack.Push(value)
+		}
+
+		// Check if it's a class (for static properties)
+		if class, ok := objVal.(*types.Class); ok {
+			// Initialize static fields map if needed
+			if class.StaticFields == nil {
+				class.StaticFields = make(map[string]types.Object)
+			}
+			// Set static property on class
+			class.StaticFields[memberName] = value
 			return vm.stack.Push(value)
 		}
 
@@ -1757,8 +1772,9 @@ func (vm *VM) constantToObject(index int, c bytecode.Constant) (types.Object, er
 		}
 		// Convert bytecode class to types.Class
 		cls := &types.Class{
-			Name:    constType.Name,
-			Methods: make(map[string]*types.Function),
+			Name:         constType.Name,
+			Methods:      make(map[string]*types.Function),
+			StaticFields: make(map[string]types.Object),
 		}
 
 		// Resolve superclass if present

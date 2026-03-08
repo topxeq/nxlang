@@ -954,8 +954,43 @@ func (c *Compiler) Compile(node parser.Node) error {
 		classIdx := c.addConstant(classConst)
 
 		// Store class as global variable
+		classNameIdx := c.addConstant(&bytecode.StringConstant{Value: n.Name.Value})
 		c.emit(OpLoadConst, classIdx)
-		c.emit(OpStoreGlobal, c.addConstant(&bytecode.StringConstant{Value: n.Name.Value}))
+		c.emit(OpStoreGlobal, classNameIdx)
+
+		// Compile static field initializations
+		for _, fieldStmt := range n.StaticFields {
+			var fieldName *parser.Identifier
+			var fieldValue parser.Expression
+
+			// Extract field name and value from the statement
+			switch stmt := fieldStmt.(type) {
+			case *parser.VarStatement:
+				fieldName = stmt.Name
+				fieldValue = stmt.Value
+			case *parser.LetStatement:
+				fieldName = stmt.Name
+				fieldValue = stmt.Value
+			case *parser.ConstStatement:
+				fieldName = stmt.Name
+				fieldValue = stmt.Value
+			default:
+				continue
+			}
+
+			if fieldValue != nil {
+				// Load the class from global
+				c.emit(OpLoadGlobal, classNameIdx)
+				// Compile the field value
+				if err := c.Compile(fieldValue); err != nil {
+					return err
+				}
+				// Store as member on the class object
+				fieldNameIdx := c.addConstant(&bytecode.StringConstant{Value: fieldName.Value})
+				c.emit(OpMemberSet, fieldNameIdx)
+			}
+		}
+
 		return nil
 
 	// Expressions
