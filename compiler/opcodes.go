@@ -52,6 +52,7 @@ const (
 	OpNot    Opcode = 0x50 // Logical NOT: !a
 	OpAnd    Opcode = 0x51 // Logical AND: b && a (short-circuit)
 	OpOr     Opcode = 0x52 // Logical OR: b || a (short-circuit)
+	OpIsNil  Opcode = 0x53 // Check if value is nil: a == nil
 
 	// Control flow
 	OpJmp          Opcode = 0x60 // Unconditional jump: OpJmp <offset>
@@ -78,6 +79,7 @@ const (
 	OpTypeName     Opcode = 0x83 // Get type name of value
 	OpIsError      Opcode = 0x84 // Check if value is an error
 	OpThrow        Opcode = 0x85 // Throw an error
+	OpLen          Opcode = 0x86 // Get length of array/string/map
 
 	// Exception handling
 	OpTry          Opcode = 0x90 // Start of try block: OpTry <catch_offset> <finally_offset>
@@ -139,6 +141,7 @@ var OpcodeTable = map[Opcode]OpcodeInfo{
 	OpNot:          {"NOT", 0, 1, 1},
 	OpAnd:          {"AND", 0, 2, 1},
 	OpOr:           {"OR", 0, 2, 1},
+	OpIsNil:        {"IS_NIL", 0, 1, 1},
 
 	OpJmp:          {"JMP", 2, 0, 0}, // 2-byte offset
 	OpJmpIfTrue:    {"JMP_IF_TRUE", 2, 1, 0},
@@ -162,6 +165,7 @@ var OpcodeTable = map[Opcode]OpcodeInfo{
 	OpTypeName:     {"TYPE_NAME", 0, 1, 1},
 	OpIsError:      {"IS_ERROR", 0, 1, 1},
 	OpThrow:        {"THROW", 0, 1, 0},
+	OpLen:          {"LEN", 0, 1, 1}, // Pops object, pushes length
 
 	// Exception handling
 	OpTry:          {"TRY", 4, 0, 0}, // 2-byte catch offset + 2-byte finally offset

@@ -514,8 +514,70 @@ func (p *Parser) parseForStatement() *ForStatement {
 		return stmt
 	}
 
-	// Support both styles: for (init; cond; post) and for init; cond; post
+	// Move past 'for' token
+	p.nextToken()
+
+	// Check for for...in loop: for (key in obj) { ... } or for (key, value in obj) { ... }
 	hasParen := p.peekTokenIs(TokenLeftParen)
+	if hasParen {
+		p.nextToken() // consume '('
+	}
+
+	// Look ahead for "in" keyword to detect for...in
+
+	// Save current state
+	savedCur := p.curToken
+	savedPeek := p.peekToken
+	savedErrors := p.errors
+
+	// Try to parse for...in pattern
+	if p.curTokenIs(TokenIdentifier) {
+		key := &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		p.nextToken()
+
+		// Check for comma (value present)
+		var value *Identifier
+		if p.curTokenIs(TokenComma) {
+			p.nextToken()
+			if p.curTokenIs(TokenIdentifier) {
+				value = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+				p.nextToken()
+			}
+		}
+
+		// Check for "in" keyword
+		if p.curTokenIs(TokenIn) {
+			p.nextToken()
+			// Parse the iterate expression
+			iterateExpr := p.parseExpression(PrecedenceLowest)
+			if iterateExpr != nil {
+				// Check for closing parenthesis
+				if !hasParen || p.expectPeek(TokenRightParen) {
+					// This is a for...in loop
+					stmt.IsForIn = true
+					stmt.Key = key
+					stmt.Value = value
+					stmt.Iterate = iterateExpr
+					// Parse body
+					if !p.expectPeek(TokenLeftBrace) {
+						return nil
+					}
+					stmt.Body = p.parseBlockStatement()
+					return stmt
+				}
+			}
+		}
+	}
+
+	// Rollback: not a for...in loop
+	p.curToken = savedCur
+	p.peekToken = savedPeek
+	p.errors = savedErrors
+
+	// Restore hasParen check
+	hasParen = p.peekTokenIs(TokenLeftParen)
+
+	// Support both styles: for (init; cond; post) and for init; cond; post
 	if hasParen {
 		p.nextToken() // consume '('
 		p.nextToken() // move inside parenthesis

@@ -968,6 +968,13 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		res := types.Bool(!types.ToBool(a))
 		return vm.stack.Push(res)
 
+	case compiler.OpIsNil:
+		a := vm.stack.Pop()
+		// Check if value is nil or undefined
+		isNil := a == nil || a.TypeCode() == types.TypeUndefined
+		res := types.Bool(isNil)
+		return vm.stack.Push(res)
+
 	case compiler.OpBitNot:
 		a := vm.stack.Pop()
 		res, err := vm.bitNotObject(a)
@@ -1390,6 +1397,7 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 			// If error doesn't have stack yet, add it
 			err.Stack = vm.collectCallStack()
 		}
+
 		vm.lastError = err
 
 		// Unwind the stack to find the appropriate catch block
@@ -1427,6 +1435,21 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 		// No catch block found, return the error
 		return err
+
+	case compiler.OpLen:
+		obj := vm.stack.Pop()
+		switch val := obj.(type) {
+		case *collections.Array:
+			return vm.stack.Push(types.Int(val.Len()))
+		case types.String:
+			// Return rune count for UTF-8 strings
+			runes := []rune(string(val))
+			return vm.stack.Push(types.Int(len(runes)))
+		case *collections.Map:
+			return vm.stack.Push(types.Int(val.Len()))
+		default:
+			return vm.newError(fmt.Sprintf("cannot get length of type %s", obj.TypeName()), frame.ip)
+		}
 
 	default:
 		return vm.newError(fmt.Sprintf("unknown opcode: %#02x", op), frame.ip)

@@ -323,6 +323,200 @@ func (c *Compiler) Compile(node parser.Node) error {
 		return nil
 
 	case *parser.ForStatement:
+		// Handle for...in loop
+		if n.IsForIn {
+			// Compile the iterate expression
+			if err := c.Compile(n.Iterate); err != nil {
+				return err
+			}
+
+			// Store iteratee in a local variable
+			iterSym := c.symbolTable.Define("__iter__")
+			c.emit(OpStoreLocal, iterSym.Index)
+
+			// Define local variables for iteration
+			keysSym := c.symbolTable.Define("__keys__")
+			lenSym := c.symbolTable.Define("__len__")
+			idxSym := c.symbolTable.Define("__idx__")
+
+			// Get type code of iteratee
+			c.emit(OpLoadLocal, iterSym.Index)
+			c.emit(OpTypeCode)
+
+			// Check if it's array (type code 6)
+			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 6}))
+			c.emit(OpEq)
+			jumpToArray := c.emit(OpJmpIfTrue, 0xFFFF)
+
+			// Check if it's string (type code 8)
+			c.emit(OpLoadLocal, iterSym.Index)
+			c.emit(OpTypeCode)
+			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 8}))
+			c.emit(OpEq)
+			jumpToString := c.emit(OpJmpIfTrue, 0xFFFF)
+
+			// Map/Object case: get keys array
+			c.emit(OpLoadLocal, iterSym.Index)
+			c.emit(OpLoadGlobal, c.addConstant(&bytecode.StringConstant{Value: "keys"}))
+			c.emit(OpCall, 1)
+			c.emit(OpStoreLocal, keysSym.Index)
+
+			// Get length of keys array
+			c.emit(OpLoadLocal, keysSym.Index)
+			c.emit(OpLen)
+			c.emit(OpStoreLocal, lenSym.Index)
+
+			jumpToInit := c.emit(OpJmp, 0xFFFF)
+
+			// Array case handler
+			arrayCasePos := len(c.currentInstructions())
+			c.changeOperand(jumpToArray, arrayCasePos)
+			// Get array length
+			c.emit(OpLoadLocal, iterSym.Index)
+			c.emit(OpLen)
+			c.emit(OpStoreLocal, lenSym.Index)
+			// Set keys to nil for sequential iteration
+			c.emit(OpPush, c.addConstant(&bytecode.NilConstant{}))
+			c.emit(OpStoreLocal, keysSym.Index)
+			jumpToInitPos := len(c.currentInstructions())
+			c.changeOperand(jumpToInit, jumpToInitPos)
+
+			// String case handler
+			stringCasePos := len(c.currentInstructions())
+			c.changeOperand(jumpToString, stringCasePos)
+			// Get string length (rune count)
+			c.emit(OpLoadLocal, iterSym.Index)
+			c.emit(OpLen)
+			c.emit(OpStoreLocal, lenSym.Index)
+			// Set keys to nil for sequential iteration
+			c.emit(OpPush, c.addConstant(&bytecode.NilConstant{}))
+			c.emit(OpStoreLocal, keysSym.Index)
+
+			// Initialize index to 0
+			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 0}))
+			c.emit(OpStoreLocal, idxSym.Index)
+
+			// Compare index < length
+			conditionPos := len(c.currentInstructions())
+			c.emit(OpLoadLocal, idxSym.Index)
+			c.emit(OpLoadLocal, lenSym.Index)
+			c.emit(OpLt)
+
+			// Jump if false to end of loop
+			jumpAfterPos := c.emit(OpJmpIfFalse, 0xFFFF)
+
+			// Push loop context
+			c.loopStack = append(c.loopStack, LoopContext{
+				continueTarget: 0,
+				breakTarget:    0xFFFF,
+			})
+
+			// Check if we have keys (map/object iteration)
+			c.emit(OpLoadLocal, keysSym.Index)
+			c.emit(OpIsNil)
+			jumpToSeqIter := c.emit(OpJmpIfTrue, 0xFFFF)
+
+			// Map/Object iteration: get key from keys array
+			c.emit(OpLoadLocal, keysSym.Index)
+			c.emit(OpLoadLocal, idxSym.Index)
+			c.emit(OpIndexGet)
+			keyTempSym := c.symbolTable.Define("__key_temp__")
+			c.emit(OpStoreLocal, keyTempSym.Index)
+
+			// Get value from iteratee using key
+			c.emit(OpLoadLocal, iterSym.Index)
+			c.emit(OpLoadLocal, keyTempSym.Index)
+			c.emit(OpIndexGet)
+
+			// Store value if requested
+			if n.Value != nil {
+				valSym := c.symbolTable.Define(n.Value.Value)
+				c.emit(OpStoreLocal, valSym.Index)
+			}
+
+			// Store key variable
+			keySym := c.symbolTable.Define(n.Key.Value)
+			c.emit(OpLoadLocal, keyTempSym.Index)
+			c.emit(OpStoreLocal, keySym.Index)
+
+			// Pop unused value if only key is needed
+			if n.Value == nil {
+				c.emit(OpPop)
+			}
+
+			jumpToBody := c.emit(OpJmp, 0xFFFF)
+
+			// Sequential iteration for array/string
+			seqIterPos := len(c.currentInstructions())
+			c.changeOperand(jumpToSeqIter, seqIterPos)
+
+			// Get element by index
+			c.emit(OpLoadLocal, iterSym.Index)
+			c.emit(OpLoadLocal, idxSym.Index)
+			c.emit(OpIndexGet)
+
+			// Store value if requested
+			if n.Value != nil {
+				valSym := c.symbolTable.Define(n.Value.Value)
+				c.emit(OpStoreLocal, valSym.Index)
+			}
+
+			// Store key (index for array/string)
+			seqKeySym := c.symbolTable.Define(n.Key.Value)
+			c.emit(OpLoadLocal, idxSym.Index)
+			c.emit(OpStoreLocal, seqKeySym.Index)
+
+			// Pop unused value if only key is needed
+			if n.Value == nil {
+				c.emit(OpPop)
+			}
+
+			bodyPos := len(c.currentInstructions())
+			c.changeOperand(jumpToBody, bodyPos)
+
+			// Compile loop body
+			if err := c.Compile(n.Body); err != nil {
+				return err
+			}
+
+			// Continue target: increment index
+			continueTarget := len(c.currentInstructions())
+			loopCtx := &c.loopStack[len(c.loopStack)-1]
+			loopCtx.continueTarget = continueTarget
+
+			// Patch continue jumps
+			for _, jmpPos := range loopCtx.continueJumps {
+				c.changeOperand(jmpPos, continueTarget)
+			}
+
+			// Increment index
+			c.emit(OpLoadLocal, idxSym.Index)
+			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 1}))
+			c.emit(OpAdd)
+			c.emit(OpStoreLocal, idxSym.Index)
+
+			// Jump back to condition
+			c.emit(OpJmp, conditionPos)
+
+			// Patch break jumps
+			endPos := len(c.currentInstructions())
+			c.changeOperand(jumpAfterPos, endPos)
+
+			// Patch all break jumps
+			for i := 0; i < len(c.currentInstructions())-2; i++ {
+				if c.currentInstructions()[i] == byte(OpJmp) &&
+					(int(c.currentInstructions()[i+1])<<8 | int(c.currentInstructions()[i+2])) == 0xFFFF {
+					c.changeOperand(i, endPos)
+				}
+			}
+
+			// Pop loop context
+			c.loopStack = c.loopStack[:len(c.loopStack)-1]
+
+			return nil
+		}
+
+		// Regular for loop
 		// Compile init statement
 		if n.Init != nil {
 			if err := c.Compile(n.Init); err != nil {
@@ -463,6 +657,81 @@ func (c *Compiler) Compile(node parser.Node) error {
 		loopCtx := &c.loopStack[len(c.loopStack)-1]
 		jmpPos := c.emit(OpJmp, 0xFFFF)
 		loopCtx.continueJumps = append(loopCtx.continueJumps, jmpPos)
+		return nil
+
+	case *parser.SwitchStatement:
+		// Compile switch expression
+		if err := c.Compile(n.Expression); err != nil {
+			return err
+		}
+
+		// Keep track of jump positions for end of case blocks
+		var endJumps []int
+		var caseEndPositions []int
+
+		// Compile each case
+		for _, caseStmt := range n.Cases {
+			// Compile all case expressions and compare with switch value
+			for _, expr := range caseStmt.Expressions {
+				// Duplicate the switch value for comparison
+				c.emit(OpDup)
+				// Compile case expression
+				if err := c.Compile(expr); err != nil {
+					return err
+				}
+				// Compare for equality
+				c.emit(OpEq)
+				// If equal, jump to case body
+				caseStartPos := c.emit(OpJmpIfTrue, 0xFFFF)
+				caseEndPositions = append(caseEndPositions, caseStartPos)
+			}
+		}
+
+		// If none of the cases matched, jump to default or end
+		defaultJump := c.emit(OpJmp, 0xFFFF)
+
+		// Pop the duplicate switch value from stack
+		c.emit(OpPop)
+
+		// Compile case bodies
+		for i, caseStmt := range n.Cases {
+			// Patch the jump to this case body
+			caseStart := len(c.currentInstructions())
+			for _, pos := range caseEndPositions[i*len(caseStmt.Expressions) : (i+1)*len(caseStmt.Expressions)] {
+				c.changeOperand(pos, caseStart)
+			}
+
+			// Compile case body
+			if err := c.Compile(caseStmt.Body); err != nil {
+				return err
+			}
+
+			// Jump to end of switch after case body (fallthrough not supported for now)
+			endJump := c.emit(OpJmp, 0xFFFF)
+			endJumps = append(endJumps, endJump)
+		}
+
+		// Compile default case
+		if n.DefaultCase != nil {
+			// Patch the default jump
+			defaultStart := len(c.currentInstructions())
+			c.changeOperand(defaultJump, defaultStart)
+			// Compile default body
+			if err := c.Compile(n.DefaultCase.Body); err != nil {
+				return err
+			}
+		} else {
+			// No default case: jump to end
+			defaultEnd := len(c.currentInstructions())
+			c.changeOperand(defaultJump, defaultEnd)
+		}
+
+		// Patch all end jumps
+		endPos := len(c.currentInstructions())
+		for _, pos := range endJumps {
+			c.changeOperand(pos, endPos)
+		}
+
 		return nil
 
 	case *parser.IfStatement:
