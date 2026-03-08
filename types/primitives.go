@@ -262,3 +262,31 @@ func (i *Instance) TypeCode() uint8          { return TypeObject }
 func (i *Instance) TypeName() string          { return i.Class.Name }
 func (i *Instance) ToStr() string             { return fmt.Sprintf("[object %s]", i.Class.Name) }
 func (i *Instance) Equals(other Object) bool { return i == other }
+
+// BoundMethod represents a method bound to a specific instance
+type BoundMethod struct {
+	Instance *Instance // The instance this method is bound to
+	Method   *Function // The actual function to call
+}
+
+func (bm *BoundMethod) TypeCode() uint8          { return TypeBoundMethod }
+func (bm *BoundMethod) TypeName() string          { return "bound_method" }
+func (bm *BoundMethod) ToStr() string             { return fmt.Sprintf("[bound method %s.%s]", bm.Instance.Class.Name, bm.Method.Name) }
+func (bm *BoundMethod) Equals(other Object) bool {
+	otherBM, ok := other.(*BoundMethod)
+	return ok && bm.Instance == otherBM.Instance && bm.Method == otherBM.Method
+}
+
+// SuperReference represents a reference to superclass with bound instance
+type SuperReference struct {
+	Instance *Instance // The current instance
+	Super    *Class    // The superclass
+}
+
+func (sr *SuperReference) TypeCode() uint8          { return TypeSuperReference }
+func (sr *SuperReference) TypeName() string          { return "super_reference" }
+func (sr *SuperReference) ToStr() string             { return fmt.Sprintf("[super reference for %s]", sr.Instance.Class.Name) }
+func (sr *SuperReference) Equals(other Object) bool {
+	otherSR, ok := other.(*SuperReference)
+	return ok && sr.Instance == otherSR.Instance && sr.Super == otherSR.Super
+}

@@ -1118,6 +1118,20 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		}
 
 		switch fn := fnVal.(type) {
+		case *types.BoundMethod:
+			// Bound method call: prepend 'this' as first argument
+			boundArgs := make([]types.Object, 0, len(args)+1)
+			boundArgs = append(boundArgs, fn.Instance)
+			boundArgs = append(boundArgs, args...)
+			// Recursively call with the bound function and new args
+			vm.stack.Push(fn.Method)
+			for _, arg := range boundArgs {
+				vm.stack.Push(arg)
+			}
+			// Emit OpCall with new arg count (will be processed in next iteration)
+			frame.ip -= 2 // Rewind to re-execute OpCall
+			return nil
+
 		case *types.NativeFunction:
 			// Native function call
 			result := fn.Fn(args...)
@@ -1543,18 +1557,41 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 			}
 			// Then check class methods
 			if method, ok := instance.Class.Methods[memberName]; ok {
-				// Return the method (call will handle 'this' binding)
-				return vm.stack.Push(method)
+				// Return bound method with instance as 'this'
+				boundMethod := &types.BoundMethod{
+					Instance: instance,
+					Method:   method,
+				}
+				return vm.stack.Push(boundMethod)
 			}
 			// If not found, return undefined
 			return vm.stack.Push(types.UndefinedValue)
 		}
 
-		// Check if it's a class (for super calls)
+		// Check if it's a super reference
+		if superRef, ok := objVal.(*types.SuperReference); ok {
+			// Look up method on the superclass
+			if method, ok := superRef.Super.Methods[memberName]; ok {
+				// Return bound method with the current instance as 'this'
+				boundMethod := &types.BoundMethod{
+					Instance: superRef.Instance,
+					Method:   method,
+				}
+				return vm.stack.Push(boundMethod)
+			}
+			// Check instance properties (same as normal member access)
+			if val, ok := superRef.Instance.Properties[memberName]; ok {
+				return vm.stack.Push(val)
+			}
+			// If not found, return undefined
+			return vm.stack.Push(types.UndefinedValue)
+		}
+
+		// Check if it's a class
 		if class, ok := objVal.(*types.Class); ok {
-			// Look up method on the class
+			// Look up static method on the class
 			if method, ok := class.Methods[memberName]; ok {
-				// Return the method - when called, 'this' will still be the current instance
+				// Return plain method for static calls
 				return vm.stack.Push(method)
 			}
 			// If not found, return undefined
@@ -1655,7 +1692,12 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		if instance.Class.SuperClass == nil {
 			return vm.stack.Push(types.NullValue)
 		}
-		return vm.stack.Push(instance.Class.SuperClass)
+		// Return super reference containing both instance and superclass
+		superRef := &types.SuperReference{
+			Instance: instance,
+			Super:    instance.Class.SuperClass,
+		}
+		return vm.stack.Push(superRef)
 
 	default:
 		return vm.newError(fmt.Sprintf("unknown opcode: %#02x", op), frame.ip)
