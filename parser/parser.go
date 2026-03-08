@@ -1317,7 +1317,7 @@ func (p *Parser) parseNewExpression() Expression {
 	expr := &NewExpression{Token: p.curToken}
 
 	p.nextToken()
-	expr.Class = p.parseExpression(PrecedenceLowest)
+	expr.Class = p.parseExpression(PrecedenceCall)
 
 	if !p.expectPeek(TokenLeftParen) {
 		return nil

@@ -874,6 +874,9 @@ func (c *Compiler) Compile(node parser.Node) error {
 		return nil
 
 	case *parser.ClassDeclaration:
+		// Add class name to symbol table so it can be referenced
+		c.symbolTable.Define(n.Name.Value)
+
 		// Compile all methods
 		methods := make(map[string]int) // method name -> function constant index
 
