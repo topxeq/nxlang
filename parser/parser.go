@@ -1005,11 +1005,24 @@ func (p *Parser) parseClassDeclaration() *ClassDeclaration {
 			p.nextToken()
 		}
 
+		isGetter := false
+		isSetter := false
+		// Check for getter/setter keywords
+		if p.curTokenIs(TokenGet) {
+			isGetter = true
+			p.nextToken()
+		} else if p.curTokenIs(TokenSet) {
+			isSetter = true
+			p.nextToken()
+		}
+
 		if p.curTokenIs(TokenFunc) {
 			p.nextToken()
 			method := p.parseFunctionLiteral().(*FunctionLiteral)
 			method.IsStatic = isStatic
 			method.AccessModifier = accessMod
+			method.IsGetter = isGetter
+			method.IsSetter = isSetter
 			decl.Methods = append(decl.Methods, method)
 
 			// Check if this is the constructor

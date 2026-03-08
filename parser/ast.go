@@ -364,6 +364,8 @@ type FunctionLiteral struct {
 	Body           *BlockStatement
 	IsStatic       bool // Whether this is a static method
 	AccessModifier AccessModifier // Access level of the method
+	IsGetter       bool // Whether this is a getter property
+	IsSetter       bool // Whether this is a setter property
 }
 
 func (fl *FunctionLiteral) expressionNode()      {}

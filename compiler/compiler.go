@@ -924,6 +924,13 @@ func (c *Compiler) Compile(node parser.Node) error {
 			scope.numLocals = c.symbolTable.Count()
 
 			// Create function constant
+			var flags uint8
+			if method.IsGetter {
+				flags |= 0x01 // Bit 0: isGetter
+			}
+			if method.IsSetter {
+				flags |= 0x02 // Bit 1: isSetter
+			}
 			funcConst := &bytecode.FunctionConstant{
 				Name:          method.Name,
 				Instructions:  c.currentInstructions(),
@@ -932,6 +939,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 				IsVariadic:    scope.isVariadic,
 				IsStatic:      method.IsStatic,
 				AccessModifier: uint8(method.AccessModifier),
+				Flags:         flags,
 				DefaultValues: scope.defaultValues,
 			}
 			funcIdx := c.addConstant(funcConst)

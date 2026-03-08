@@ -193,6 +193,13 @@ func (r *Reader) readConstant(constType ConstantType) (Constant, error) {
 		}
 		accessMod := uint8(accessModByte)
 
+		// Read flags (getter/setter)
+		flagsByte, err := r.readByte()
+		if err != nil {
+			return nil, err
+		}
+		flags := uint8(flagsByte)
+
 		// Read default values
 		var defaultCount uint32
 		if err := binary.Read(r.r, binary.LittleEndian, &defaultCount); err != nil {
@@ -215,6 +222,7 @@ func (r *Reader) readConstant(constType ConstantType) (Constant, error) {
 			IsVariadic:    isVariadic,
 			IsStatic:      isStatic,
 			AccessModifier: accessMod,
+			Flags:         flags,
 			DefaultValues: defaultValues,
 		}, nil
 

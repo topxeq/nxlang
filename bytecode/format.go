@@ -81,6 +81,7 @@ type FunctionConstant struct {
 	IsVariadic    bool
 	IsStatic      bool // Whether this is a static method
 	AccessModifier uint8 // 0=public, 1=private, 2=protected
+	Flags         uint8 // Bit flags: bit 0=isGetter, bit 1=isSetter
 	DefaultValues []int // Indices of default values in constant pool
 }
 

@@ -1556,6 +1556,22 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 		// Check if it's a class instance
 		if instance, ok := objVal.(*types.Instance); ok {
+			// Check for getter method first
+			getterName := "get" + strings.ToUpper(memberName[:1]) + memberName[1:]
+			if getter, ok := instance.Class.Methods[getterName]; ok && getter.IsGetter {
+				// Call getter method automatically
+				boundGetter := &types.BoundMethod{
+					Instance: instance,
+					Method:   getter,
+				}
+				vm.stack.Push(boundGetter)
+				// Rewind IP to call the getter
+				frame.ip -= 2
+				// Dummy arg count 0 for getter
+				vm.stack.Push(types.Int(0))
+				return nil
+			}
+
 			// Check instance properties
 			if val, ok := instance.Properties[memberName]; ok {
 				return vm.stack.Push(val)
@@ -1624,6 +1640,23 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 		// Check if it's a class instance
 		if instance, ok := objVal.(*types.Instance); ok {
+			// Check for setter method first
+			setterName := "set" + strings.ToUpper(memberName[:1]) + memberName[1:]
+			if setter, ok := instance.Class.Methods[setterName]; ok && setter.IsSetter {
+				// Call setter method automatically with the value
+				boundSetter := &types.BoundMethod{
+					Instance: instance,
+					Method:   setter,
+				}
+				vm.stack.Push(boundSetter)
+				vm.stack.Push(value)
+				// Rewind IP to call the setter with 1 argument
+				frame.ip -= 2
+				// Arg count 1 for setter
+				vm.stack.Push(types.Int(1))
+				return nil
+			}
+
 			// Set property on instance
 			instance.Properties[memberName] = value
 			return vm.stack.Push(value)
@@ -1758,6 +1791,8 @@ func (vm *VM) constantToObject(index int, c bytecode.Constant) (types.Object, er
 			IsVariadic:    constType.IsVariadic,
 			IsStatic:      constType.IsStatic,
 			AccessModifier: constType.AccessModifier,
+			IsGetter:      (constType.Flags & 0x01) != 0,
+			IsSetter:      (constType.Flags & 0x02) != 0,
 			DefaultValues: constType.DefaultValues,
 			Instructions:  constType.Instructions,
 			ConstantPool:  vm.constants,
@@ -1809,6 +1844,7 @@ func (vm *VM) constantToObject(index int, c bytecode.Constant) (types.Object, er
 			if !ok {
 				return nil, vm.newError(fmt.Sprintf("method %s is not a function", methodName), 0)
 			}
+			method.OwnerClass = cls // Set the owner class of this method
 			cls.Methods[methodName] = method
 		}
 
