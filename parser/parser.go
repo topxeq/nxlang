@@ -1039,7 +1039,6 @@ func (p *Parser) parseClassDeclaration() *ClassDeclaration {
 		}
 
 		if p.curTokenIs(TokenFunc) {
-			p.nextToken()
 			method := p.parseFunctionLiteral().(*FunctionLiteral)
 			method.IsStatic = isStatic
 			method.AccessModifier = accessMod

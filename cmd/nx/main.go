@@ -86,6 +86,15 @@ func runFile(path string, scriptArgs []string) {
 			os.Exit(1)
 		}
 
+		// Check for compilation errors
+		if len(comp.Errors()) > 0 {
+			fmt.Println("Compilation errors:")
+			for _, err := range comp.Errors() {
+				fmt.Printf("  %s\n", err)
+			}
+			os.Exit(1)
+		}
+
 		// Execute
 		bytecode := comp.Bytecode()
 		vm := vm.NewVM(bytecode)
@@ -155,6 +164,15 @@ func compileFile(inputPath, outputPath string) {
 	comp.ModulePath = inputPath // Set the root module path
 	if err := comp.Compile(program); err != nil {
 		fmt.Printf("Compilation error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Check for compilation errors
+	if len(comp.Errors()) > 0 {
+		fmt.Println("Compilation errors:")
+		for _, err := range comp.Errors() {
+			fmt.Printf("  %s\n", err)
+		}
 		os.Exit(1)
 	}
 

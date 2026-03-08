@@ -42,6 +42,9 @@ type Compiler struct {
 	modules      map[string]*Module // Cache of already compiled modules
 	Exports      map[string]string // Exports from the current module: export name -> symbol name
 	isModule     bool // Whether we're compiling a module
+
+	// Interface cache for implementation checking
+	interfaces map[string]*bytecode.InterfaceConstant // Map of interface name to interface constant
 }
 
 // LoopContext holds the target positions for break and continue in a loop
@@ -80,6 +83,7 @@ func NewCompiler() *Compiler {
 		lineNumberTable: []bytecode.LineInfo{},
 		modules: make(map[string]*Module),
 		Exports: make(map[string]string),
+		interfaces: make(map[string]*bytecode.InterfaceConstant),
 	}
 }
 
@@ -949,6 +953,37 @@ func (c *Compiler) Compile(node parser.Node) error {
 			c.leaveScope()
 		}
 
+		// Check interface implementations
+		for _, ifaceName := range n.Implements {
+			iface, ok := c.interfaces[ifaceName.Value]
+			if !ok {
+				c.addError(fmt.Sprintf("interface '%s' not found", ifaceName.Value))
+				continue
+			}
+
+			// Check that all interface methods are implemented
+			for methodName, expectedParams := range iface.Methods {
+				funcIdx, methodExists := methods[methodName]
+				if !methodExists {
+					c.addError(fmt.Sprintf("class '%s' does not implement interface method '%s.%s'",
+						n.Name.Value, iface.Name, methodName))
+					continue
+				}
+
+				// Get the function constant to check parameter count
+				funcConst, ok := c.constants[funcIdx].(*bytecode.FunctionConstant)
+				if !ok {
+					continue
+				}
+
+				// Check parameter count matches
+				if len(expectedParams) != funcConst.NumParameters {
+					c.addError(fmt.Sprintf("method '%s' in class '%s' has %d parameters, but interface '%s' requires %d parameters",
+						methodName, n.Name.Value, funcConst.NumParameters, iface.Name, len(expectedParams)))
+				}
+			}
+		}
+
 		// Create class constant
 		classConst := &bytecode.ClassConstant{
 			Name:        n.Name.Value,
@@ -1027,6 +1062,8 @@ func (c *Compiler) Compile(node parser.Node) error {
 			Name:    n.Name.Value,
 			Methods: methods,
 		}
+		// Add interface to cache for implementation checking
+		c.interfaces[n.Name.Value] = ifaceConst
 		ifaceIdx := c.addConstant(ifaceConst)
 
 		// Store interface as global variable
