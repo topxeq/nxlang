@@ -1,0 +1,6 @@
+func get42() {
+    return 42
+}
+
+var result = get42()
+pln("Result: ", result)

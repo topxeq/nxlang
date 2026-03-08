@@ -1,0 +1,5 @@
+// TC052: 带参函数
+func add(a, b) {
+    return a + b
+}
+pln("10 + 20 = ", add(10, 20))

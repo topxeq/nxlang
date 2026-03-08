@@ -1,0 +1,29 @@
+// TC051: 无参函数
+func hello() {
+    pln("TC051: Hello")
+}
+hello()
+
+// TC052: 带参函数
+func add(a, b) {
+    return a + b
+}
+pln("\nTC052: 10 + 20 = ", add(10, 20))
+
+// TC054: 递归函数
+func fib(n) {
+    if (n <= 1) {
+        return n
+    }
+    return fib(n - 1) + fib(n - 2)
+}
+pln("\nTC054: fib(10) = ", fib(10))
+
+// TC055: 嵌套调用
+func square(x) {
+    return x * x
+}
+func sumOfSquares(a, b) {
+    return square(a) + square(b)
+}
+pln("\nTC055: 3² + 4² = ", sumOfSquares(3, 4))

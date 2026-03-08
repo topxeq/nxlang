@@ -1,0 +1,20 @@
+// TC011: 整数类型
+var i = 12345
+pln("TC011: ", typeName(i), " ", i)
+
+// TC012: 浮点数类型
+var f = 123.456
+pln("TC012: ", typeName(f), " ", f)
+
+// TC013: 布尔类型
+var t = true
+var f2 = false
+pln("TC013: ", t, " ", f2)
+
+// TC014: 字符串类型
+var s = "Hello 世界"
+pln("TC014: ", typeName(s), " length: ", len(s))
+
+// TC015: null类型
+var n = nil
+pln("TC015: ", typeName(n))

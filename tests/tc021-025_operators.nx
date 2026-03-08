@@ -1,0 +1,40 @@
+// TC021: 算术运算
+var a = 10
+var b = 3
+pln("TC021:")
+pln("  10 + 3 = ", a + b)
+pln("  10 - 3 = ", a - b)
+pln("  10 * 3 = ", a * b)
+pln("  10 / 3 = ", a / b)
+pln("  10 % 3 = ", a % b)
+
+// TC022: 比较运算
+pln("\nTC022:")
+pln("  10 == 20: ", a == 20)
+pln("  10 != 20: ", a != 20)
+pln("  10 < 20: ", a < 20)
+pln("  10 > 20: ", a > 20)
+pln("  10 <= 10: ", a <= 10)
+pln("  10 >= 10: ", a >= 10)
+
+// TC023: 逻辑运算
+var t = true
+var f = false
+pln("\nTC023:")
+pln("  true && false: ", t && f)
+pln("  true || false: ", t || f)
+pln("  !true: ", !t)
+
+// TC024: 位运算
+var n1 = 60
+var n2 = 13
+pln("\nTC024:")
+pln("  60 & 13 = ", n1 & n2)
+pln("  60 | 13 = ", n1 | n2)
+pln("  60 ^ 13 = ", n1 ^ n2)
+pln("  60 << 2 = ", n1 << 2)
+pln("  60 >> 2 = ", n1 >> 2)
+
+// TC025: 负数运算
+pln("\nTC025:")
+pln("  -10 = ", -a)
