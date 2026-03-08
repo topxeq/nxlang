@@ -518,7 +518,7 @@ type ClassDeclaration struct {
 	SuperClass  *Identifier
 	Constructor *FunctionLiteral
 	Methods     []*FunctionLiteral
-	StaticFields []Statement // Static field declarations (var/let/const with static prefix)
+	Fields      []Statement // Instance and static field declarations
 }
 
 func (cd *ClassDeclaration) statementNode()       {}

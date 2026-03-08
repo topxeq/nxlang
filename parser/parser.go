@@ -973,7 +973,7 @@ func (p *Parser) parseClassDeclaration() *ClassDeclaration {
 	p.nextToken()
 
 	decl.Methods = []*FunctionLiteral{}
-	decl.StaticFields = []Statement{}
+	decl.Fields = []Statement{}
 
 	for !p.curTokenIs(TokenRightBrace) && !p.curTokenIs(TokenEOF) {
 		// Skip semicolons
@@ -1033,11 +1033,13 @@ func (p *Parser) parseClassDeclaration() *ClassDeclaration {
 			if p.curTokenIs(TokenRightBrace) {
 				p.nextToken()
 			}
-		} else if isStatic && (p.curTokenIs(TokenVar) || p.curTokenIs(TokenLet) || p.curTokenIs(TokenConst)) {
-			// Parse static field declaration
+		} else if p.curTokenIs(TokenVar) || p.curTokenIs(TokenLet) || p.curTokenIs(TokenConst) {
+			// Parse field declaration (instance or static)
 			field := p.parseStatement()
 			if field != nil {
-				decl.StaticFields = append(decl.StaticFields, field)
+				// Store access modifier and static flag somewhere?
+				// For now just add to fields list
+				decl.Fields = append(decl.Fields, field)
 			}
 		} else {
 			p.addError(fmt.Sprintf("unexpected token %s in class body", p.curToken.Type))
