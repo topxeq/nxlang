@@ -524,6 +524,26 @@ func (ne *NewExpression) TokenLiteral() string { return ne.Token.Literal }
 func (ne *NewExpression) Line() int            { return ne.Token.Line }
 func (ne *NewExpression) Column() int          { return ne.Token.Column }
 
+// ThisExpression represents a 'this' keyword expression
+type ThisExpression struct {
+	Token Token // 'this' token
+}
+
+func (te *ThisExpression) expressionNode()      {}
+func (te *ThisExpression) TokenLiteral() string { return te.Token.Literal }
+func (te *ThisExpression) Line() int            { return te.Token.Line }
+func (te *ThisExpression) Column() int          { return te.Token.Column }
+
+// SuperExpression represents a 'super' keyword expression
+type SuperExpression struct {
+	Token Token // 'super' token
+}
+
+func (se *SuperExpression) expressionNode()      {}
+func (se *SuperExpression) TokenLiteral() string { return se.Token.Literal }
+func (se *SuperExpression) Line() int            { return se.Token.Line }
+func (se *SuperExpression) Column() int          { return se.Token.Column }
+
 // Exception handling
 
 // TryStatement represents a try-catch-finally statement

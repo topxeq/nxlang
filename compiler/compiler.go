@@ -1003,6 +1003,36 @@ func (c *Compiler) Compile(node parser.Node) error {
 		c.loadSymbol(symbol)
 		return nil
 
+	case *parser.ThisExpression:
+		// 'this' is always the first local variable in methods
+		symbol, ok := c.symbolTable.Resolve("this")
+		if !ok {
+			return fmt.Errorf("'this' keyword not allowed outside of class methods")
+		}
+		c.loadSymbol(symbol)
+		return nil
+
+	case *parser.SuperExpression:
+		// 'super' is only allowed in class methods
+		symbol, ok := c.symbolTable.Resolve("this")
+		if !ok {
+			return fmt.Errorf("'super' keyword not allowed outside of class methods")
+		}
+		// Load 'this' instance, then get its superclass
+		c.loadSymbol(symbol)
+		c.emit(OpGetSuper)
+		return nil
+
+	case *parser.MemberExpression:
+		// Compile the object first
+		if err := c.Compile(n.Object); err != nil {
+			return err
+		}
+		// Emit member get opcode with property name constant
+		nameIdx := c.addConstant(&bytecode.StringConstant{Value: n.Member.Value})
+		c.emit(OpMemberGet, nameIdx)
+		return nil
+
 	case *parser.PrefixExpression:
 		switch n.Operator {
 		case "!", "-", "~":
@@ -1195,6 +1225,24 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 			// Store to index
 			c.emit(OpIndexSet)
+			// Assignment returns the value
+			if err := c.Compile(n.Right); err != nil {
+				return err
+			}
+
+		case *parser.MemberExpression:
+			// Member assignment: obj.property = value
+			// Compile object
+			if err := c.Compile(left.Object); err != nil {
+				return err
+			}
+			// Compile value
+			if err := c.Compile(n.Right); err != nil {
+				return err
+			}
+			// Emit member set opcode with property name constant
+			nameIdx := c.addConstant(&bytecode.StringConstant{Value: left.Member.Value})
+			c.emit(OpMemberSet, nameIdx)
 			// Assignment returns the value
 			if err := c.Compile(n.Right); err != nil {
 				return err

@@ -1550,6 +1550,17 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 			return vm.stack.Push(types.UndefinedValue)
 		}
 
+		// Check if it's a class (for super calls)
+		if class, ok := objVal.(*types.Class); ok {
+			// Look up method on the class
+			if method, ok := class.Methods[memberName]; ok {
+				// Return the method - when called, 'this' will still be the current instance
+				return vm.stack.Push(method)
+			}
+			// If not found, return undefined
+			return vm.stack.Push(types.UndefinedValue)
+		}
+
 		return vm.newError(fmt.Sprintf("cannot get member '%s' of non-object type %s", memberName, objVal.TypeName()), frame.ip)
 
 	case compiler.OpMemberSet:
@@ -1634,6 +1645,17 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		default:
 			return vm.newError(fmt.Sprintf("cannot get length of type %s", obj.TypeName()), frame.ip)
 		}
+
+	case compiler.OpGetSuper:
+		obj := vm.stack.Pop()
+		instance, ok := obj.(*types.Instance)
+		if !ok {
+			return vm.newError(fmt.Sprintf("super keyword only valid on class instances, got %s", obj.TypeName()), frame.ip)
+		}
+		if instance.Class.SuperClass == nil {
+			return vm.stack.Push(types.NullValue)
+		}
+		return vm.stack.Push(instance.Class.SuperClass)
 
 	default:
 		return vm.newError(fmt.Sprintf("unknown opcode: %#02x", op), frame.ip)

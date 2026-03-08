@@ -80,6 +80,7 @@ const (
 	OpIsError      Opcode = 0x84 // Check if value is an error
 	OpThrow        Opcode = 0x85 // Throw an error
 	OpLen          Opcode = 0x86 // Get length of array/string/map
+	OpGetSuper     Opcode = 0x87 // Get superclass of an instance
 
 	// Exception handling
 	OpTry          Opcode = 0x90 // Start of try block: OpTry <catch_offset> <finally_offset>
@@ -166,6 +167,7 @@ var OpcodeTable = map[Opcode]OpcodeInfo{
 	OpIsError:      {"IS_ERROR", 0, 1, 1},
 	OpThrow:        {"THROW", 0, 1, 0},
 	OpLen:          {"LEN", 0, 1, 1}, // Pops object, pushes length
+	OpGetSuper:     {"GET_SUPER", 0, 1, 1}, // Pops instance, pushes its superclass
 
 	// Exception handling
 	OpTry:          {"TRY", 4, 0, 0}, // 2-byte catch offset + 2-byte finally offset

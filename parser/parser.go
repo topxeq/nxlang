@@ -119,9 +119,12 @@ func NewParser(lexer *Lexer) *Parser {
 	p.registerPrefix(TokenLeftBracket, p.parseArrayLiteral)
 	p.registerPrefix(TokenLeftBrace, p.parseMapLiteral)
 	p.registerPrefix(TokenNew, p.parseNewExpression)
+	p.registerPrefix(TokenThis, p.parseThisExpression)
+	p.registerPrefix(TokenSuper, p.parseSuperExpression)
 
 	// Register infix parse functions
 	p.infixParseFns = make(map[TokenType]infixParseFn)
+	p.registerInfix(TokenDot, p.parseMemberExpression)
 	p.registerInfix(TokenPlus, p.parseInfixExpression)
 	p.registerInfix(TokenMinus, p.parseInfixExpression)
 	p.registerInfix(TokenAsterisk, p.parseInfixExpression)
@@ -1096,7 +1099,7 @@ func (p *Parser) parseThrowStatement() *ThrowStatement {
 func (p *Parser) parseExpression(precedence int) Expression {
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
-		p.addError(fmt.Sprintf("no prefix parse function for %s found", p.curToken.Type))
+		p.addError(fmt.Sprintf("no prefix parse function for %s (type %d) found", p.curToken.Type, p.curToken.Type))
 		return nil
 	}
 
@@ -1321,6 +1324,35 @@ func (p *Parser) parseNewExpression() Expression {
 	return expr
 }
 
+// parseThisExpression parses a 'this' keyword expression
+func (p *Parser) parseThisExpression() Expression {
+	return &ThisExpression{Token: p.curToken}
+}
+
+// parseSuperExpression parses a 'super' keyword expression
+func (p *Parser) parseSuperExpression() Expression {
+	return &SuperExpression{Token: p.curToken}
+}
+
+// parseMemberExpression parses a member access expression (obj.member)
+func (p *Parser) parseMemberExpression(object Expression) Expression {
+	expr := &MemberExpression{
+		Token:  p.curToken,
+		Object: object,
+	}
+
+	p.nextToken() // consume '.'
+
+	// Member name must be an identifier
+	if !p.curTokenIs(TokenIdentifier) {
+		p.addError(fmt.Sprintf("expected identifier after '.', got %s", p.curToken.Type))
+		return nil
+	}
+
+	expr.Member = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	return expr
+}
+
 // parseCallExpression parses a function call expression
 func (p *Parser) parseCallExpression(function Expression) Expression {
 	exp := &CallExpression{
@@ -1343,25 +1375,6 @@ func (p *Parser) parseIndexExpression(left Expression) Expression {
 
 	if !p.expectPeek(TokenRightBracket) {
 		return nil
-	}
-
-	return exp
-}
-
-// parseMemberExpression parses a member access expression
-func (p *Parser) parseMemberExpression(object Expression) Expression {
-	exp := &MemberExpression{
-		Token:  p.curToken,
-		Object: object,
-	}
-
-	if !p.expectPeek(TokenIdentifier) {
-		return nil
-	}
-
-	exp.Member = &Identifier{
-		Token: p.curToken,
-		Value: p.curToken.Literal,
 	}
 
 	return exp
