@@ -223,6 +223,16 @@ func (cs *ContinueStatement) TokenLiteral() string { return cs.Token.Literal }
 func (cs *ContinueStatement) Line() int            { return cs.Token.Line }
 func (cs *ContinueStatement) Column() int          { return cs.Token.Column }
 
+// FallthroughStatement represents a fallthrough statement in switch case
+type FallthroughStatement struct {
+	Token Token // 'fallthrough' token
+}
+
+func (fs *FallthroughStatement) statementNode()       {}
+func (fs *FallthroughStatement) TokenLiteral() string { return fs.Token.Literal }
+func (fs *FallthroughStatement) Line() int            { return fs.Token.Line }
+func (fs *FallthroughStatement) Column() int          { return fs.Token.Column }
+
 // BlockStatement represents a block of statements enclosed in braces
 type BlockStatement struct {
 	Token      Token // '{' token

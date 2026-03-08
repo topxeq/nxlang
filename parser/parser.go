@@ -262,6 +262,8 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseBreakStatement()
 	case TokenContinue:
 		return p.parseContinueStatement()
+	case TokenFallthrough:
+		return p.parseFallthroughStatement()
 	case TokenFunc:
 		return p.parseFunctionDeclaration()
 	case TokenIf:
@@ -417,6 +419,17 @@ func (p *Parser) parseBreakStatement() *BreakStatement {
 // parseContinueStatement parses a 'continue' statement
 func (p *Parser) parseContinueStatement() *ContinueStatement {
 	stmt := &ContinueStatement{Token: p.curToken}
+
+	if p.peekTokenIs(TokenSemicolon) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
+// parseFallthroughStatement parses a 'fallthrough' statement
+func (p *Parser) parseFallthroughStatement() *FallthroughStatement {
+	stmt := &FallthroughStatement{Token: p.curToken}
 
 	if p.peekTokenIs(TokenSemicolon) {
 		p.nextToken()

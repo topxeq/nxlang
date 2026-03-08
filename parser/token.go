@@ -90,6 +90,7 @@ const (
 	TokenDefault
 	TokenBreak
 	TokenContinue
+	TokenFallthrough
 	TokenIn
 	TokenReturn
 	TokenThrow
@@ -131,11 +132,12 @@ var keywords = map[string]TokenType{
 	"do":       TokenDo,
 	"switch":   TokenSwitch,
 	"case":     TokenCase,
-	"default":  TokenDefault,
-	"break":    TokenBreak,
-	"continue": TokenContinue,
-	"in":       TokenIn,
-	"return":   TokenReturn,
+	"default":      TokenDefault,
+	"break":        TokenBreak,
+	"continue":     TokenContinue,
+	"fallthrough":  TokenFallthrough,
+	"in":           TokenIn,
+	"return":       TokenReturn,
 	"throw":    TokenThrow,
 	"try":      TokenTry,
 	"catch":    TokenCatch,
@@ -307,6 +309,8 @@ func (t TokenType) String() string {
 		return "break"
 	case TokenContinue:
 		return "continue"
+	case TokenFallthrough:
+		return "fallthrough"
 	case TokenIn:
 		return "in"
 	case TokenReturn:

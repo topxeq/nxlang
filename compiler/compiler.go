@@ -659,6 +659,12 @@ func (c *Compiler) Compile(node parser.Node) error {
 		loopCtx.continueJumps = append(loopCtx.continueJumps, jmpPos)
 		return nil
 
+	case *parser.FallthroughStatement:
+		// Fallthrough: jump to next case (will be patched during switch compilation)
+		// We use 0xFFFE as a marker to identify fallthrough jumps
+		c.emit(OpJmp, 0xFFFE)
+		return nil
+
 	case *parser.SwitchStatement:
 		// Compile switch expression
 		if err := c.Compile(n.Expression); err != nil {
@@ -668,6 +674,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 		// Keep track of jump positions for end of case blocks
 		var endJumps []int
 		var caseEndPositions []int
+		var caseStartPositions []int // Store start positions of each case body for fallthrough
 
 		// Compile each case
 		for _, caseStmt := range n.Cases {
@@ -697,6 +704,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 		for i, caseStmt := range n.Cases {
 			// Patch the jump to this case body
 			caseStart := len(c.currentInstructions())
+			caseStartPositions = append(caseStartPositions, caseStart)
 			for _, pos := range caseEndPositions[i*len(caseStmt.Expressions) : (i+1)*len(caseStmt.Expressions)] {
 				c.changeOperand(pos, caseStart)
 			}
@@ -706,15 +714,23 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return err
 			}
 
-			// Jump to end of switch after case body (fallthrough not supported for now)
-			endJump := c.emit(OpJmp, 0xFFFF)
-			endJumps = append(endJumps, endJump)
+			// Check if last statement is fallthrough
+			hasFallthrough := false
+			if len(caseStmt.Body.Statements) > 0 {
+				_, hasFallthrough = caseStmt.Body.Statements[len(caseStmt.Body.Statements)-1].(*parser.FallthroughStatement)
+			}
+
+			// Only add jump to end if no fallthrough
+			if !hasFallthrough {
+				endJump := c.emit(OpJmp, 0xFFFF)
+				endJumps = append(endJumps, endJump)
+			}
 		}
 
 		// Compile default case
+		defaultStart := len(c.currentInstructions())
 		if n.DefaultCase != nil {
 			// Patch the default jump
-			defaultStart := len(c.currentInstructions())
 			c.changeOperand(defaultJump, defaultStart)
 			// Compile default body
 			if err := c.Compile(n.DefaultCase.Body); err != nil {
@@ -722,14 +738,38 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 		} else {
 			// No default case: jump to end
-			defaultEnd := len(c.currentInstructions())
-			c.changeOperand(defaultJump, defaultEnd)
+			c.changeOperand(defaultJump, defaultStart)
 		}
 
 		// Patch all end jumps
 		endPos := len(c.currentInstructions())
 		for _, pos := range endJumps {
 			c.changeOperand(pos, endPos)
+		}
+
+		// Patch all fallthrough jumps (marked with 0xFFFE)
+		// Look for jumps with 0xFFFE operand and point them to next case
+		for i := 0; i < len(c.currentInstructions())-2; i++ {
+			if c.currentInstructions()[i] == byte(OpJmp) {
+				operand := int(c.currentInstructions()[i+1])<<8 | int(c.currentInstructions()[i+2])
+				if operand == 0xFFFE {
+					// Find which case this fallthrough belongs to
+					caseIdx := -1
+					for j := len(caseStartPositions) - 1; j >= 0; j-- {
+						if i > caseStartPositions[j] {
+							caseIdx = j
+							break
+						}
+					}
+					if caseIdx != -1 && caseIdx < len(caseStartPositions)-1 {
+						// Jump to next case
+						c.changeOperand(i, caseStartPositions[caseIdx+1])
+					} else {
+						// Last case, fallthrough to end or default
+						c.changeOperand(i, defaultStart)
+					}
+				}
+			}
 		}
 
 		return nil
