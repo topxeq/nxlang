@@ -984,6 +984,10 @@ func (p *Parser) parseClassDeclaration() *ClassDeclaration {
 			if method.Name == "init" {
 				decl.Constructor = method
 			}
+			// Advance past the closing } of the method body
+			if p.curTokenIs(TokenRightBrace) {
+				p.nextToken()
+			}
 		} else {
 			p.addError(fmt.Sprintf("unexpected token %s in class body", p.curToken.Type))
 			p.nextToken()
@@ -1099,7 +1103,7 @@ func (p *Parser) parseThrowStatement() *ThrowStatement {
 func (p *Parser) parseExpression(precedence int) Expression {
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
-		p.addError(fmt.Sprintf("no prefix parse function for %s (type %d) found", p.curToken.Type, p.curToken.Type))
+		p.addError(fmt.Sprintf("no prefix parse function for %s found", p.curToken.Type))
 		return nil
 	}
 
