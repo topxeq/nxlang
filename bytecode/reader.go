@@ -179,6 +179,13 @@ func (r *Reader) readConstant(constType ConstantType) (Constant, error) {
 		}
 		isVariadic := isVariadicByte != 0
 
+		// Read static flag
+		isStaticByte, err := r.readByte()
+		if err != nil {
+			return nil, err
+		}
+		isStatic := isStaticByte != 0
+
 		// Read default values
 		var defaultCount uint32
 		if err := binary.Read(r.r, binary.LittleEndian, &defaultCount); err != nil {
@@ -199,6 +206,7 @@ func (r *Reader) readConstant(constType ConstantType) (Constant, error) {
 			NumLocals:     int(numLocals),
 			NumParameters: int(numParams),
 			IsVariadic:    isVariadic,
+			IsStatic:      isStatic,
 			DefaultValues: defaultValues,
 		}, nil
 

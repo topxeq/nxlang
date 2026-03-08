@@ -1119,10 +1119,15 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 		switch fn := fnVal.(type) {
 		case *types.BoundMethod:
-			// Bound method call: prepend 'this' as first argument
-			boundArgs := make([]types.Object, 0, len(args)+1)
-			boundArgs = append(boundArgs, fn.Instance)
-			boundArgs = append(boundArgs, args...)
+			// Bound method call: prepend 'this' as first argument only if it's not a static method
+			var boundArgs []types.Object
+			if fn.Method.IsStatic {
+				boundArgs = args // Static method doesn't need this
+			} else {
+				boundArgs = make([]types.Object, 0, len(args)+1)
+				boundArgs = append(boundArgs, fn.Instance)
+				boundArgs = append(boundArgs, args...)
+			}
 			// Recursively call with the bound function and new args
 			vm.stack.Push(fn.Method)
 			for _, arg := range boundArgs {
@@ -1551,11 +1556,11 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 		// Check if it's a class instance
 		if instance, ok := objVal.(*types.Instance); ok {
-			// First check instance properties
+			// Check instance properties
 			if val, ok := instance.Properties[memberName]; ok {
 				return vm.stack.Push(val)
 			}
-			// Then check class methods
+			// Check class methods
 			if method, ok := instance.Class.Methods[memberName]; ok {
 				// Return bound method with instance as 'this'
 				boundMethod := &types.BoundMethod{
@@ -1589,10 +1594,14 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 		// Check if it's a class
 		if class, ok := objVal.(*types.Class); ok {
-			// Look up static method on the class
+			// Look up method on the class
 			if method, ok := class.Methods[memberName]; ok {
-				// Return plain method for static calls
-				return vm.stack.Push(method)
+				if method.IsStatic {
+					// Static method: return plain function, no binding needed
+					return vm.stack.Push(method)
+				}
+				// Instance method called on class: return undefined or error?
+				// For now return undefined, could add warning later
 			}
 			// If not found, return undefined
 			return vm.stack.Push(types.UndefinedValue)
@@ -1732,6 +1741,7 @@ func (vm *VM) constantToObject(index int, c bytecode.Constant) (types.Object, er
 			NumLocals:     constType.NumLocals,
 			NumParameters: constType.NumParameters,
 			IsVariadic:    constType.IsVariadic,
+			IsStatic:      constType.IsStatic,
 			DefaultValues: constType.DefaultValues,
 			Instructions:  constType.Instructions,
 			ConstantPool:  vm.constants,

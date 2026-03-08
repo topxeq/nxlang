@@ -884,9 +884,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 			// Enter new scope for method
 			c.enterScope()
 
-			// Define 'this' as first local variable
-			thisSym := c.symbolTable.Define("this")
-			_ = thisSym
+			// Define 'this' as first local variable only for non-static methods
+			if !method.IsStatic {
+				thisSym := c.symbolTable.Define("this")
+				_ = thisSym
+			}
 
 			// Define parameters
 			scope := c.currentScope()
@@ -928,6 +930,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 				NumLocals:     scope.numLocals,
 				NumParameters: scope.numParameters,
 				IsVariadic:    scope.isVariadic,
+				IsStatic:      method.IsStatic,
 				DefaultValues: scope.defaultValues,
 			}
 			funcIdx := c.addConstant(funcConst)

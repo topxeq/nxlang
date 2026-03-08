@@ -207,6 +207,7 @@ type Function struct {
 	NumLocals     int
 	NumParameters int
 	IsVariadic    bool
+	IsStatic      bool // Whether this is a static method
 	DefaultValues []int // Indices of default values in constant pool
 	Instructions  []byte
 	ConstantPool  []bytecode.Constant // Constant pool this function belongs to

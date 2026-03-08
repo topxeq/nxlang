@@ -141,6 +141,15 @@ func (w *Writer) writeConstant(c Constant) error {
 			return err
 		}
 
+		// Write static flag
+		isStatic := byte(0)
+		if constType.IsStatic {
+			isStatic = 1
+		}
+		if err := w.buf.WriteByte(isStatic); err != nil {
+			return err
+		}
+
 		// Write default values
 		defaultCount := uint32(len(constType.DefaultValues))
 		if err := binary.Write(w.buf, binary.LittleEndian, defaultCount); err != nil {

@@ -105,6 +105,7 @@ const (
 	TokenThis
 	TokenSuper
 	TokenNew
+	TokenStatic
 	TokenNil
 	TokenTrue
 	TokenFalse
@@ -150,6 +151,7 @@ var keywords = map[string]TokenType{
 	"this":     TokenThis,
 	"super":    TokenSuper,
 	"new":      TokenNew,
+	"static":   TokenStatic,
 	"nil":      TokenNil,
 	"true":     TokenTrue,
 	"false":    TokenFalse,
@@ -339,6 +341,8 @@ func (t TokenType) String() string {
 		return "super"
 	case TokenNew:
 		return "new"
+	case TokenStatic:
+		return "static"
 	case TokenNil:
 		return "nil"
 	case TokenTrue:

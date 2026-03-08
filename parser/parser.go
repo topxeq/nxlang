@@ -975,9 +975,17 @@ func (p *Parser) parseClassDeclaration() *ClassDeclaration {
 	decl.Methods = []*FunctionLiteral{}
 
 	for !p.curTokenIs(TokenRightBrace) && !p.curTokenIs(TokenEOF) {
+		isStatic := false
+		// Check for static keyword
+		if p.curTokenIs(TokenStatic) {
+			isStatic = true
+			p.nextToken()
+		}
+
 		if p.curTokenIs(TokenFunc) {
 			p.nextToken()
 			method := p.parseFunctionLiteral().(*FunctionLiteral)
+			method.IsStatic = isStatic
 			decl.Methods = append(decl.Methods, method)
 
 			// Check if this is the constructor

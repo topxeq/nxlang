@@ -353,6 +353,7 @@ type FunctionLiteral struct {
 	Name       string
 	Parameters []*FunctionParameter
 	Body       *BlockStatement
+	IsStatic   bool // Whether this is a static method
 }
 
 func (fl *FunctionLiteral) expressionNode()      {}
