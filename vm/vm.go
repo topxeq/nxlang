@@ -48,6 +48,7 @@ type VM struct {
 
 	// Constant value cache to avoid duplicate instances
 	functionCache map[int]*types.Function // Maps constant index to function instance
+	classCache    map[int]*types.Class    // Maps constant index to class instance
 
 	// Exception handling
 	tryStack   []*TryFrame   // Stack of active try blocks
@@ -1271,6 +1272,76 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		m := collections.NewMap()
 		return vm.stack.Push(m)
 
+	case compiler.OpNewObject:
+		argCount := int(frame.ReadUint8())
+
+		// Pop arguments in reverse order
+		args := make([]types.Object, argCount)
+		for i := argCount - 1; i >= 0; i-- {
+			args[i] = vm.stack.Pop()
+		}
+
+		// Pop class from stack
+		classVal := vm.stack.Pop()
+		class, ok := classVal.(*types.Class)
+		if !ok {
+			return vm.newError("cannot instantiate non-class type", frame.ip)
+		}
+
+		// Create new instance
+		instance := &types.Instance{
+			Class:      class,
+			Properties: make(map[string]types.Object),
+		}
+
+		// Call constructor if exists
+		if initMethod, ok := class.Methods["init"]; ok {
+			// Push instance as 'this' argument
+			allArgs := append([]types.Object{instance}, args...)
+
+			// Create frame for constructor call
+			bcFunc := &bytecode.FunctionConstant{
+				Name:          initMethod.Name,
+				NumLocals:     initMethod.NumLocals,
+				NumParameters: initMethod.NumParameters,
+				IsVariadic:    initMethod.IsVariadic,
+				Instructions:  initMethod.Instructions,
+				DefaultValues: initMethod.DefaultValues,
+			}
+
+			basePointer := vm.stack.Size()
+			newFrame := NewFrame(bcFunc, basePointer)
+
+			// Copy arguments to locals (first local is 'this')
+			for i := 0; i < len(allArgs) && i < initMethod.NumParameters; i++ {
+				newFrame.locals[i] = allArgs[i]
+			}
+
+			// Fill default values for missing parameters
+			for i := len(allArgs); i < initMethod.NumParameters; i++ {
+				if initMethod.DefaultValues != nil && initMethod.DefaultValues[i] != -1 {
+					defaultConst := initMethod.ConstantPool[initMethod.DefaultValues[i]]
+					defaultVal, err := vm.constantToObject(initMethod.DefaultValues[i], defaultConst)
+					if err != nil {
+						return err
+					}
+					newFrame.locals[i] = defaultVal
+				} else {
+					return vm.newError(fmt.Sprintf("constructor expected %d arguments, got %d", initMethod.NumParameters, argCount), frame.ip)
+				}
+			}
+
+			// Push constructor frame
+			if vm.framePointer >= MaxCallStackDepth {
+				return &StackOverflowError{}
+			}
+			vm.frames[vm.framePointer] = newFrame
+			vm.framePointer++
+		}
+
+		// Push the new instance to stack
+		return vm.stack.Push(instance)
+
 	case compiler.OpPrintLine:
 		val := vm.stack.Pop()
 		fmt.Fprintln(os.Stdout, val.ToStr())
@@ -1456,6 +1527,49 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		_, isErr := obj.(*types.Error)
 		return vm.stack.Push(types.Bool(isErr))
 
+	case compiler.OpMemberGet:
+		nameIdx := int(frame.ReadUint16())
+		nameConst := vm.constants[nameIdx].(*bytecode.StringConstant)
+		memberName := nameConst.Value
+
+		// Pop object from stack
+		objVal := vm.stack.Pop()
+
+		// Check if it's a class instance
+		if instance, ok := objVal.(*types.Instance); ok {
+			// First check instance properties
+			if val, ok := instance.Properties[memberName]; ok {
+				return vm.stack.Push(val)
+			}
+			// Then check class methods
+			if method, ok := instance.Class.Methods[memberName]; ok {
+				// Return the method (call will handle 'this' binding)
+				return vm.stack.Push(method)
+			}
+			// If not found, return undefined
+			return vm.stack.Push(types.UndefinedValue)
+		}
+
+		return vm.newError(fmt.Sprintf("cannot get member '%s' of non-object type %s", memberName, objVal.TypeName()), frame.ip)
+
+	case compiler.OpMemberSet:
+		nameIdx := int(frame.ReadUint16())
+		nameConst := vm.constants[nameIdx].(*bytecode.StringConstant)
+		memberName := nameConst.Value
+
+		// Pop value and object from stack
+		value := vm.stack.Pop()
+		objVal := vm.stack.Pop()
+
+		// Check if it's a class instance
+		if instance, ok := objVal.(*types.Instance); ok {
+			// Set property on instance
+			instance.Properties[memberName] = value
+			return vm.stack.Push(value)
+		}
+
+		return vm.newError(fmt.Sprintf("cannot set member '%s' of non-object type %s", memberName, objVal.TypeName()), frame.ip)
+
 	case compiler.OpThrow:
 		errVal := vm.stack.Pop()
 		err, ok := errVal.(*types.Error)
@@ -1561,6 +1675,59 @@ func (vm *VM) constantToObject(index int, c bytecode.Constant) (types.Object, er
 		// Cache the function instance
 		vm.functionCache[index] = fn
 		return fn, nil
+
+	case *bytecode.ClassConstant:
+		// Check class cache first
+		if cls, ok := vm.classCache[index]; ok {
+			return cls, nil
+		}
+		// Convert bytecode class to types.Class
+		cls := &types.Class{
+			Name:    constType.Name,
+			Methods: make(map[string]*types.Function),
+		}
+
+		// Resolve superclass if present
+		if constType.SuperClass != "" {
+			// Look up superclass in global scope
+			superVal, ok := vm.globals[constType.SuperClass]
+			if !ok {
+				return nil, vm.newError(fmt.Sprintf("superclass %s not found", constType.SuperClass), 0)
+			}
+			superCls, ok := superVal.(*types.Class)
+			if !ok {
+				return nil, vm.newError(fmt.Sprintf("%s is not a class", constType.SuperClass), 0)
+			}
+			cls.SuperClass = superCls
+
+			// Inherit methods from superclass
+			for name, method := range superCls.Methods {
+				cls.Methods[name] = method
+			}
+		}
+
+		// Add own methods (override inherited ones)
+		for methodName, funcIdx := range constType.Methods {
+			// Resolve method function from constant pool
+			funcConst := vm.constants[funcIdx]
+			methodObj, err := vm.constantToObject(funcIdx, funcConst)
+			if err != nil {
+				return nil, err
+			}
+			method, ok := methodObj.(*types.Function)
+			if !ok {
+				return nil, vm.newError(fmt.Sprintf("method %s is not a function", methodName), 0)
+			}
+			cls.Methods[methodName] = method
+		}
+
+		// Cache the class instance
+		if vm.classCache == nil {
+			vm.classCache = make(map[int]*types.Class)
+		}
+		vm.classCache[index] = cls
+		return cls, nil
+
 	default:
 		return nil, vm.newError(fmt.Sprintf("unsupported constant type: %T", c), 0)
 	}

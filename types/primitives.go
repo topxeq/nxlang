@@ -239,3 +239,26 @@ func (nf *NativeFunction) TypeCode() uint8          { return TypeNativeFunc }
 func (nf *NativeFunction) TypeName() string          { return "nativeFunc" }
 func (nf *NativeFunction) ToStr() string             { return "[native function]" }
 func (nf *NativeFunction) Equals(other Object) bool { return nf == other }
+
+// Class represents a compiled class definition
+type Class struct {
+	Name       string
+	SuperClass *Class
+	Methods    map[string]*Function // Map of method name to function
+}
+
+func (c *Class) TypeCode() uint8          { return TypeClass }
+func (c *Class) TypeName() string          { return "class" }
+func (c *Class) ToStr() string             { return fmt.Sprintf("[class %s]", c.Name) }
+func (c *Class) Equals(other Object) bool { return c == other }
+
+// Instance represents an instance of a class
+type Instance struct {
+	Class      *Class
+	Properties map[string]Object // Object properties
+}
+
+func (i *Instance) TypeCode() uint8          { return TypeObject }
+func (i *Instance) TypeName() string          { return i.Class.Name }
+func (i *Instance) ToStr() string             { return fmt.Sprintf("[object %s]", i.Class.Name) }
+func (i *Instance) Equals(other Object) bool { return i == other }

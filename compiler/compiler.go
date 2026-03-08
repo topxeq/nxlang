@@ -873,7 +873,103 @@ func (c *Compiler) Compile(node parser.Node) error {
 		c.emit(OpStoreGlobal, c.addConstant(&bytecode.StringConstant{Value: n.Name.Value}))
 		return nil
 
+	case *parser.ClassDeclaration:
+		// Compile all methods
+		methods := make(map[string]int) // method name -> function constant index
+
+		for _, method := range n.Methods {
+			// Enter new scope for method
+			c.enterScope()
+
+			// Define 'this' as first local variable
+			thisSym := c.symbolTable.Define("this")
+			_ = thisSym
+
+			// Define parameters
+			scope := c.currentScope()
+			scope.defaultValues = make([]int, len(method.Parameters))
+			for i, param := range method.Parameters {
+				c.symbolTable.Define(param.Name.Value)
+				scope.defaultValues[i] = -1
+				if param.Variadic {
+					scope.isVariadic = true
+				}
+				if param.DefaultValue != nil {
+					if err := c.Compile(param.DefaultValue); err != nil {
+						return err
+					}
+					c.emit(OpPop)
+					scope.defaultValues[i] = len(c.constants) - 1
+				}
+			}
+
+			scope.numParameters = len(method.Parameters)
+
+			// Compile method body
+			if err := c.Compile(method.Body); err != nil {
+				return err
+			}
+
+			// Ensure we have a return at the end
+			if lastOpcode(c.currentInstructions()) != OpReturn && lastOpcode(c.currentInstructions()) != OpReturnVoid {
+				c.emit(OpReturnVoid)
+			}
+
+			// Update number of locals
+			scope.numLocals = c.symbolTable.Count()
+
+			// Create function constant
+			funcConst := &bytecode.FunctionConstant{
+				Name:          method.Name,
+				Instructions:  c.currentInstructions(),
+				NumLocals:     scope.numLocals,
+				NumParameters: scope.numParameters,
+				IsVariadic:    scope.isVariadic,
+				DefaultValues: scope.defaultValues,
+			}
+			funcIdx := c.addConstant(funcConst)
+			methods[method.Name] = funcIdx
+
+			// Exit scope
+			c.leaveScope()
+		}
+
+		// Create class constant
+		classConst := &bytecode.ClassConstant{
+			Name:       n.Name.Value,
+			SuperClass: "",
+			Methods:    methods,
+		}
+
+		if n.SuperClass != nil {
+			classConst.SuperClass = n.SuperClass.Value
+		}
+
+		classIdx := c.addConstant(classConst)
+
+		// Store class as global variable
+		c.emit(OpLoadConst, classIdx)
+		c.emit(OpStoreGlobal, c.addConstant(&bytecode.StringConstant{Value: n.Name.Value}))
+		return nil
+
 	// Expressions
+	case *parser.NewExpression:
+		// Compile class expression
+		if err := c.Compile(n.Class); err != nil {
+			return err
+		}
+
+		// Compile constructor arguments
+		for _, arg := range n.Args {
+			if err := c.Compile(arg); err != nil {
+				return err
+			}
+		}
+
+		// Emit new object opcode: OpNewObject <arg_count>
+		c.emit(OpNewObject, len(n.Args))
+		return nil
+
 	case *parser.IntLiteral:
 		c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: int64(n.Value)}))
 		return nil

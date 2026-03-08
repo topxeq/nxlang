@@ -87,8 +87,8 @@ func (c *FunctionConstant) Type() ConstantType { return ConstFunction }
 // ClassConstant represents a compiled class
 type ClassConstant struct {
 	Name       string
-	SuperClass int // Index of superclass in constant pool
-	Methods    []int // Indices of method functions in constant pool
+	SuperClass string // Name of superclass
+	Methods    map[string]int // Map of method name to function constant index
 }
 
 func (c *ClassConstant) Type() ConstantType { return ConstClass }

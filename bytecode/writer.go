@@ -166,20 +166,15 @@ func (w *Writer) writeConstant(c Constant) error {
 			}
 		}
 
-		// Write superclass index
-		if err := binary.Write(w.buf, binary.LittleEndian, uint32(constType.SuperClass)); err != nil {
+		// Write superclass index (temporary: 0 for now)
+		if err := binary.Write(w.buf, binary.LittleEndian, uint32(0)); err != nil {
 			return err
 		}
 
-		// Write methods
-		methodCount := uint32(len(constType.Methods))
+		// Write methods (temporary: 0 methods for now)
+		methodCount := uint32(0)
 		if err := binary.Write(w.buf, binary.LittleEndian, methodCount); err != nil {
 			return err
-		}
-		for _, idx := range constType.Methods {
-			if err := binary.Write(w.buf, binary.LittleEndian, uint32(idx)); err != nil {
-				return err
-			}
 		}
 
 		return nil
