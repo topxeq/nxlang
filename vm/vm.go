@@ -1124,8 +1124,59 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 		case *types.Function:
 			// Nxlang function call
-			if argCount < fn.NumParameters && !fn.IsVariadic {
-				return vm.newError(fmt.Sprintf("expected %d arguments, got %d", fn.NumParameters, argCount), frame.ip)
+			processedArgs := make([]types.Object, fn.NumParameters)
+
+			// Copy provided arguments
+			for i := 0; i < argCount && i < fn.NumParameters; i++ {
+				processedArgs[i] = args[i]
+			}
+
+			// Fill default values for missing arguments
+			for i := argCount; i < fn.NumParameters; i++ {
+				if fn.DefaultValues == nil || fn.DefaultValues[i] == -1 {
+					if !fn.IsVariadic {
+						return vm.newError(fmt.Sprintf("expected at least %d arguments, got %d", i+1, argCount), frame.ip)
+					}
+					// For variadic functions, the last parameter is the variadic array
+					break
+				}
+				// Get default value from constant pool
+				defaultConst := fn.ConstantPool[fn.DefaultValues[i]]
+				defaultVal, err := vm.constantToObject(fn.DefaultValues[i], defaultConst)
+				if err != nil {
+					return err
+				}
+				processedArgs[i] = defaultVal
+			}
+
+			// Handle variadic parameters
+			if fn.IsVariadic {
+				// The last parameter is the variadic array
+				variadicIdx := fn.NumParameters - 1
+				var variadicArgs []types.Object
+
+				if argCount > fn.NumParameters {
+					// Collect all extra arguments
+					variadicArgs = args[fn.NumParameters-1:]
+				} else if argCount == fn.NumParameters {
+					// User provided an array for the variadic parameter
+					// Check if it's already an array
+					if arr, ok := args[variadicIdx].(*collections.Array); ok {
+						// Already an array, use it directly
+						processedArgs[variadicIdx] = arr
+					} else {
+						// Wrap single value in array
+						variadicArgs = []types.Object{args[variadicIdx]}
+					}
+				}
+
+				// If we have variadic args, create array
+				if variadicArgs != nil {
+					processedArgs[variadicIdx] = collections.NewArrayWithElements(variadicArgs)
+				} else if processedArgs[variadicIdx] == nil {
+					// No variadic args provided, create empty array
+					processedArgs[variadicIdx] = collections.NewArrayWithElements([]types.Object{})
+				}
 			}
 
 			// Create bytecode function constant for frame
@@ -1135,15 +1186,16 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 				NumParameters: fn.NumParameters,
 				IsVariadic:    fn.IsVariadic,
 				Instructions:  fn.Instructions,
+				DefaultValues: fn.DefaultValues,
 			}
 
 			// Create new frame
 			basePointer := vm.stack.Size()
 			newFrame := NewFrame(bcFunc, basePointer)
 
-			// Copy arguments to locals
-			for i := 0; i < argCount && i < fn.NumParameters; i++ {
-				newFrame.locals[i] = args[i]
+			// Copy processed arguments to locals
+			for i := 0; i < fn.NumParameters; i++ {
+				newFrame.locals[i] = processedArgs[i]
 			}
 
 			if vm.framePointer >= MaxCallStackDepth {
@@ -1386,6 +1438,19 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 		return vm.stack.Push(exportVal)
 
+	case compiler.OpTypeCode:
+		obj := vm.stack.Pop()
+		return vm.stack.Push(types.Int(obj.TypeCode()))
+
+	case compiler.OpTypeName:
+		obj := vm.stack.Pop()
+		return vm.stack.Push(types.String(obj.TypeName()))
+
+	case compiler.OpIsError:
+		obj := vm.stack.Pop()
+		_, isErr := obj.(*types.Error)
+		return vm.stack.Push(types.Bool(isErr))
+
 	case compiler.OpThrow:
 		errVal := vm.stack.Pop()
 		err, ok := errVal.(*types.Error)
@@ -1484,6 +1549,7 @@ func (vm *VM) constantToObject(index int, c bytecode.Constant) (types.Object, er
 			NumLocals:     constType.NumLocals,
 			NumParameters: constType.NumParameters,
 			IsVariadic:    constType.IsVariadic,
+			DefaultValues: constType.DefaultValues,
 			Instructions:  constType.Instructions,
 			ConstantPool:  vm.constants,
 		}

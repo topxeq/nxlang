@@ -778,18 +778,24 @@ func (c *Compiler) Compile(node parser.Node) error {
 		c.symbolTable.DefineFunctionName(n.Name.Value)
 
 		// Define parameters
-		for _, param := range n.Parameters {
+		scope := c.currentScope()
+		scope.defaultValues = make([]int, len(n.Parameters))
+		for i, param := range n.Parameters {
 			c.symbolTable.Define(param.Name.Value)
+			scope.defaultValues[i] = -1 // -1 means no default value
 			if param.Variadic {
-				c.currentScope().isVariadic = true
+				scope.isVariadic = true
 			}
 			if param.DefaultValue != nil {
 				// Compile default value and add to constants
 				if err := c.Compile(param.DefaultValue); err != nil {
 					return err
 				}
-				c.emit(OpPop) // Pop temporary value
-				// Default values will be implemented in next phase
+				// The compiled default value is on top of stack, pop it and get the last added constant
+				c.emit(OpPop)
+				// Default value was just added to constants when we compiled it
+				// The constant index is the last one added
+				scope.defaultValues[i] = len(c.constants) - 1
 			}
 		}
 
