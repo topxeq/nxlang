@@ -931,6 +931,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 				NumParameters: scope.numParameters,
 				IsVariadic:    scope.isVariadic,
 				IsStatic:      method.IsStatic,
+				AccessModifier: uint8(method.AccessModifier),
 				DefaultValues: scope.defaultValues,
 			}
 			funcIdx := c.addConstant(funcConst)

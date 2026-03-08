@@ -2,6 +2,15 @@ package parser
 
 import "github.com/topxeq/nxlang/types"
 
+// AccessModifier represents the access level of class members
+type AccessModifier int
+
+const (
+	AccessPublic AccessModifier = iota
+	AccessPrivate
+	AccessProtected
+)
+
 // Node is the base interface for all AST nodes
 type Node interface {
 	// TokenLiteral returns the literal value of the token associated with this node
@@ -349,11 +358,12 @@ type FunctionParameter struct {
 
 // FunctionLiteral represents a function literal/expression
 type FunctionLiteral struct {
-	Token      Token // 'func' token
-	Name       string
-	Parameters []*FunctionParameter
-	Body       *BlockStatement
-	IsStatic   bool // Whether this is a static method
+	Token          Token // 'func' token
+	Name           string
+	Parameters     []*FunctionParameter
+	Body           *BlockStatement
+	IsStatic       bool // Whether this is a static method
+	AccessModifier AccessModifier // Access level of the method
 }
 
 func (fl *FunctionLiteral) expressionNode()      {}

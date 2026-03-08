@@ -208,6 +208,7 @@ type Function struct {
 	NumParameters int
 	IsVariadic    bool
 	IsStatic      bool // Whether this is a static method
+	AccessModifier uint8 // 0=public, 1=private, 2=protected
 	DefaultValues []int // Indices of default values in constant pool
 	Instructions  []byte
 	ConstantPool  []bytecode.Constant // Constant pool this function belongs to

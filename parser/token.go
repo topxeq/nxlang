@@ -106,6 +106,9 @@ const (
 	TokenSuper
 	TokenNew
 	TokenStatic
+	TokenPublic
+	TokenPrivate
+	TokenProtected
 	TokenNil
 	TokenTrue
 	TokenFalse
@@ -148,13 +151,16 @@ var keywords = map[string]TokenType{
 	"export":   TokenExport,
 	"as":       TokenAs,
 	"from":     TokenFrom,
-	"this":     TokenThis,
-	"super":    TokenSuper,
-	"new":      TokenNew,
-	"static":   TokenStatic,
-	"nil":      TokenNil,
-	"true":     TokenTrue,
-	"false":    TokenFalse,
+	"this":        TokenThis,
+	"super":       TokenSuper,
+	"new":         TokenNew,
+	"static":      TokenStatic,
+	"public":      TokenPublic,
+	"private":     TokenPrivate,
+	"protected":   TokenProtected,
+	"nil":         TokenNil,
+	"true":        TokenTrue,
+	"false":       TokenFalse,
 }
 
 // LookupKeyword checks if an identifier is a keyword
@@ -343,6 +349,12 @@ func (t TokenType) String() string {
 		return "new"
 	case TokenStatic:
 		return "static"
+	case TokenPublic:
+		return "public"
+	case TokenPrivate:
+		return "private"
+	case TokenProtected:
+		return "protected"
 	case TokenNil:
 		return "nil"
 	case TokenTrue:

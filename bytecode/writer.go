@@ -150,6 +150,11 @@ func (w *Writer) writeConstant(c Constant) error {
 			return err
 		}
 
+		// Write access modifier
+		if err := w.buf.WriteByte(constType.AccessModifier); err != nil {
+			return err
+		}
+
 		// Write default values
 		defaultCount := uint32(len(constType.DefaultValues))
 		if err := binary.Write(w.buf, binary.LittleEndian, defaultCount); err != nil {

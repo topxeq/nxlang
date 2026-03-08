@@ -984,6 +984,20 @@ func (p *Parser) parseClassDeclaration() *ClassDeclaration {
 			break
 		}
 
+		accessMod := AccessPublic
+		// Check for access modifiers
+		switch p.curToken.Type {
+		case TokenPublic:
+			accessMod = AccessPublic
+			p.nextToken()
+		case TokenPrivate:
+			accessMod = AccessPrivate
+			p.nextToken()
+		case TokenProtected:
+			accessMod = AccessProtected
+			p.nextToken()
+		}
+
 		isStatic := false
 		// Check for static keyword
 		if p.curTokenIs(TokenStatic) {
@@ -995,6 +1009,7 @@ func (p *Parser) parseClassDeclaration() *ClassDeclaration {
 			p.nextToken()
 			method := p.parseFunctionLiteral().(*FunctionLiteral)
 			method.IsStatic = isStatic
+			method.AccessModifier = accessMod
 			decl.Methods = append(decl.Methods, method)
 
 			// Check if this is the constructor

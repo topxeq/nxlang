@@ -1757,6 +1757,7 @@ func (vm *VM) constantToObject(index int, c bytecode.Constant) (types.Object, er
 			NumParameters: constType.NumParameters,
 			IsVariadic:    constType.IsVariadic,
 			IsStatic:      constType.IsStatic,
+			AccessModifier: constType.AccessModifier,
 			DefaultValues: constType.DefaultValues,
 			Instructions:  constType.Instructions,
 			ConstantPool:  vm.constants,
