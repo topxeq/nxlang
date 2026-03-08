@@ -511,11 +511,25 @@ func (te *TernaryExpression) Column() int          { return te.Token.Column }
 
 // Class definitions
 
+// InterfaceMethod represents a method signature in an interface
+type InterfaceMethod struct {
+	Name       *Identifier
+	Parameters []*FunctionParameter
+}
+
+// InterfaceDeclaration represents an interface declaration
+type InterfaceDeclaration struct {
+	Token   Token // 'interface' token
+	Name    *Identifier
+	Methods []*InterfaceMethod
+}
+
 // ClassDeclaration represents a class declaration
 type ClassDeclaration struct {
 	Token       Token // 'class' token
 	Name        *Identifier
 	SuperClass  *Identifier
+	Implements  []*Identifier // List of interfaces this class implements
 	Constructor *FunctionLiteral
 	Methods     []*FunctionLiteral
 	Fields      []Statement // Instance and static field declarations
@@ -525,6 +539,11 @@ func (cd *ClassDeclaration) statementNode()       {}
 func (cd *ClassDeclaration) TokenLiteral() string { return cd.Token.Literal }
 func (cd *ClassDeclaration) Line() int            { return cd.Token.Line }
 func (cd *ClassDeclaration) Column() int          { return cd.Token.Column }
+
+func (id *InterfaceDeclaration) statementNode()       {}
+func (id *InterfaceDeclaration) TokenLiteral() string { return id.Token.Literal }
+func (id *InterfaceDeclaration) Line() int            { return id.Token.Line }
+func (id *InterfaceDeclaration) Column() int          { return id.Token.Column }
 
 // NewExpression represents a new operator expression (e.g., new ClassName())
 type NewExpression struct {

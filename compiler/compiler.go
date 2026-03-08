@@ -951,13 +951,19 @@ func (c *Compiler) Compile(node parser.Node) error {
 
 		// Create class constant
 		classConst := &bytecode.ClassConstant{
-			Name:       n.Name.Value,
-			SuperClass: "",
-			Methods:    methods,
+			Name:        n.Name.Value,
+			SuperClass:  "",
+			Interfaces:  make([]string, len(n.Implements)),
+			Methods:     methods,
 		}
 
 		if n.SuperClass != nil {
 			classConst.SuperClass = n.SuperClass.Value
+		}
+
+		// Add implemented interfaces
+		for i, iface := range n.Implements {
+			classConst.Interfaces[i] = iface.Value
 		}
 
 		classIdx := c.addConstant(classConst)
@@ -968,7 +974,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 		c.emit(OpStoreGlobal, classNameIdx)
 
 		// Compile static field initializations
-		for _, fieldStmt := range n.StaticFields {
+		for _, fieldStmt := range n.Fields {
 			var fieldName *parser.Identifier
 			var fieldValue parser.Expression
 
@@ -1000,6 +1006,32 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 		}
 
+		return nil
+
+	case *parser.InterfaceDeclaration:
+		// Add interface name to symbol table
+		c.symbolTable.Define(n.Name.Value)
+
+		// Compile interface methods
+		methods := make(map[string][]string)
+		for _, method := range n.Methods {
+			paramNames := make([]string, len(method.Parameters))
+			for i, param := range method.Parameters {
+				paramNames[i] = param.Name.Value
+			}
+			methods[method.Name.Value] = paramNames
+		}
+
+		// Create interface constant
+		ifaceConst := &bytecode.InterfaceConstant{
+			Name:    n.Name.Value,
+			Methods: methods,
+		}
+		ifaceIdx := c.addConstant(ifaceConst)
+
+		// Store interface as global variable
+		c.emit(OpLoadConst, ifaceIdx)
+		c.emit(OpStoreGlobal, c.addConstant(&bytecode.StringConstant{Value: n.Name.Value}))
 		return nil
 
 	// Expressions

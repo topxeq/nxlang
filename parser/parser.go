@@ -281,6 +281,8 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseSwitchStatement()
 	case TokenClass:
 		return p.parseClassDeclaration()
+	case TokenInterface:
+		return p.parseInterfaceDeclaration()
 	case TokenTry:
 		return p.parseTryStatement()
 	case TokenDefer:
@@ -966,6 +968,26 @@ func (p *Parser) parseClassDeclaration() *ClassDeclaration {
 		decl.SuperClass = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	}
 
+	// Check for implements clause
+	decl.Implements = []*Identifier{}
+	if p.peekTokenIs(TokenImplements) {
+		p.nextToken() // consume 'implements'
+
+		// Parse interface list
+		for {
+			if !p.expectPeek(TokenIdentifier) {
+				return nil
+			}
+			iface := &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+			decl.Implements = append(decl.Implements, iface)
+
+			if !p.peekTokenIs(TokenComma) {
+				break
+			}
+			p.nextToken() // consume comma
+		}
+	}
+
 	if !p.expectPeek(TokenLeftBrace) {
 		return nil
 	}
@@ -1043,6 +1065,72 @@ func (p *Parser) parseClassDeclaration() *ClassDeclaration {
 			}
 		} else {
 			p.addError(fmt.Sprintf("unexpected token %s in class body", p.curToken.Type))
+			p.nextToken()
+		}
+	}
+
+	return decl
+}
+
+// parseInterfaceDeclaration parses an interface declaration
+func (p *Parser) parseInterfaceDeclaration() *InterfaceDeclaration {
+	decl := &InterfaceDeclaration{Token: p.curToken}
+
+	if !p.expectPeek(TokenIdentifier) {
+		return nil
+	}
+
+	decl.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if !p.expectPeek(TokenLeftBrace) {
+		return nil
+	}
+
+	p.nextToken()
+
+	decl.Methods = []*InterfaceMethod{}
+
+	for !p.curTokenIs(TokenRightBrace) && !p.curTokenIs(TokenEOF) {
+		if p.curTokenIs(TokenFunc) {
+			p.nextToken()
+			if !p.curTokenIs(TokenIdentifier) {
+				p.addError(fmt.Sprintf("expected method name, got %s", p.curToken.Type))
+				return nil
+			}
+			methodName := &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+			if !p.expectPeek(TokenLeftParen) {
+				return nil
+			}
+
+			params := p.parseFunctionParameters()
+
+			method := &InterfaceMethod{
+				Name:       methodName,
+				Parameters: make([]*FunctionParameter, len(params)),
+			}
+
+			for i, param := range params {
+				method.Parameters[i] = &FunctionParameter{
+					Name:         param.Name,
+					DefaultValue: param.DefaultValue,
+					Variadic:     param.Variadic,
+				}
+			}
+
+			decl.Methods = append(decl.Methods, method)
+
+			// Consume the closing ')'
+			if p.curTokenIs(TokenRightParen) {
+				p.nextToken()
+			}
+
+			// Skip semicolon if present
+			if p.curTokenIs(TokenSemicolon) {
+				p.nextToken()
+			}
+		} else {
+			p.addError(fmt.Sprintf("unexpected token %s in interface body", p.curToken.Type))
 			p.nextToken()
 		}
 	}

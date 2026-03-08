@@ -25,6 +25,7 @@ const (
 	ConstFunction   ConstantType = 0x05
 	ConstClass      ConstantType = 0x06
 	ConstChar       ConstantType = 0x07
+	ConstInterface  ConstantType = 0x08
 )
 
 // Constant represents an entry in the constant pool
@@ -89,12 +90,21 @@ func (c *FunctionConstant) Type() ConstantType { return ConstFunction }
 
 // ClassConstant represents a compiled class
 type ClassConstant struct {
-	Name       string
-	SuperClass string // Name of superclass
-	Methods    map[string]int // Map of method name to function constant index
+	Name        string
+	SuperClass  string // Name of superclass
+	Interfaces  []string // List of interface names this class implements
+	Methods     map[string]int // Map of method name to function constant index
+}
+
+// InterfaceConstant represents a compiled interface
+type InterfaceConstant struct {
+	Name    string
+	Methods map[string][]string // Method name -> list of parameter names (for signature matching)
 }
 
 func (c *ClassConstant) Type() ConstantType { return ConstClass }
+
+func (c *InterfaceConstant) Type() ConstantType { return ConstInterface }
 
 // Bytecode represents a complete compiled program
 type Bytecode struct {

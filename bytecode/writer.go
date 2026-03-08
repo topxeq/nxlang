@@ -198,6 +198,24 @@ func (w *Writer) writeConstant(c Constant) error {
 
 		return nil
 
+	case *InterfaceConstant:
+		// Write interface name
+		nameLen := uint32(len(constType.Name))
+		if err := binary.Write(w.buf, binary.LittleEndian, nameLen); err != nil {
+			return err
+		}
+		if nameLen > 0 {
+			if _, err := w.buf.WriteString(constType.Name); err != nil {
+				return err
+			}
+		}
+		// Write method count
+		methodCount := uint32(len(constType.Methods))
+		if err := binary.Write(w.buf, binary.LittleEndian, methodCount); err != nil {
+			return err
+		}
+		return nil
+
 	default:
 		return &ErrInvalidConstantType{Type: c.Type()}
 	}

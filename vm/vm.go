@@ -1855,6 +1855,14 @@ func (vm *VM) constantToObject(index int, c bytecode.Constant) (types.Object, er
 		vm.classCache[index] = cls
 		return cls, nil
 
+	case *bytecode.InterfaceConstant:
+		// Create interface instance
+		iface := &types.Interface{
+			Name:    constType.Name,
+			Methods: constType.Methods,
+		}
+		return iface, nil
+
 	default:
 		return nil, vm.newError(fmt.Sprintf("unsupported constant type: %T", c), 0)
 	}

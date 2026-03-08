@@ -269,6 +269,17 @@ func (i *Instance) TypeName() string          { return i.Class.Name }
 func (i *Instance) ToStr() string             { return fmt.Sprintf("[object %s]", i.Class.Name) }
 func (i *Instance) Equals(other Object) bool { return i == other }
 
+// Interface represents a Nxlang interface type
+type Interface struct {
+	Name    string
+	Methods map[string][]string // Method name -> parameter names
+}
+
+func (iface *Interface) TypeCode() uint8          { return TypeInterface }
+func (iface *Interface) TypeName() string          { return "interface" }
+func (iface *Interface) ToStr() string             { return fmt.Sprintf("[interface %s]", iface.Name) }
+func (iface *Interface) Equals(other Object) bool { return iface == other }
+
 // BoundMethod represents a method bound to a specific instance
 type BoundMethod struct {
 	Instance *Instance // The instance this method is bound to

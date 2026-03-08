@@ -111,6 +111,8 @@ const (
 	TokenProtected
 	TokenGet
 	TokenSet
+	TokenInterface
+	TokenImplements
 	TokenNil
 	TokenTrue
 	TokenFalse
@@ -162,6 +164,8 @@ var keywords = map[string]TokenType{
 	"protected":   TokenProtected,
 	"get":         TokenGet,
 	"set":         TokenSet,
+	"interface":   TokenInterface,
+	"implements":  TokenImplements,
 	"nil":         TokenNil,
 	"true":        TokenTrue,
 	"false":       TokenFalse,
@@ -363,6 +367,10 @@ func (t TokenType) String() string {
 		return "get"
 	case TokenSet:
 		return "set"
+	case TokenInterface:
+		return "interface"
+	case TokenImplements:
+		return "implements"
 	case TokenNil:
 		return "nil"
 	case TokenTrue:
