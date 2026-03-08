@@ -845,6 +845,7 @@ func (p *Parser) parseCaseStatement() *CaseStatement {
 	}
 
 	p.nextToken()
+	// Case body must be a block statement enclosed in {}
 	stmt.Body = p.parseBlockStatement()
 
 	return stmt
@@ -859,6 +860,7 @@ func (p *Parser) parseDefaultStatement() *DefaultStatement {
 	}
 
 	p.nextToken()
+	// Default body must be a block statement enclosed in {}
 	stmt.Body = p.parseBlockStatement()
 
 	return stmt
