@@ -1,0 +1,7 @@
+func getValue() {
+    return 42
+}
+
+var result = getValue()
+pln("Result: ", result)
+pln("Type: ", typeName(result))

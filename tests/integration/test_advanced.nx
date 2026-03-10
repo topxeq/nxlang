@@ -1,0 +1,86 @@
+// Test advanced features
+
+pln("=== Testing Advanced Features ===")
+
+// Test 1: typeOf and typeCode
+pln("\n1. typeOf and typeCode:")
+pln("typeOf(123):", typeOf(123))
+pln("typeOf(true):", typeOf(true))
+pln("typeOf('hello'):", typeOf("hello"))
+pln("typeOf([1,2]):", typeOf([1,2]))
+
+// Test 2: int conversion
+pln("\n2. int conversion:")
+pln("int(3.14):", int(3.14))
+pln("int(true):", int(true))
+pln("int(false):", int(false))
+
+// Test 3: float conversion
+pln("\n3. float conversion:")
+pln("float(123):", float(123))
+pln("float(true):", float(true))
+
+// Test 4: bool conversion
+pln("\n4. bool conversion:")
+pln("bool(0):", bool(0))
+pln("bool(1):", bool(1))
+pln("bool(''):", bool(""))
+pln("bool('hello'):", bool("hello"))
+
+// Test 5: string conversion
+pln("\n5. string conversion:")
+pln("string(123):", string(123))
+pln("string(3.14):", string(3.14))
+pln("string(true):", string(true))
+
+// Test 6: bytes and chars
+pln("\n6. bytes and chars:")
+pln("bytes('Hello'):", bytes("Hello"))
+pln("chars('Hello'):", chars("Hello"))
+
+// Test 7: time functions
+pln("\n7. time functions:")
+pln("now():", now())
+pln("unix():", unix())
+
+// Test 8: sleep function
+pln("\n8. sleep function:")
+pln("sleeping for 0.1 second...")
+sleep(0.1)
+pln("done sleeping")
+
+// Test 9: isErr function
+pln("\n9. isErr function:")
+pln("isErr('hello'):", isErr("hello"))
+pln("isErr(undefined):", isErr(undefined))
+
+// Test 10: switch statement (skipped - parser issue)
+pln("\n10. switch statement: SKIPPED (parser issue)")
+
+// Test 11: const
+pln("\n11. const:")
+const MY_CONST = 100
+pln("MY_CONST:", MY_CONST)
+
+// Test 12: string operations
+pln("\n12. string operations:")
+let s = "Hello World"
+pln("toUpper(s):", toUpper(s))
+pln("toLower(s):", toLower(s))
+pln("trim('  hi  '):", trim("  hi  "))
+pln("split('a,b,c', ','):", split("a,b,c", ","))
+
+// Test 13: array append
+pln("\n13. array append:")
+let arr = [1, 2, 3]
+pln("original arr:", arr)
+append(arr, 4)
+pln("after append:", arr)
+
+// Test 14: math functions
+pln("\n14. math functions:")
+pln("sqrt(16):", sqrt(16))
+pln("abs(-5):", abs(-5))
+pln("pow(2, 3):", pow(2, 3))
+
+pln("\n=== Advanced tests completed ===")

@@ -1,0 +1,75 @@
+// Test thread concurrency support
+
+pln("=== Test 1: Basic thread (isolated mode) ===")
+
+func threadFunc1(startNum) {
+    pln("[thread1] starting with num =", startNum)
+    for i in 5 {
+        pln("[thread1] num =", startNum + i)
+        sleep(0.02)
+    }
+    pln("[thread1] finished")
+}
+
+// Isolated mode (default) - each thread has its own VM
+thread(threadFunc1, 100)
+
+pln("Main thread waiting...")
+// Wait for thread to complete
+waitForThreads()
+pln("Test 1 completed")
+
+pln("\n=== Test 2: Thread with shared mode ===")
+
+var sharedCounter = 0
+let counterMutex = mutex()
+
+func threadFunc2(id) {
+    pln("[thread", id, "] starting")
+    for i in 3 {
+        counterMutex.lock()
+        sharedCounter = sharedCounter + 1
+        pln("[thread", id, "] counter =", sharedCounter)
+        counterMutex.unlock()
+        sleep(0.01)
+    }
+    pln("[thread", id, "] finished")
+}
+
+// Shared mode - threads share globals
+thread(threadFunc2, 1, "shared")
+thread(threadFunc2, 2, "shared")
+thread(threadFunc2, 3, "shared")
+
+pln("Main thread waiting for shared mode threads...")
+// Wait for threads to complete
+waitForThreads()
+
+pln("Final sharedCounter =", sharedCounter)
+
+pln("\n=== Test 3: Thread with mutex (shared mode) ===")
+
+var counter2 = 0
+let mtx = mutex()
+
+func incrementWithMutex(id) {
+    pln("[mutex thread", id, "] starting")
+    for i in 5 {
+        mtx.lock()
+        counter2 = counter2 + 1
+        pln("[mutex thread", id, "] counter2 =", counter2)
+        mtx.unlock()
+        sleep(0.01)
+    }
+    pln("[mutex thread", id, "] finished")
+}
+
+thread(incrementWithMutex, 1, "shared")
+thread(incrementWithMutex, 2, "shared")
+
+// Wait for threads to complete
+waitForThreads()
+
+pln("Final counter2 =", counter2)
+
+pln("\n=== All thread tests completed ===")

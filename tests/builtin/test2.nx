@@ -1,0 +1,10 @@
+// Simple test
+var x = 10
+var y = 20
+pln(x + y)
+
+func add(a, b) {
+    return a + b
+}
+
+pln(add(5, 3))

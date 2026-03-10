@@ -259,6 +259,8 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseLetStatement()
 	case TokenConst:
 		return p.parseConstStatement()
+	case TokenDefine:
+		return p.parseDefineStatement()
 	case TokenReturn:
 		return p.parseReturnStatement()
 	case TokenBreak:
@@ -295,6 +297,12 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseExportStatement()
 	case TokenLeftBrace:
 		return p.parseBlockStatement()
+	case TokenIdentifier:
+		// Check for short variable declaration: name := expression
+		if p.peekTokenIs(TokenDefine) {
+			return p.parseDefineStatement()
+		}
+		return p.parseExpressionStatement()
 	default:
 		return p.parseExpressionStatement()
 	}
@@ -316,9 +324,8 @@ func (p *Parser) parseVarStatement() *VarStatement {
 		stmt.Value = p.parseExpression(PrecedenceLowest)
 	}
 
-	if p.peekTokenIs(TokenSemicolon) {
-		p.nextToken()
-	}
+	// Don't consume semicolon here - let the caller (e.g., for loop) handle it
+	// This is important for for loop support where semicolon separates clauses
 
 	return stmt
 }
@@ -339,32 +346,56 @@ func (p *Parser) parseLetStatement() *LetStatement {
 		stmt.Value = p.parseExpression(PrecedenceLowest)
 	}
 
+	// Consume semicolon if present (but not if next token is ')' which indicates for loop context)
 	if p.peekTokenIs(TokenSemicolon) {
-		p.nextToken()
+		// Check if we're in a for loop context by looking for ')' after the semicolon
+		// Save current position
+		_savedCur := p.curToken
+		savedPeek := p.peekToken
+
+		// Advance to check next token
+		p.nextToken() // consume semicolon
+		isForLoopContext := p.peekTokenIs(TokenRightParen)
+		// Restore position
+		p.curToken = _savedCur
+		p.peekToken = savedPeek
+
+		// Only consume semicolon if not in for loop context
+		if !isForLoopContext {
+			p.nextToken()
+		}
 	}
 
 	return stmt
 }
 
 // parseDefineStatement parses a ':=' short variable declaration statement
+// This function assumes curToken is at ':=' or at identifier (if called from parseStatement)
 func (p *Parser) parseDefineStatement() *DefineStatement {
 	stmt := &DefineStatement{Token: p.curToken}
 
-	if !p.expectPeek(TokenIdentifier) {
-		return nil
+	// If curToken is identifier and peek is :=, we need to handle the identifier first
+	if p.curTokenIs(TokenIdentifier) && p.peekTokenIs(TokenDefine) {
+		stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		p.nextToken() // consume ':='
+	} else {
+		// curToken should be ':=', move to identifier
+		if !p.expectPeek(TokenIdentifier) {
+			return nil
+		}
+		stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	}
 
-	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
-	// Skip the := token
-	p.nextToken()
+	// Skip the := token (already consumed if we got here from parseStatement check)
+	if p.curTokenIs(TokenDefine) {
+		p.nextToken()
+	}
 
 	// Parse the value expression
 	stmt.Value = p.parseExpression(PrecedenceLowest)
 
-	if p.peekTokenIs(TokenSemicolon) {
-		p.nextToken()
-	}
+	// Don't consume semicolon here - let the caller (e.g., for loop) handle it
+	// This is important for for loop support where semicolon separates clauses
 
 	return stmt
 }
@@ -386,8 +417,24 @@ func (p *Parser) parseConstStatement() *ConstStatement {
 	p.nextToken()
 	stmt.Value = p.parseExpression(PrecedenceLowest)
 
+	// Consume semicolon if present (but not if next token is ')' which indicates for loop context)
 	if p.peekTokenIs(TokenSemicolon) {
-		p.nextToken()
+		// Check if we're in a for loop context by looking for ')' after the semicolon
+		// Save current position
+		_savedCur := p.curToken
+		savedPeek := p.peekToken
+
+		// Advance to check next token
+		p.nextToken() // consume semicolon
+		isForLoopContext := p.peekTokenIs(TokenRightParen)
+		// Restore position
+		p.curToken = _savedCur
+		p.peekToken = savedPeek
+
+		// Only consume semicolon if not in for loop context
+		if !isForLoopContext {
+			p.nextToken()
+		}
 	}
 
 	return stmt
@@ -536,17 +583,24 @@ func (p *Parser) parseForStatement() *ForStatement {
 	p.nextToken()
 
 	// Check for for...in loop: for (key in obj) { ... } or for (key, value in obj) { ... }
-	hasParen := p.peekTokenIs(TokenLeftParen)
+	hasParen := p.curTokenIs(TokenLeftParen)
+
+	// Don't consume '(' yet - we need to save the position for rollback
+	// Save current state BEFORE consuming '(' or advancing
+	savedCur := p.curToken
+	savedPeek := p.peekToken
+	savedErrors := p.errors
+	savedLexerPos := p.lexer.pos
+	savedLexerReadPos := p.lexer.readPos
+	savedLexerCh := p.lexer.ch
+	savedLexerLine := p.lexer.line
+	savedLexerColumn := p.lexer.column
+
 	if hasParen {
 		p.nextToken() // consume '('
 	}
 
 	// Look ahead for "in" keyword to detect for...in
-
-	// Save current state
-	savedCur := p.curToken
-	savedPeek := p.peekToken
-	savedErrors := p.errors
 
 	// Try to parse for...in pattern
 	if p.curTokenIs(TokenIdentifier) {
@@ -591,17 +645,23 @@ func (p *Parser) parseForStatement() *ForStatement {
 	p.curToken = savedCur
 	p.peekToken = savedPeek
 	p.errors = savedErrors
+	// Restore lexer position for proper rollback
+	p.lexer.pos = savedLexerPos
+	p.lexer.readPos = savedLexerReadPos
+	p.lexer.ch = savedLexerCh
+	p.lexer.line = savedLexerLine
+	p.lexer.column = savedLexerColumn
 
-	// Restore hasParen check
-	hasParen = p.peekTokenIs(TokenLeftParen)
-
-	// Support both styles: for (init; cond; post) and for init; cond; post
+	// Now consume '(' if needed and start parsing 3-part for loop
 	if hasParen {
 		p.nextToken() // consume '('
-		p.nextToken() // move inside parenthesis
-	} else {
-		p.nextToken() // move to first clause
 	}
+	// If not hasParen, curToken is already at first token of init clause
+	// If hasParen, curToken is now at first token inside parenthesis
+
+	// Note: hasParen was set before for-in detection and remains valid
+	// curToken is at the first token inside parenthesis (if hasParen) or at init clause
+	// Start parsing 3-part for loop from current position
 
 	
 	// Check if this is a single condition for loop (for cond { ... } or for (cond) { ... })
@@ -611,6 +671,11 @@ func (p *Parser) parseForStatement() *ForStatement {
 	prevCurToken := p.curToken
 	prevPeekToken := p.peekToken
 	prevErrorCount := len(p.errors)
+	prevLexerPos := p.lexer.pos
+	prevLexerReadPos := p.lexer.readPos
+	prevLexerCh := p.lexer.ch
+	prevLexerLine := p.lexer.line
+	prevLexerColumn := p.lexer.column
 
 	// Try to parse as single condition
 	expr := p.parseExpression(PrecedenceLowest)
@@ -628,12 +693,24 @@ func (p *Parser) parseForStatement() *ForStatement {
 			p.curToken = prevCurToken
 			p.peekToken = prevPeekToken
 			p.errors = p.errors[:prevErrorCount]
+			// Restore lexer position
+			p.lexer.pos = prevLexerPos
+			p.lexer.readPos = prevLexerReadPos
+			p.lexer.ch = prevLexerCh
+			p.lexer.line = prevLexerLine
+			p.lexer.column = prevLexerColumn
 		}
 	} else {
 		// Rollback: failed to parse as expression
 		p.curToken = prevCurToken
 		p.peekToken = prevPeekToken
 		p.errors = p.errors[:prevErrorCount]
+		// Restore lexer position
+		p.lexer.pos = prevLexerPos
+		p.lexer.readPos = prevLexerReadPos
+		p.lexer.ch = prevLexerCh
+		p.lexer.line = prevLexerLine
+		p.lexer.column = prevLexerColumn
 	}
 
 	if !isSingleCondition {
@@ -641,14 +718,17 @@ func (p *Parser) parseForStatement() *ForStatement {
 		// Parse init clause
 		if !p.curTokenIs(TokenSemicolon) {
 			initStmt := p.parseStatement()
+			stmt.Init = initStmt
+
+			// After parsing statement, advance to next token
+			p.nextToken()
+
 			// Consume semicolon after init clause
 			if p.curTokenIs(TokenSemicolon) {
 				// Statement left curToken on semicolon, consume it
-				stmt.Init = initStmt
 				p.nextToken()
 			} else if p.peekTokenIs(TokenSemicolon) {
 				// Semicolon is next token, consume it
-				stmt.Init = initStmt
 				p.nextToken()
 			} else {
 				// No semicolon: check if this is a single condition loop
@@ -792,22 +872,35 @@ func (p *Parser) parseDoWhileStatement() *DoWhileStatement {
 func (p *Parser) parseSwitchStatement() *SwitchStatement {
 	stmt := &SwitchStatement{Token: p.curToken}
 
-	if !p.expectPeek(TokenLeftParen) {
-		return nil
+	// Check if next token is '(' or '{' or expression
+	if p.peekTokenIs(TokenLeftParen) {
+		// With parentheses: switch (expr) { ... }
+		p.nextToken() // consume '('
+		p.nextToken() // move to expression
+		stmt.Expression = p.parseExpression(PrecedenceLowest)
+
+		if !p.expectPeek(TokenRightParen) {
+			return nil
+		}
+
+		if !p.expectPeek(TokenLeftBrace) {
+			return nil
+		}
+	} else if p.peekTokenIs(TokenLeftBrace) {
+		// Empty switch: switch { ... } (no expression)
+		// This is not typical, but we can support it
+		stmt.Expression = nil
+	} else {
+		// Without parentheses: switch expr { ... }
+		p.nextToken() // move to expression
+		stmt.Expression = p.parseExpression(PrecedenceLowest)
+
+		if !p.expectPeek(TokenLeftBrace) {
+			return nil
+		}
 	}
 
-	p.nextToken()
-	stmt.Expression = p.parseExpression(PrecedenceLowest)
-
-	if !p.expectPeek(TokenRightParen) {
-		return nil
-	}
-
-	if !p.expectPeek(TokenLeftBrace) {
-		return nil
-	}
-
-	p.nextToken()
+	p.nextToken() // move into the brace
 
 	for !p.curTokenIs(TokenRightBrace) && !p.curTokenIs(TokenEOF) {
 		if p.curTokenIs(TokenCase) {
@@ -849,9 +942,13 @@ func (p *Parser) parseCaseStatement() *CaseStatement {
 		return nil
 	}
 
+	// expectPeek advanced to ':' token, need to advance past it
 	p.nextToken()
 	// Case body must be a block statement enclosed in {}
 	stmt.Body = p.parseBlockStatement()
+
+	// Advance past the closing brace of the block
+	p.nextToken()
 
 	return stmt
 }
@@ -864,9 +961,13 @@ func (p *Parser) parseDefaultStatement() *DefaultStatement {
 		return nil
 	}
 
+	// expectPeek advanced to ':' token, need to advance past it
 	p.nextToken()
 	// Default body must be a block statement enclosed in {}
 	stmt.Body = p.parseBlockStatement()
+
+	// Advance past the closing brace of the block
+	p.nextToken()
 
 	return stmt
 }

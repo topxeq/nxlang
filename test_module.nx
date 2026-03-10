@@ -1,6 +1,0 @@
-// Test module that exports a function
-export func add(a, b) {
-    return a + b
-}
-
-export const pi = 3.14159

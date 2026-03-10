@@ -52,7 +52,6 @@ const (
 	OpNot    Opcode = 0x50 // Logical NOT: !a
 	OpAnd    Opcode = 0x51 // Logical AND: b && a (short-circuit)
 	OpOr     Opcode = 0x52 // Logical OR: b || a (short-circuit)
-	OpIsNil  Opcode = 0x53 // Check if value is nil: a == nil
 
 	// Control flow
 	OpJmp          Opcode = 0x60 // Unconditional jump: OpJmp <offset>
@@ -79,8 +78,6 @@ const (
 	OpTypeName     Opcode = 0x83 // Get type name of value
 	OpIsError      Opcode = 0x84 // Check if value is an error
 	OpThrow        Opcode = 0x85 // Throw an error
-	OpLen          Opcode = 0x86 // Get length of array/string/map
-	OpGetSuper     Opcode = 0x87 // Get superclass of an instance
 
 	// Exception handling
 	OpTry          Opcode = 0x90 // Start of try block: OpTry <catch_offset> <finally_offset>
@@ -91,6 +88,17 @@ const (
 	// Module system
 	OpImport       Opcode = 0xA0 // Import module: OpImport <path_const_index>
 	OpImportMember Opcode = 0xA1 // Import specific member: OpImportMember <module_const_index> <name_const_index>
+
+	// Class and Object operations
+	OpLen        Opcode = 0xB0 // Get length of string, array, map, etc.
+	OpIsNil      Opcode = 0xB1 // Check if value is nil or undefined
+	OpGetSuper   Opcode = 0xB2 // Get member from superclass: OpGetSuper <name_index>
+	OpGetSuper2  Opcode = 0xB8 // Get superclass with index: OpGetSuper2 <super_index>
+	OpNewClass   Opcode = 0xB3 // Create new class: OpNewClass <class_const_index>
+	OpNewInterface Opcode = 0xB4 // Create new interface: OpNewInterface <interface_const_index>
+	OpGetMethod  Opcode = 0xB5 // Get method from class/object: OpGetMethod <name_index>
+	OpSetMethod  Opcode = 0xB6 // Set method in class: OpSetMethod <name_index>
+	OpSuperCall  Opcode = 0xB7 // Call superclass method: OpSuperCall <name_index> <arg_count>
 )
 
 // OpcodeInfo contains metadata about an opcode
@@ -142,7 +150,6 @@ var OpcodeTable = map[Opcode]OpcodeInfo{
 	OpNot:          {"NOT", 0, 1, 1},
 	OpAnd:          {"AND", 0, 2, 1},
 	OpOr:           {"OR", 0, 2, 1},
-	OpIsNil:        {"IS_NIL", 0, 1, 1},
 
 	OpJmp:          {"JMP", 2, 0, 0}, // 2-byte offset
 	OpJmpIfTrue:    {"JMP_IF_TRUE", 2, 1, 0},
@@ -158,7 +165,7 @@ var OpcodeTable = map[Opcode]OpcodeInfo{
 	OpIndexSet:     {"INDEX_SET", 0, 3, 0}, // pops value, index and collection
 	OpMemberGet:    {"MEMBER_GET", 2, 1, 1}, // pops object, pushes value, 2-byte name index
 	OpMemberSet:    {"MEMBER_SET", 2, 2, 0}, // pops value and object, 2-byte name index
-	OpNewObject:    {"NEW_OBJECT", 3, 0, 1}, // 2-byte class index + 1-byte arg count
+	OpNewObject:    {"NEW_OBJECT", 1, 1, 1}, // 1-byte arg count, pops class from stack, pushes instance
 
 	OpPrint:        {"PRINT", 0, 1, 0},
 	OpPrintLine:    {"PRINT_LINE", 0, 1, 0},
@@ -166,8 +173,6 @@ var OpcodeTable = map[Opcode]OpcodeInfo{
 	OpTypeName:     {"TYPE_NAME", 0, 1, 1},
 	OpIsError:      {"IS_ERROR", 0, 1, 1},
 	OpThrow:        {"THROW", 0, 1, 0},
-	OpLen:          {"LEN", 0, 1, 1}, // Pops object, pushes length
-	OpGetSuper:     {"GET_SUPER", 0, 1, 1}, // Pops instance, pushes its superclass
 
 	// Exception handling
 	OpTry:          {"TRY", 4, 0, 0}, // 2-byte catch offset + 2-byte finally offset
@@ -178,4 +183,15 @@ var OpcodeTable = map[Opcode]OpcodeInfo{
 	// Module system
 	OpImport:       {"IMPORT", 2, 0, 1}, // 2-byte path constant index, pushes module object to stack
 	OpImportMember: {"IMPORT_MEMBER", 2, 1, 1}, // 2-byte name constant index, pops module, pushes member to stack
+
+	// Class and Object operations
+	OpLen:          {"LEN", 0, 1, 1}, // pops collection/string, pushes length
+	OpIsNil:        {"IS_NIL", 0, 1, 1}, // pops value, pushes boolean
+	OpGetSuper:     {"GET_SUPER", 2, 1, 1}, // pops super reference, pushes member value, 2-byte name index
+	OpGetSuper2:    {"GET_SUPER2", 2, 1, 1}, // pops instance, pushes super reference, 2-byte super index
+	OpNewClass:     {"NEW_CLASS", 2, 0, 1}, // 2-byte class constant index
+	OpNewInterface: {"NEW_INTERFACE", 2, 0, 1}, // 2-byte interface constant index
+	OpGetMethod:    {"GET_METHOD", 2, 1, 1}, // pops class/object, pushes method, 2-byte name index
+	OpSetMethod:    {"SET_METHOD", 2, 2, 0}, // pops method and class, 2-byte name index
+	OpSuperCall:    {"SUPER_CALL", 3, 1, 1}, // pops super reference and args, pushes result, 2-byte name index + 1-byte arg count
 }

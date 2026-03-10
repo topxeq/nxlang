@@ -1,0 +1,20 @@
+// Debug seq registration
+pln("=== Debug Seq Registration ===")
+
+// Check if seq function exists
+pln("typeOf(seq):", typeOf(seq))
+pln("typeName(seq):", typeName(seq))
+
+// Try calling seq with arguments
+var s1 = seq(1, 2, 3)
+pln("s1 := seq(1,2,3):", s1)
+pln("len(s1):", len(s1))
+
+// Try calling seq without arguments
+var s2 = seq()
+pln("s2 := seq():", s2)
+pln("len(s2):", len(s2))
+
+// Check if collection module has seq
+// import collection
+// pln("collection.seq:", collection.seq)

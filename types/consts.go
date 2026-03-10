@@ -23,9 +23,11 @@ const (
 	TypeNativeFunc= 0x22
 	TypeClass     = 0x30
 	TypeObject    = 0x31
-	TypeBoundMethod = 0x32
-	TypeSuperReference = 0x33
-	TypeInterface = 0x34
+	TypeInterface = 0x32
+	TypeBoundMethod = 0x33
+	TypeSuperReference = 0x34
+	TypeRef         = 0x35 // Object reference type
+	TypeObjectType  = 0x36 // Type object (for int, float, string etc. with static methods)
 	TypeError     = 0x40
 	TypeMutex     = 0x50
 	TypeRWMutex   = 0x51
@@ -59,9 +61,11 @@ var typeNames = map[uint8]string{
 	TypeNativeFunc: "nativeFunc",
 	TypeClass:     "class",
 	TypeObject:    "object",
+	TypeInterface: "interface",
 	TypeBoundMethod: "boundMethod",
 	TypeSuperReference: "superReference",
-	TypeInterface: "interface",
+	TypeRef:         "ref",
+	TypeObjectType:  "typeObject",
 	TypeError:     "error",
 	TypeMutex:     "mutex",
 	TypeRWMutex:   "rwMutex",

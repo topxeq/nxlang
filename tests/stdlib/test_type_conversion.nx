@@ -1,0 +1,25 @@
+// Test type conversion still works
+pln("=== Test Type Conversion ===")
+
+// Test int()
+pln("int(123):", int(123))
+pln("int(\"456\"):", int("456"))
+pln("int(3.14):", int(3.14))
+
+// Test float()
+pln("float(123):", float(123))
+pln("float(\"3.14\"):", float("3.14"))
+pln("float(100):", float(100))
+
+// Test string()
+pln("string(123):", string(123))
+pln("string(3.14):", string(3.14))
+pln("string(true):", string(true))
+
+// Test bool()
+pln("bool(1):", bool(1))
+pln("bool(0):", bool(0))
+pln("bool(\"hello\"):", bool("hello"))
+pln("bool(\"\"):", bool(""))
+
+pln("=== All Type Conversion Tests Completed ===")

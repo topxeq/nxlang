@@ -276,10 +276,11 @@ type ForStatement struct {
 	Body      *BlockStatement
 
 	// For...in specific fields
-	IsForIn   bool        // Whether this is a for...in loop
-	Key       *Identifier // Key variable for for...in
-	Value     *Identifier // Value variable for for...in (optional)
-	Iterate   Expression  // The expression to iterate over
+	IsForIn       bool        // Whether this is a for...in loop
+	IsNumericRange bool       // Whether iterating over a numeric range
+	Key           *Identifier // Key variable for for...in
+	Value         *Identifier // Value variable for for...in (optional)
+	Iterate       Expression  // The expression to iterate over
 }
 
 func (fs *ForStatement) statementNode()       {}

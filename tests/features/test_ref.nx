@@ -1,0 +1,81 @@
+// Test object reference and dereference
+pln("=== Test Object Reference ===")
+
+// Test 1: Basic ref and deref
+pln("\n--- Test 1: Basic ref/deref ---")
+var x = 100
+var r = ref(x)
+pln("Original x:", x)
+pln("Reference r:", r)
+pln("Dereferenced r:", deref(r))
+
+// Test 2: Set reference value
+pln("\n--- Test 2: Set reference value ---")
+setref(r, 200)
+pln("After setref(r, 200), x is still:", x)
+pln("After setref(r, 200), deref(r) is:", deref(r))
+
+// Test 3: Ref to array
+pln("\n--- Test 3: Ref to array ---")
+var arr = [1, 2, 3]
+var arrRef = ref(arr)
+pln("Original arr:", arr)
+pln("Dereferenced arrRef:", deref(arrRef))
+
+// Modify through reference
+setref(arrRef, [10, 20, 30])
+pln("After setref, arr is still:", arr)
+pln("After setref, deref(arrRef) is:", deref(arrRef))
+
+// Test 4: Ref to object
+pln("\n--- Test 4: Ref to object ---")
+class Point {
+    func init(x, y) {
+        this.x = x
+        this.y = y
+    }
+
+    func getX() {
+        return this.x
+    }
+
+    func getY() {
+        return this.y
+    }
+}
+
+var p = new Point(10, 20)
+var pRef = ref(p)
+pln("Original point:", p)
+pln("Point x via getX():", p.getX())
+pln("Point y via getY():", p.getY())
+
+// Test 5: Function that modifies through reference
+pln("\n--- Test 5: Function with ref ---")
+func modifyValue(r, newVal) {
+    setref(r, newVal)
+}
+
+var val = 50
+var valRef = ref(val)
+pln("Before modify - val:", val)
+modifyValue(valRef, 999)
+pln("After modify - val:", val)
+pln("After modify - deref(valRef):", deref(valRef))
+
+// Test 6: Multiple references to same value
+pln("\n--- Test 6: Multiple references ---")
+var num = 42
+var ref1 = ref(num)
+var ref2 = ref(num)
+pln("ref1:", deref(ref1))
+pln("ref2:", deref(ref2))
+
+setref(ref1, 100)
+pln("After setref(ref1, 100):")
+pln("ref1:", deref(ref1))
+pln("ref2:", deref(ref2))
+pln("num:", num)
+
+pln("\n=== All Reference Tests Completed ===")
+

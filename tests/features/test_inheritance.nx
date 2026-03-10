@@ -1,0 +1,33 @@
+// Simple inheritance test
+pln("=== Simple Inheritance Test ===")
+
+class Person {
+    func init(name, age) {
+        this.name = name
+        this.age = age
+    }
+
+    func greet() {
+        return "Hello, I'm " + this.name
+    }
+}
+
+class Employee : Person {
+    func init(name, age, department) {
+        super.init(name, age)
+        this.department = department
+    }
+
+    func getDepartment() {
+        return this.department
+    }
+}
+
+pln("Creating Employee...")
+var emp1 = new Employee("Bob", 30, "Engineering")
+pln("Created employee:", emp1)
+pln("Employee name:", emp1.name)
+pln("Employee age:", emp1.age)
+pln("Employee department:", emp1.getDepartment())
+
+pln("\n=== Test Passed ===")

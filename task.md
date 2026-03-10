@@ -4,7 +4,7 @@
 
 # 说明与要求
 
-- 本任务的工作目录是`D:\aiprjs\nx`，所有中间文件、临时文件、结果文件都在这个目录下创建，可以创建子目录；唯一的例外是，生成的Nxlang的代码要同步到 `D:\goprjs\src\github.com\topxeq\nxlang` 目录下，做好上传github的仓库的准备；
+- 本任务的工作目录是`/mnt1/aiprjs/nx`，所有中间文件、临时文件、结果文件都在这个目录下创建，可以创建子目录；唯一的例外是，生成的Nxlang的代码要同步到 `/root/goprjs/src/github.com/topxeq/nxlang` 目录下，做好上传github的仓库的准备；
 - Nxlang准备发布到github上，仓库地址为：https://github.com/topxeq/nxlang，要为上传代码到该仓库做各种准备，例如编写README.md文件、添加LICENSE文件、添加go.mod文件、添加go.sum文件等。所有文档和代码内注释均用英文编写；
 - Nxlang编写代码时要添加足够的注释，并符合Go语言一般的注释规范，包括函数说明、变量说明、类型说明、结构体说明、枚举说明等。
 - Nxlang要求能够跨平台运行，目前先支持Windows和Linux平台。

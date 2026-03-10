@@ -1,0 +1,34 @@
+// Test static methods on primitive types
+pln("=== Test Static Methods ===")
+
+// Test int.parse
+pln("\n--- Test int.parse ---")
+pln("int.parse(\"123\"):", int.parse("123"))
+pln("typeOf(int.parse(\"123\")):", typeOf(int.parse("123")))
+pln("int.parse(\"456\") + 100:", int.parse("456") + 100)
+
+// Test float.parse
+pln("\n--- Test float.parse ---")
+pln("float.parse(\"3.14\"):", float.parse("3.14"))
+pln("typeOf(float.parse(\"3.14\")):", typeOf(float.parse("3.14")))
+pln("float.parse(\"2.5\") * 2:", float.parse("2.5") * 2)
+
+// Test string.parse
+pln("\n--- Test string.parse ---")
+pln("string.parse(123):", string.parse(123))
+pln("typeOf(string.parse(123)):", typeOf(string.parse(123)))
+pln("string.parse(3.14):", string.parse(3.14))
+
+// Test error handling
+pln("\n--- Test error handling ---")
+pln("isErr(int.parse(\"abc\")):", isErr(int.parse("abc")))
+pln("isErr(float.parse(\"xyz\")):", isErr(float.parse("xyz")))
+
+// Test edge cases
+pln("\n--- Test edge cases ---")
+pln("int.parse(\"0\"):", int.parse("0"))
+pln("int.parse(\"-100\"):", int.parse("-100"))
+pln("float.parse(\"0.001\"):", float.parse("0.001"))
+pln("float.parse(\"-2.5\"):", float.parse("-2.5"))
+
+pln("\n=== All Static Methods Tests Completed ===")

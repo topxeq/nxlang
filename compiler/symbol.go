@@ -66,6 +66,13 @@ func (st *SymbolTable) DefineBuiltin(index int, name string) Symbol {
 	return symbol
 }
 
+// DefineConstant adds a constant symbol
+func (st *SymbolTable) DefineConstant(name string, value types.Object) Symbol {
+	symbol := Symbol{Name: name, Index: 0, Scope: ScopeBuiltin, Type: value}
+	st.store[name] = symbol
+	return symbol
+}
+
 // DefineFunctionName defines a function name symbol
 func (st *SymbolTable) DefineFunctionName(name string) Symbol {
 	symbol := Symbol{Name: name, Index: 0, Scope: ScopeFunction}

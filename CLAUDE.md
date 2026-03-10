@@ -82,7 +82,7 @@ The test suite must cover all functionality specified in `task.md`, including:
 - Error messages with line numbers and code context
 
 ## Target Repository Synchronization
-All source code must be synchronized to `D:/goprjs/src/github.com/topxeq/nxlang` for GitHub release preparation, including:
+All source code must be synchronized to `/root/goprjs/src/github.com/topxeq/nxlang` for GitHub release preparation, including:
 - `go.mod` and `go.sum` files
 - MIT LICENSE file
 - README.md with project description and usage examples

@@ -1,0 +1,102 @@
+// Test seq (self-growing sequence) type
+pln("=== Test Seq Type ===")
+
+// Test 1: Basic seq creation
+pln("\n--- Test 1: Create seq ---")
+var s1 = seq()
+pln("Empty seq:", s1, "len:", len(s1))
+
+var s2 = seq(1, 2, 3, 4, 5)
+pln("Seq with elements:", s2, "len:", len(s2))
+
+// Test 2: Auto-growing feature
+pln("\n--- Test 2: Auto-growing ---")
+var s3 = seq()
+s3[0] = 100
+s3[1] = 200
+s3[5] = 300  // Auto-grow
+pln("After setting indices 0, 1, 5:", s3)
+pln("Length now:", len(s3))
+
+// Test 3: Seq operations
+pln("\n--- Test 3: Seq operations ---")
+var s4 = seq(10, 20, 30)
+pln("Original s4:", s4)
+
+// Append
+s4.Append(40)
+pln("After Append(40):", s4)
+
+// Pop
+var popped = s4.Pop()
+pln("Popped value:", popped)
+pln("After Pop:", s4)
+
+// Test 4: Seq methods
+pln("\n--- Test 4: Seq methods ---")
+var s5 = seq(1, 2, 3, 4, 5)
+pln("Original s5:", s5)
+
+// Range
+var sub = s5.Range(1, 4)
+pln("Range(1, 4):", sub)
+
+// Reverse
+s5.Reverse()
+pln("After Reverse:", s5)
+
+// Join
+pln("Join with '-':", s5.Join("-"))
+
+// Test 5: Includes and IndexOf
+pln("\n--- Test 5: Includes and IndexOf ---")
+var colors = seq("red", "green", "blue", "yellow")
+pln("Colors:", colors)
+pln("Includes 'green':", colors.Includes("green"))
+pln("Includes 'purple':", colors.Includes("purple"))
+pln("IndexOf 'blue':", colors.IndexOf("blue"))
+pln("IndexOf 'purple':", colors.IndexOf("purple"))
+
+// Test 6: Fill and Resize
+pln("\n--- Test 6: Fill and Resize ---")
+var s6 = seq()
+s6.Fill(0, 5)  // Fill with 5 zeros
+pln("After Fill(0, 5):", s6)
+
+s6.Resize(3)
+pln("After Resize(3):", s6)
+
+s6.Resize(7)
+pln("After Resize(7):", s6)
+
+// Test 7: Seq as reference type
+pln("\n--- Test 7: Seq as reference type ---")
+var original = seq(1, 2, 3)
+var ref = ref(original)
+pln("Original:", original)
+pln("Ref:", ref)
+
+// Modify through deref
+var d = deref(ref)
+d[0] = 999
+pln("After modifying through deref:")
+pln("Original:", original)
+pln("Ref:", ref)
+
+// Test 8: Seq iteration (TODO: implement for...in for Seq type)
+// pln("\n--- Test 8: Seq iteration ---")
+// var iterSeq = seq("a", "b", "c", "d")
+// pln("Iterating with for...in:")
+// for i, v in iterSeq {
+//     pln("  ", i, ":", v)
+// }
+
+// Test 9: Seq.Get and Seq.Set methods
+pln("\n--- Test 9: Seq.Get and Seq.Set ---")
+var s7 = seq(10, 20, 30)
+pln("Original s7:", s7)
+pln("s7.Get(1):", s7.Get(1))
+s7.Set(1, 200)
+pln("After s7.Set(1, 200):", s7)
+
+pln("\n=== All Seq Tests Completed ===")

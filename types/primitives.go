@@ -251,6 +251,7 @@ type Class struct {
 	SuperClass *Class
 	Methods    map[string]*Function // Map of method name to function
 	StaticFields map[string]Object // Static properties of the class
+	StaticMethods map[string]*Function // Map of static method name to function
 }
 
 func (c *Class) TypeCode() uint8          { return TypeClass }
@@ -306,4 +307,56 @@ func (sr *SuperReference) ToStr() string             { return fmt.Sprintf("[supe
 func (sr *SuperReference) Equals(other Object) bool {
 	otherSR, ok := other.(*SuperReference)
 	return ok && sr.Instance == otherSR.Instance && sr.Super == otherSR.Super
+}
+
+// Ref represents a reference to any Nxlang object, allowing indirect modification
+type Ref struct {
+	Value Object  // The value held by this reference (exported for VM access)
+}
+
+func (r *Ref) TypeCode() uint8          { return TypeRef }
+func (r *Ref) TypeName() string          { return "ref" }
+func (r *Ref) ToStr() string             { return fmt.Sprintf("[ref to %v]", r.Value) }
+func (r *Ref) Equals(other Object) bool {
+	otherRef, ok := other.(*Ref)
+	if !ok {
+		return false
+	}
+	return r.Value == otherRef.Value
+}
+
+// Get returns the value held by this reference
+func (r *Ref) Get() Object {
+	return r.Value
+}
+
+// Set sets the value held by this reference
+func (r *Ref) Set(val Object) {
+	r.Value = val
+}
+
+// TypeWrapper represents a type with static methods (e.g., int, float, string)
+// It can be called as a function (for type conversion) and have static methods accessed
+type TypeWrapper struct {
+	Name          string                            // Type name (e.g., "int", "float")
+	ConvertFn     func(args ...Object) Object       // Conversion function when called as type(x)
+	StaticMethods map[string]*NativeFunction        // Static methods accessible via type.method()
+}
+
+func (t *TypeWrapper) TypeCode() uint8          { return TypeObjectType }
+func (t *TypeWrapper) TypeName() string          { return "typeObject" }
+func (t *TypeWrapper) ToStr() string             { return fmt.Sprintf("[type %s]", t.Name) }
+func (t *TypeWrapper) Equals(other Object) bool { return t == other }
+
+// Call invokes the type conversion function
+func (t *TypeWrapper) Call(args ...Object) Object {
+	if t.ConvertFn == nil {
+		return NewError("type object is not callable", 0, 0, "")
+	}
+	return t.ConvertFn(args...)
+}
+
+// NewRef creates a new reference to a value
+func NewRef(val Object) *Ref {
+	return &Ref{Value: val}
 }

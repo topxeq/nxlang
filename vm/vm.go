@@ -1,19 +1,33 @@
 package vm
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"math"
+	"math/rand"
+	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/topxeq/nxlang/bytecode"
 	"github.com/topxeq/nxlang/compiler"
+	"github.com/topxeq/nxlang/data"
+	"github.com/topxeq/nxlang/graphics"
 	"github.com/topxeq/nxlang/parser"
+	"github.com/topxeq/nxlang/plugin"
 	"github.com/topxeq/nxlang/types"
 	"github.com/topxeq/nxlang/types/collections"
+	"github.com/topxeq/nxlang/types/concurrency"
 )
+
+// threadWaitGroup tracks all running threads
+var threadWaitGroup sync.WaitGroup
 
 // TryFrame represents an active try/catch/finally block
 type TryFrame struct {
@@ -44,6 +58,7 @@ type VM struct {
 	frames    []*Frame
 	framePointer int // Current frame index
 	globals   map[string]types.Object
+	globalsMu *sync.RWMutex // Mutex for protecting globals access (nil for isolated VMs)
 	lastError *types.Error
 
 	// Constant value cache to avoid duplicate instances
@@ -57,6 +72,9 @@ type VM struct {
 	// Module system support
 	modules      map[string]*Module // Cache of loaded modules
 	modulePaths  []string // Search paths for modules
+
+	// Plugin system support
+	pluginLoader *plugin.PluginLoader // Plugin loader for Go-based plugins
 }
 
 
@@ -76,10 +94,12 @@ func NewVM(bc *bytecode.Bytecode) *VM {
 		framePointer: 1, // 0 is reserved for main, starts at 1 so we can push frames
 		globals:   make(map[string]types.Object),
 		functionCache: make(map[int]*types.Function),
+		classCache:    make(map[int]*types.Class),
 		tryStack:  []*TryFrame{},
 		deferStack: make([][]*DeferredCall, MaxCallStackDepth),
 		modules:   make(map[string]*Module),
 		modulePaths: []string{".", "./nx_modules", "/usr/local/nx/modules"}, // Default module search paths
+		pluginLoader: plugin.NewPluginLoader(), // Initialize plugin loader
 	}
 
 	// Register built-in functions
@@ -96,6 +116,30 @@ func (vm *VM) Globals() map[string]types.Object {
 	return vm.globals
 }
 
+// Constants returns the constant pool
+func (vm *VM) Constants() []bytecode.Constant {
+	return vm.constants
+}
+
+// Stack returns the operand stack
+func (vm *VM) Stack() *Stack {
+	return vm.stack
+}
+
+// CopyGlobals returns a copy of the global variables map
+func (vm *VM) CopyGlobals() map[string]types.Object {
+	copy := make(map[string]types.Object, len(vm.globals))
+	for k, v := range vm.globals {
+		copy[k] = v
+	}
+	return copy
+}
+
+// SetGlobals sets the global variables map
+func (vm *VM) SetGlobals(globals map[string]types.Object) {
+	vm.globals = globals
+}
+
 // SetArgs sets the command-line arguments for the script
 func (vm *VM) SetArgs(args []string) {
 	// Create array of string objects
@@ -108,10 +152,6 @@ func (vm *VM) SetArgs(args []string) {
 
 // registerBuiltins registers all built-in functions in the global scope
 func (vm *VM) registerBuiltins() {
-	// Base type constants
-	vm.globals["undefined"] = types.UndefinedValue
-	vm.globals["null"] = types.NullValue
-
 	vm.globals["pln"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			for _, arg := range args {
@@ -133,127 +173,6 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
-	// Type system builtins
-	vm.globals["toStr"] = &types.NativeFunction{
-		Fn: func(args ...types.Object) types.Object {
-			if len(args) == 0 {
-				return types.NewError("toStr() expects 1 argument, got 0", 0, 0, "")
-			}
-			return types.ToStr(args[0])
-		},
-	}
-
-	vm.globals["typeCode"] = &types.NativeFunction{
-		Fn: func(args ...types.Object) types.Object {
-			if len(args) == 0 {
-				return types.NewError("typeCode() expects 1 argument, got 0", 0, 0, "")
-			}
-			return types.TypeCode(args[0])
-		},
-	}
-
-	vm.globals["typeName"] = &types.NativeFunction{
-		Fn: func(args ...types.Object) types.Object {
-			if len(args) == 0 {
-				return types.NewError("typeName() expects 1 argument, got 0", 0, 0, "")
-			}
-			return types.TypeName(args[0])
-		},
-	}
-
-	vm.globals["isErr"] = &types.NativeFunction{
-		Fn: func(args ...types.Object) types.Object {
-			if len(args) == 0 {
-				return types.NewError("isErr() expects 1 argument, got 0", 0, 0, "")
-			}
-			return types.Bool(types.IsErr(args[0]))
-		},
-	}
-
-	// Type conversion builtins
-	vm.globals["int"] = &types.NativeFunction{
-		Fn: func(args ...types.Object) types.Object {
-			if len(args) == 0 {
-				return types.NewError("int() expects 1 argument, got 0", 0, 0, "")
-			}
-			val, err := types.ToInt(args[0])
-			if err != nil {
-				return err
-			}
-			return val
-		},
-	}
-
-	vm.globals["uint"] = &types.NativeFunction{
-		Fn: func(args ...types.Object) types.Object {
-			if len(args) == 0 {
-				return types.NewError("uint() expects 1 argument, got 0", 0, 0, "")
-			}
-			val, err := types.ToInt(args[0])
-			if err != nil {
-				return err
-			}
-			return types.UInt(val)
-		},
-	}
-
-	vm.globals["byte"] = &types.NativeFunction{
-		Fn: func(args ...types.Object) types.Object {
-			if len(args) == 0 {
-				return types.NewError("byte() expects 1 argument, got 0", 0, 0, "")
-			}
-			val, err := types.ToByte(args[0])
-			if err != nil {
-				return err
-			}
-			return val
-		},
-	}
-
-	vm.globals["char"] = &types.NativeFunction{
-		Fn: func(args ...types.Object) types.Object {
-			if len(args) == 0 {
-				return types.NewError("char() expects 1 argument, got 0", 0, 0, "")
-			}
-			val, err := types.ToChar(args[0])
-			if err != nil {
-				return err
-			}
-			return val
-		},
-	}
-
-	vm.globals["float"] = &types.NativeFunction{
-		Fn: func(args ...types.Object) types.Object {
-			if len(args) == 0 {
-				return types.NewError("float() expects 1 argument, got 0", 0, 0, "")
-			}
-			val, err := types.ToFloat(args[0])
-			if err != nil {
-				return err
-			}
-			return val
-		},
-	}
-
-	vm.globals["bool"] = &types.NativeFunction{
-		Fn: func(args ...types.Object) types.Object {
-			if len(args) == 0 {
-				return types.NewError("bool() expects 1 argument, got 0", 0, 0, "")
-			}
-			return types.Bool(types.ToBool(args[0]))
-		},
-	}
-
-	vm.globals["string"] = &types.NativeFunction{
-		Fn: func(args ...types.Object) types.Object {
-			if len(args) == 0 {
-				return types.NewError("string() expects 1 argument, got 0", 0, 0, "")
-			}
-			return types.ToString(args[0])
-		},
-	}
-
 	vm.globals["len"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) == 0 {
@@ -262,6 +181,8 @@ func (vm *VM) registerBuiltins() {
 			val := args[0]
 			switch v := val.(type) {
 			case *collections.Array:
+				return types.Int(v.Len())
+			case *collections.Seq:
 				return types.Int(v.Len())
 			case *collections.Map:
 				return types.Int(v.Len())
@@ -280,15 +201,25 @@ func (vm *VM) registerBuiltins() {
 			if len(args) < 2 {
 				return types.NewError(fmt.Sprintf("append() expects at least 2 arguments, got %d", len(args)), 0, 0, "")
 			}
+			// Support Array
 			arr, ok := args[0].(*collections.Array)
-			if !ok {
-				return types.NewError("first argument to append() must be an array", 0, 0, "")
+			if ok {
+				// Append all elements
+				for _, elem := range args[1:] {
+					arr.Append(elem)
+				}
+				return arr
 			}
-			// Append all elements
-			for _, elem := range args[1:] {
-				arr.Append(elem)
+			// Support Seq
+			seq, ok := args[0].(*collections.Seq)
+			if ok {
+				// Append all elements
+				for _, elem := range args[1:] {
+					seq.Append(elem)
+				}
+				return seq
 			}
-			return arr
+			return types.NewError("first argument to append() must be an array or seq", 0, 0, "")
 		},
 	}
 
@@ -636,6 +567,63 @@ func (vm *VM) registerBuiltins() {
 
 	// 解析时间字符串为时间戳（秒）
 	// parseTime(timeStr, format) - format是Go风格格式，默认"2006-01-02 15:04:05"
+	// now() - returns current time as Unix timestamp
+	vm.globals["now"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().Unix())
+		},
+	}
+
+	// unix() - returns current Unix timestamp
+	vm.globals["unix"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().Unix())
+		},
+	}
+
+	// unixMilli() - returns current Unix timestamp in milliseconds
+	vm.globals["unixMilli"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().UnixMilli())
+		},
+	}
+
+	vm.globals["formatTime"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			var ts int64
+			var format string
+
+			if len(args) == 0 {
+				ts = time.Now().Unix()
+				format = "2006-01-02 15:04:05"
+			} else if len(args) == 1 {
+				tsArg := args[0]
+				if i, ok := tsArg.(types.Int); ok {
+					ts = int64(i)
+				} else if f, ok := tsArg.(types.Float); ok {
+					ts = int64(f)
+				} else {
+					return types.NewError("first argument must be an integer timestamp", 0, 0, "")
+				}
+				format = "2006-01-02 15:04:05"
+			} else {
+				tsArg := args[0]
+				if i, ok := tsArg.(types.Int); ok {
+					ts = int64(i)
+				} else if f, ok := tsArg.(types.Float); ok {
+					ts = int64(f)
+				} else {
+					return types.NewError("first argument must be an integer timestamp", 0, 0, "")
+				}
+				format = string(types.ToString(args[1]))
+			}
+
+			t := time.Unix(ts, 0)
+			return types.String(t.Format(format))
+		},
+	}
+
+	// parseTime - parse time string to timestamp
 	vm.globals["parseTime"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 1 {
@@ -654,7 +642,7 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
-	// 睡眠指定秒数
+	// sleep - sleep for specified seconds
 	vm.globals["sleep"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 1 {
@@ -716,10 +704,1184 @@ func (vm *VM) registerBuiltins() {
 			if len(args) == 0 {
 				return types.Bool(false)
 			}
-			_, ok := args[0].(*types.Error)
-			return types.Bool(ok)
+			// Check if it's an Error type
+			if _, ok := args[0].(*types.Error); ok {
+				return types.Bool(true)
+			}
+			// Check if it's undefined or null
+			if args[0] == types.UndefinedValue || args[0] == types.NullValue {
+				return types.Bool(true)
+			}
+			// Check if it's a string starting with "TXERROR:"
+			if s, ok := args[0].(types.String); ok {
+				return types.Bool(strings.HasPrefix(string(s), "TXERROR:"))
+			}
+			return types.Bool(false)
 		},
 	}
+
+	// typeOf - returns the type name of a value
+	vm.globals["typeOf"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.String("undefined")
+			}
+			return types.String(args[0].TypeName())
+		},
+	}
+
+	// int - type object with conversion and static methods
+	vm.globals["int"] = &types.TypeWrapper{
+		Name: "int",
+		ConvertFn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Int(0)
+			}
+			result, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			return result
+		},
+		StaticMethods: map[string]*types.NativeFunction{
+			"parse": {
+				Fn: func(args ...types.Object) types.Object {
+					if len(args) == 0 {
+						return types.NewError("int.parse() expects 1 argument", 0, 0, "")
+					}
+					val, err := types.ToInt(args[0])
+					if err != nil {
+						return err
+					}
+					return val
+				},
+			},
+			"Parse": { // Alias for case insensitivity
+				Fn: func(args ...types.Object) types.Object {
+					if len(args) == 0 {
+						return types.NewError("int.Parse() expects 1 argument", 0, 0, "")
+					}
+					val, err := types.ToInt(args[0])
+					if err != nil {
+						return err
+					}
+					return val
+				},
+			},
+		},
+	}
+
+	// float - type object with conversion and static methods
+	vm.globals["float"] = &types.TypeWrapper{
+		Name: "float",
+		ConvertFn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Float(0)
+			}
+			result, err := types.ToFloat(args[0])
+			if err != nil {
+				return err
+			}
+			return result
+		},
+		StaticMethods: map[string]*types.NativeFunction{
+			"parse": {
+				Fn: func(args ...types.Object) types.Object {
+					if len(args) == 0 {
+						return types.NewError("float.parse() expects 1 argument", 0, 0, "")
+					}
+					val, err := types.ToFloat(args[0])
+					if err != nil {
+						return err
+					}
+					return val
+				},
+			},
+			"Parse": { // Alias
+				Fn: func(args ...types.Object) types.Object {
+					if len(args) == 0 {
+						return types.NewError("float.Parse() expects 1 argument", 0, 0, "")
+					}
+					val, err := types.ToFloat(args[0])
+					if err != nil {
+						return err
+					}
+					return val
+				},
+			},
+		},
+	}
+
+	// bool - type object with conversion and static methods
+	vm.globals["bool"] = &types.TypeWrapper{
+		Name: "bool",
+		ConvertFn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Bool(false)
+			}
+			return types.Bool(types.ToBool(args[0]))
+		},
+		StaticMethods: map[string]*types.NativeFunction{
+			"parse": {
+				Fn: func(args ...types.Object) types.Object {
+					if len(args) == 0 {
+						return types.NewError("bool.parse() expects 1 argument", 0, 0, "")
+					}
+					return types.Bool(types.ToBool(args[0]))
+				},
+			},
+		},
+	}
+
+	// string - type object with conversion and static methods
+	vm.globals["string"] = &types.TypeWrapper{
+		Name: "string",
+		ConvertFn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.String("")
+			}
+			return types.ToString(args[0])
+		},
+		StaticMethods: map[string]*types.NativeFunction{
+			"parse": {
+				Fn: func(args ...types.Object) types.Object {
+					if len(args) == 0 {
+						return types.NewError("string.parse() expects 1 argument", 0, 0, "")
+					}
+					return types.ToString(args[0])
+				},
+			},
+			"Parse": { // Alias
+				Fn: func(args ...types.Object) types.Object {
+					if len(args) == 0 {
+						return types.NewError("string.Parse() expects 1 argument", 0, 0, "")
+					}
+					return types.ToString(args[0])
+				},
+			},
+		},
+	}
+
+	// byte - type object with conversion
+	vm.globals["byte"] = &types.TypeWrapper{
+		Name: "byte",
+		ConvertFn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Byte(0)
+			}
+			result, err := types.ToByte(args[0])
+			if err != nil {
+				return err
+			}
+			return result
+		},
+		StaticMethods: map[string]*types.NativeFunction{},
+	}
+
+	// uint - type object with conversion
+	vm.globals["uint"] = &types.TypeWrapper{
+		Name: "uint",
+		ConvertFn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.UInt(0)
+			}
+			result, err := types.ToUint(args[0])
+			if err != nil {
+				return err
+			}
+			return result
+		},
+		StaticMethods: map[string]*types.NativeFunction{},
+	}
+
+	// char - type object with conversion
+	vm.globals["char"] = &types.TypeWrapper{
+		Name: "char",
+		ConvertFn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Char(0)
+			}
+			result, err := types.ToChar(args[0])
+			if err != nil {
+				return err
+			}
+			return result
+		},
+		StaticMethods: map[string]*types.NativeFunction{},
+	}
+
+	// bytes - convert string to byte array
+	vm.globals["bytes"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return collections.NewArray()
+			}
+			s := types.ToString(args[0])
+			byteSlice := []byte(string(s))
+			elements := make([]types.Object, len(byteSlice))
+			for i, b := range byteSlice {
+				elements[i] = types.Byte(b)
+			}
+			return collections.NewArrayWithElements(elements)
+		},
+	}
+
+	// chars - convert string to char array
+	vm.globals["chars"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return collections.NewArray()
+			}
+			s := types.ToString(args[0])
+			runes := []rune(string(s))
+			elements := make([]types.Object, len(runes))
+			for i, r := range runes {
+				elements[i] = types.Char(r)
+			}
+			return collections.NewArrayWithElements(elements)
+		},
+	}
+
+	// toStr - alias for string
+	vm.globals["toStr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.String("")
+			}
+			return types.ToString(args[0])
+		},
+	}
+
+	// Predefined constants
+	vm.globals["undefined"] = types.UndefinedValue
+	vm.globals["null"] = types.NullValue
+	vm.globals["nil"] = types.NullValue
+
+	// Mathematical constants
+	vm.globals["piC"] = types.Float(3.141592653589793)
+	vm.globals["eC"] = types.Float(2.718281828459045)
+
+	// Thread/concurrency functions
+	vm.globals["thread"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.UndefinedValue
+			}
+			fn, ok := args[0].(*types.Function)
+			if !ok {
+				return types.NewError("first argument to thread must be a function", 0, 0, "")
+			}
+
+			// Get remaining args (function arguments)
+			threadArgs := args[1:]
+
+			// Check if shared mode is requested (last arg is "shared" string)
+			sharedMode := false
+			if len(threadArgs) > 0 {
+				if str, ok := threadArgs[len(threadArgs)-1].(types.String); ok && string(str) == "shared" {
+					sharedMode = true
+					threadArgs = threadArgs[:len(threadArgs)-1]
+				}
+			}
+
+			// Get current VM reference
+			parentVM := vm
+
+			// Capture sharedMode and threadArgs for the goroutine
+			sharedModeForClosure := sharedMode
+			threadArgsForClosure := threadArgs
+
+			// Add to wait group
+			threadWaitGroup.Add(1)
+
+			// Start goroutine
+			go func() {
+				defer func() {
+					threadWaitGroup.Done()
+					if r := recover(); r != nil {
+						fmt.Printf("[thread:%s] panic recovered: %v\n", fn.Name, r)
+					}
+				}()
+
+				// Give the goroutine a chance to run
+				runtime.Gosched()
+
+				if sharedModeForClosure {
+					// Shared mode: share globals with parent VM
+					sharedVM := parentVM.NewVMWithSharedGlobals(parentVM)
+					err := sharedVM.RunFunctionShared(fn, threadArgsForClosure)
+					if err != nil {
+						fmt.Printf("[thread:%s] error: %v\n", fn.Name, err)
+					}
+				} else {
+					// Isolated mode: create new VM with copied globals
+					err := RunFunctionInNewVM(fn, threadArgsForClosure, parentVM)
+					if err != nil {
+						fmt.Printf("[thread:%s] error: %v\n", fn.Name, err)
+					}
+				}
+			}()
+
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["mutex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return concurrency.NewMutex()
+		},
+	}
+
+	vm.globals["rwMutex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return concurrency.NewRWMutex()
+		},
+	}
+
+	vm.globals["waitForThreads"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			threadWaitGroup.Wait()
+			return types.UndefinedValue
+		},
+	}
+
+	// compile - compile source code to bytecode
+	vm.globals["compile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("compile() expects at least 1 argument (source code)", 0, 0, "")
+			}
+			source, ok := args[0].(types.String)
+			if !ok {
+				return types.NewError("compile() expects a string as source code", 0, 0, "")
+			}
+
+			// Parse the source code
+			lexer := parser.NewLexer(string(source))
+			p := parser.NewParser(lexer)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				errMsg := "parsing errors:\n"
+				for _, err := range p.Errors() {
+					errMsg += fmt.Sprintf("  %s\n", err)
+				}
+				return types.NewError(errMsg, 0, 0, "")
+			}
+
+			// Compile to bytecode
+			comp := compiler.NewCompiler()
+			if err := comp.Compile(program); err != nil {
+				return types.NewError(fmt.Sprintf("compilation error: %v", err), 0, 0, "")
+			}
+
+			bc := comp.Bytecode()
+
+			// Serialize bytecode to bytes
+			writer := bytecode.NewWriter()
+			if err := writer.Write(bc); err != nil {
+				return types.NewError(fmt.Sprintf("serialization error: %v", err), 0, 0, "")
+			}
+
+			// Return bytecode as bytes object
+			return types.String(writer.Bytes())
+		},
+	}
+
+	// runByteCode - run bytecode with optional arguments
+	vm.globals["runByteCode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("runByteCode() expects at least 1 argument (bytecode)", 0, 0, "")
+			}
+			bytecodeBytes, ok := args[0].(types.String)
+			if !ok {
+				return types.NewError("runByteCode() expects bytecode as first argument (string/bytes)", 0, 0, "")
+			}
+
+			// Deserialize bytecode
+			reader := bytecode.NewReaderFromBytes([]byte(bytecodeBytes))
+			bc, err := reader.Read()
+			if err != nil {
+				return types.NewError(fmt.Sprintf("failed to read bytecode: %v", err), 0, 0, "")
+			}
+
+			// Create new VM and run
+			childVM := NewVM(bc)
+
+			// Pass additional arguments if any
+			if len(args) > 1 {
+				// Set args global for the child VM
+				argArray := collections.NewArray()
+				for _, arg := range args[1:] {
+					argArray.Append(arg)
+				}
+				childVM.globals["args"] = argArray
+			}
+
+			if err := childVM.Run(); err != nil {
+				return types.NewError(fmt.Sprintf("runtime error: %v", err), 0, 0, "")
+			}
+
+			// Return the result from stack if available
+			if childVM.Stack().Size() > 0 {
+				return childVM.Stack().Peek()
+			}
+			return types.UndefinedValue
+		},
+	}
+
+	// runCode - run source code in current VM context
+	vm.globals["runCode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("runCode() expects at least 1 argument (source code)", 0, 0, "")
+			}
+			source, ok := args[0].(types.String)
+			if !ok {
+				return types.NewError("runCode() expects a string as source code", 0, 0, "")
+			}
+
+			// Set up args array before compilation if additional arguments provided
+			if len(args) > 1 {
+				argArray := collections.NewArray()
+				for _, arg := range args[1:] {
+					argArray.Append(arg)
+				}
+				// Temporarily set args in globals for compilation
+				vm.globals["args"] = argArray
+			}
+
+			// Parse the source code
+			lexer := parser.NewLexer(string(source))
+			p := parser.NewParser(lexer)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				// Clean up args if we set it
+				if len(args) > 1 {
+					delete(vm.globals, "args")
+				}
+				errMsg := "parsing errors:\n"
+				for _, err := range p.Errors() {
+					errMsg += fmt.Sprintf("  %s\n", err)
+				}
+				return types.NewError(errMsg, 0, 0, "")
+			}
+
+			// Compile to bytecode
+			comp := compiler.NewCompiler()
+			if err := comp.Compile(program); err != nil {
+				// Clean up args if we set it
+				if len(args) > 1 {
+					delete(vm.globals, "args")
+				}
+				return types.NewError(fmt.Sprintf("compilation error: %v", err), 0, 0, "")
+			}
+
+			bc := comp.Bytecode()
+
+			// Get main function
+			mainFunc := bc.Constants[bc.MainFunc].(*bytecode.FunctionConstant)
+
+			// Create a minimal VM that shares our globals
+			codeVM := &VM{
+				constants:     bc.Constants,
+				stack:         NewStack(),
+				frames:        make([]*Frame, MaxCallStackDepth),
+				framePointer:  1,
+				globals:       vm.globals, // Share current VM's globals
+				globalsMu:     vm.globalsMu, // Share mutex if present
+				functionCache: vm.functionCache,
+				classCache:    vm.classCache,
+				tryStack:      []*TryFrame{},
+				deferStack:    make([][]*DeferredCall, MaxCallStackDepth),
+				modules:       vm.modules,
+				modulePaths:   vm.modulePaths,
+			}
+			// Initialize first frame with main function
+			codeVM.frames[0] = NewFrame(mainFunc, 0)
+
+			if err := codeVM.Run(); err != nil {
+				return types.NewError(fmt.Sprintf("runtime error: %v", err), 0, 0, "")
+			}
+
+			// Return the result from stack if available
+			if codeVM.Stack().Size() > 0 {
+				return codeVM.Stack().Peek()
+			}
+			return types.UndefinedValue
+		},
+	}
+
+	// addMethod - add a method to a class/type
+	vm.globals["addMethod"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("addMethod() expects at least 3 arguments (className, methodName, methodFn)", 0, 0, "")
+			}
+			className, ok := args[0].(types.String)
+			if !ok {
+				return types.NewError("addMethod(): first argument must be a string (class name)", 0, 0, "")
+			}
+			methodName, ok := args[1].(types.String)
+			if !ok {
+				return types.NewError("addMethod(): second argument must be a string (method name)", 0, 0, "")
+			}
+			methodFn, ok := args[2].(*types.Function)
+			if !ok {
+				return types.NewError("addMethod(): third argument must be a function", 0, 0, "")
+			}
+
+			// Look up the class in globals
+			classObj, found := vm.globals[string(className)]
+			if !found {
+				return types.NewError(fmt.Sprintf("addMethod(): class '%s' not found", string(className)), 0, 0, "")
+			}
+
+			class, ok := classObj.(*types.Class)
+			if !ok {
+				return types.NewError(fmt.Sprintf("addMethod(): '%s' is not a class", string(className)), 0, 0, "")
+			}
+
+			// Add method to the class
+			class.Methods[string(methodName)] = methodFn
+
+			return types.UndefinedValue
+		},
+	}
+
+	// addMember - add a static member to a class
+	vm.globals["addMember"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("addMember() expects at least 3 arguments (className, memberName, memberValue)", 0, 0, "")
+			}
+			className, ok := args[0].(types.String)
+			if !ok {
+				return types.NewError("addMember(): first argument must be a string (class name)", 0, 0, "")
+			}
+			memberName, ok := args[1].(types.String)
+			if !ok {
+				return types.NewError("addMember(): second argument must be a string (member name)", 0, 0, "")
+			}
+			memberValue := args[2]
+
+			// Look up the class in globals
+			classObj, found := vm.globals[string(className)]
+			if !found {
+				return types.NewError(fmt.Sprintf("addMember(): class '%s' not found", string(className)), 0, 0, "")
+			}
+
+			class, ok := classObj.(*types.Class)
+			if !ok {
+				return types.NewError(fmt.Sprintf("addMember(): '%s' is not a class", string(className)), 0, 0, "")
+			}
+
+			// Initialize StaticFields if nil
+			if class.StaticFields == nil {
+				class.StaticFields = make(map[string]types.Object)
+			}
+
+			// Add static member to the class
+			class.StaticFields[string(memberName)] = memberValue
+
+			return types.UndefinedValue
+		},
+	}
+
+	// ref - create a new reference to a value
+	vm.globals["ref"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) != 1 {
+				return types.NewError("ref() expects 1 argument", 0, 0, "")
+			}
+			return types.NewRef(args[0])
+		},
+	}
+
+	// deref - get the value from a reference
+	vm.globals["deref"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) != 1 {
+				return types.NewError("deref() expects 1 argument", 0, 0, "")
+			}
+			ref, ok := args[0].(*types.Ref)
+			if !ok {
+				return types.NewError("deref() argument must be a reference", 0, 0, "")
+			}
+			return ref.Get()
+		},
+	}
+
+	// setref - set the value of a reference
+	vm.globals["setref"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) != 2 {
+				return types.NewError("setref() expects 2 arguments (ref, value)", 0, 0, "")
+			}
+			ref, ok := args[0].(*types.Ref)
+			if !ok {
+				return types.NewError("setref() first argument must be a reference", 0, 0, "")
+			}
+			ref.Set(args[1])
+			return types.UndefinedValue
+		},
+	}
+
+	// Collection functions
+	// array - creates a new array with given elements
+	vm.globals["array"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			arr := collections.NewArray()
+			for _, arg := range args {
+				arr.Append(arg)
+			}
+			return arr
+		},
+	}
+
+	// map - creates a new map with key-value pairs
+	vm.globals["map"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			m := collections.NewMap()
+			for i := 0; i < len(args); i += 2 {
+				if i+1 >= len(args) {
+					break
+				}
+				key := types.ToString(args[i])
+				m.Set(string(key), args[i+1])
+			}
+			return m
+		},
+	}
+
+	// stack - creates a new stack with given elements
+	vm.globals["stack"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			s := collections.NewStack()
+			for _, arg := range args {
+				s.Push(arg)
+			}
+			return s
+		},
+	}
+
+	// queue - creates a new queue with given elements
+	vm.globals["queue"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			q := collections.NewQueue()
+			for _, arg := range args {
+				q.Enqueue(arg)
+			}
+			return q
+		},
+	}
+
+	// seq - creates a new sequence with given elements
+	vm.globals["seq"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			s := collections.NewSeq()
+			for _, arg := range args {
+				s.Append(arg)
+			}
+			return s
+		},
+	}
+
+	// Math functions
+	vm.globals["abs"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Float(0)
+			}
+			f, err := types.ToFloat(args[0])
+			if err != nil {
+				return err
+			}
+			return types.Float(math.Abs(float64(f)))
+		},
+	}
+
+	vm.globals["sqrt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Float(0)
+			}
+			f, err := types.ToFloat(args[0])
+			if err != nil {
+				return err
+			}
+			return types.Float(math.Sqrt(float64(f)))
+		},
+	}
+
+	vm.globals["sin"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Float(0)
+			}
+			f, err := types.ToFloat(args[0])
+			if err != nil {
+				return err
+			}
+			return types.Float(math.Sin(float64(f)))
+		},
+	}
+
+	vm.globals["cos"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Float(0)
+			}
+			f, err := types.ToFloat(args[0])
+			if err != nil {
+				return err
+			}
+			return types.Float(math.Cos(float64(f)))
+		},
+	}
+
+	vm.globals["tan"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Float(0)
+			}
+			f, err := types.ToFloat(args[0])
+			if err != nil {
+				return err
+			}
+			return types.Float(math.Tan(float64(f)))
+		},
+	}
+
+	vm.globals["floor"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Float(0)
+			}
+			f, err := types.ToFloat(args[0])
+			if err != nil {
+				return err
+			}
+			return types.Float(math.Floor(float64(f)))
+		},
+	}
+
+	vm.globals["ceil"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Float(0)
+			}
+			f, err := types.ToFloat(args[0])
+			if err != nil {
+				return err
+			}
+			return types.Float(math.Ceil(float64(f)))
+		},
+	}
+
+	vm.globals["round"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Float(0)
+			}
+			f, err := types.ToFloat(args[0])
+			if err != nil {
+				return err
+			}
+			return types.Float(math.Round(float64(f)))
+		},
+	}
+
+	vm.globals["pow"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.Float(0)
+			}
+			base, err := types.ToFloat(args[0])
+			if err != nil {
+				return err
+			}
+			exp, err := types.ToFloat(args[1])
+			if err != nil {
+				return err
+			}
+			return types.Float(math.Pow(float64(base), float64(exp)))
+		},
+	}
+
+	vm.globals["random"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Float(rand.Float64())
+		},
+	}
+
+	// Graphics/Canvas functions
+	vm.globals["canvas"] = &types.NativeFunction{
+		Fn: graphics.CreateCanvasFunc,
+	}
+	vm.globals["clear"] = &types.NativeFunction{
+		Fn: graphics.ClearFunc,
+	}
+	vm.globals["drawPoint"] = &types.NativeFunction{
+		Fn: graphics.DrawPointFunc,
+	}
+	vm.globals["drawLine"] = &types.NativeFunction{
+		Fn: graphics.DrawLineFunc,
+	}
+	vm.globals["drawRectangle"] = &types.NativeFunction{
+		Fn: graphics.DrawRectangleFunc,
+	}
+	vm.globals["fillRectangle"] = &types.NativeFunction{
+		Fn: graphics.FillRectangleFunc,
+	}
+	vm.globals["drawCircle"] = &types.NativeFunction{
+		Fn: graphics.DrawCircleFunc,
+	}
+	vm.globals["fillCircle"] = &types.NativeFunction{
+		Fn: graphics.FillCircleFunc,
+	}
+	vm.globals["savePNG"] = &types.NativeFunction{
+		Fn: graphics.SavePNGFunc,
+	}
+	vm.globals["loadPNG"] = &types.NativeFunction{
+		Fn: graphics.LoadPNGFunc,
+	}
+	vm.globals["getPixel"] = &types.NativeFunction{
+		Fn: graphics.GetPixelFunc,
+	}
+	vm.globals["canvasWidth"] = &types.NativeFunction{
+		Fn: graphics.CanvasGetWidth,
+	}
+	vm.globals["canvasHeight"] = &types.NativeFunction{
+		Fn: graphics.CanvasGetHeight,
+	}
+
+	// Data/CSV functions
+	vm.globals["openCSV"] = &types.NativeFunction{
+		Fn: data.OpenCSVFunc,
+	}
+	vm.globals["readCSV"] = &types.NativeFunction{
+		Fn: data.ReadCSVFunc,
+	}
+	vm.globals["writeCSV"] = &types.NativeFunction{
+		Fn: data.WriteCSVFunc,
+	}
+	vm.globals["parseCSV"] = &types.NativeFunction{
+		Fn: data.ParseCSVFunc,
+	}
+	vm.globals["toCSV"] = &types.NativeFunction{
+		Fn: data.ToCSVFunc,
+	}
+	vm.globals["createCSVReader"] = &types.NativeFunction{
+		Fn: data.CreateCSVReaderFunc,
+	}
+	vm.globals["createCSVWriter"] = &types.NativeFunction{
+		Fn: data.CreateCSVWriterFunc,
+	}
+	vm.globals["closeCSV"] = &types.NativeFunction{
+		Fn: data.CloseCSVFunc,
+	}
+	vm.globals["readCSVRow"] = &types.NativeFunction{
+		Fn: data.ReadCSVRowFunc,
+	}
+	vm.globals["readCSVAll"] = &types.NativeFunction{
+		Fn: data.ReadCSVAllFunc,
+	}
+	vm.globals["writeCSVRow"] = &types.NativeFunction{
+		Fn: data.WriteCSVRowFunc,
+	}
+	vm.globals["getCSVHeaders"] = &types.NativeFunction{
+		Fn: data.GetCSVHeadersFunc,
+	}
+
+	// Plugin functions
+	// loadPlugin - loads a Go plugin from a file
+	vm.globals["loadPlugin"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("loadPlugin() expects at least 1 argument (pluginPath)", 0, 0, "")
+			}
+			pluginPath := string(types.ToString(args[0]))
+			if err := vm.pluginLoader.LoadPlugin(pluginPath); err != nil {
+				return types.NewError(err.Error(), 0, 0, "")
+			}
+			return types.Bool(true)
+		},
+	}
+
+	// unloadPlugin - unloads a plugin
+	vm.globals["unloadPlugin"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("unloadPlugin() expects at least 1 argument (pluginPath)", 0, 0, "")
+			}
+			pluginPath := string(types.ToString(args[0]))
+			if err := vm.pluginLoader.UnloadPlugin(pluginPath); err != nil {
+				return types.NewError(err.Error(), 0, 0, "")
+			}
+			return types.Bool(true)
+		},
+	}
+
+	// callPlugin - calls a function from a loaded plugin
+	vm.globals["callPlugin"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("callPlugin() expects at least 2 arguments (pluginName, funcName)", 0, 0, "")
+			}
+			pluginName := string(types.ToString(args[0]))
+			funcName := string(types.ToString(args[1]))
+
+			fn, err := vm.pluginLoader.GetFunction(pluginName, funcName)
+			if err != nil {
+				return types.NewError(err.Error(), 0, 0, "")
+			}
+
+			// Call the plugin function with remaining args
+			return fn(args[2:]...)
+		},
+	}
+
+	// listPlugins - returns information about loaded plugins
+	vm.globals["listPlugins"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			infos := vm.pluginLoader.ListPlugins()
+			result := collections.NewArray()
+			for _, info := range infos {
+				m := collections.NewMap()
+				m.Set("name", types.String(info.Name))
+				m.Set("version", types.String(info.Version))
+				m.Set("description", types.String(info.Description))
+				m.Set("author", types.String(info.Author))
+				result.Append(m)
+			}
+			return result
+		},
+	}
+
+	// HTTP functions
+	vm.registerHTTPFunctions()
+}
+
+// HTTPResponse represents an HTTP response
+type HTTPResponse struct {
+	StatusCode int
+	Headers    map[string]string
+	Body       string
+}
+
+func (r *HTTPResponse) TypeCode() uint8          { return 0x70 }
+func (r *HTTPResponse) TypeName() string          { return "httpResponse" }
+func (r *HTTPResponse) ToStr() string             { return r.Body }
+func (r *HTTPResponse) Equals(other types.Object) bool { return r == other }
+
+// registerHTTPFunctions registers HTTP-related functions
+func (vm *VM) registerHTTPFunctions() {
+	// httpGet(url)
+	vm.globals["httpGet"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("httpGet() expects at least 1 argument (url)", 0, 0, "")
+			}
+			url := string(types.ToString(args[0]))
+			return doHTTPRequest("GET", url, "", nil)
+		},
+	}
+
+	// httpPost(url, body)
+	vm.globals["httpPost"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("httpPost() expects at least 2 arguments (url, body)", 0, 0, "")
+			}
+			url := string(types.ToString(args[0]))
+			body := string(types.ToString(args[1]))
+			return doHTTPRequest("POST", url, body, nil)
+		},
+	}
+
+	// httpPostJSON(url, data)
+	vm.globals["httpPostJSON"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("httpPostJSON() expects at least 2 arguments (url, data)", 0, 0, "")
+			}
+			url := string(types.ToString(args[0]))
+
+			var jsonData []byte
+			var err error
+
+			switch v := args[1].(type) {
+			case *collections.Map:
+				goMap := make(map[string]interface{})
+				for key, val := range v.Entries {
+					goMap[key] = objectToGoValue(val)
+				}
+				jsonData, err = json.Marshal(goMap)
+			case *collections.Array:
+				goArr := make([]interface{}, v.Len())
+				for i := 0; i < v.Len(); i++ {
+					goArr[i] = objectToGoValue(v.Get(i))
+				}
+				jsonData, err = json.Marshal(goArr)
+			default:
+				jsonData = []byte(types.ToString(args[1]))
+			}
+
+			if err != nil {
+				return types.NewError("failed to marshal JSON: "+err.Error(), 0, 0, "")
+			}
+
+			headers := &collections.OrderedMap{
+				Entries: make(map[string]types.Object),
+			}
+			headers.Entries["Content-Type"] = types.String("application/json")
+
+			return doHTTPRequest("POST", url, string(jsonData), headers)
+		},
+	}
+
+	// httpPut(url, body)
+	vm.globals["httpPut"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("httpPut() expects at least 2 arguments (url, body)", 0, 0, "")
+			}
+			url := string(types.ToString(args[0]))
+			body := string(types.ToString(args[1]))
+			return doHTTPRequest("PUT", url, body, nil)
+		},
+	}
+
+	// httpDelete(url)
+	vm.globals["httpDelete"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("httpDelete() expects at least 1 argument (url)", 0, 0, "")
+			}
+			url := string(types.ToString(args[0]))
+			return doHTTPRequest("DELETE", url, "", nil)
+		},
+	}
+
+	// httpRequest(method, url, body, headers)
+	vm.globals["httpRequest"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("httpRequest() expects at least 2 arguments (method, url)", 0, 0, "")
+			}
+			method := string(types.ToString(args[0]))
+			url := string(types.ToString(args[1]))
+
+			var body string
+			var headers *collections.OrderedMap
+
+			if len(args) >= 3 {
+				body = string(types.ToString(args[2]))
+			}
+			if len(args) >= 4 {
+				if h, ok := args[3].(*collections.OrderedMap); ok {
+					headers = h
+				}
+			}
+
+			return doHTTPRequest(method, url, body, headers)
+		},
+	}
+}
+
+// objectToGoValue converts Nxlang Object to Go value for JSON marshaling
+func objectToGoValue(obj types.Object) interface{} {
+	switch v := obj.(type) {
+	case types.Int:
+		return int64(v)
+	case types.Float:
+		return float64(v)
+	case types.Bool:
+		return bool(v)
+	case types.String:
+		return string(v)
+	case *types.Null:
+		return nil
+	case *collections.Map:
+		m := make(map[string]interface{})
+		for key, val := range v.Entries {
+			m[key] = objectToGoValue(val)
+		}
+		return m
+	case *collections.Array:
+		arr := make([]interface{}, v.Len())
+		for i := 0; i < v.Len(); i++ {
+			arr[i] = objectToGoValue(v.Get(i))
+		}
+		return arr
+	default:
+		return obj.ToStr()
+	}
+}
+
+// doHTTPRequest performs the actual HTTP request
+func doHTTPRequest(method, url, body string, headers *collections.OrderedMap) types.Object {
+	var req *http.Request
+	var err error
+
+	if body != "" {
+		req, err = http.NewRequest(method, url, bytes.NewBufferString(body))
+	} else {
+		req, err = http.NewRequest(method, url, nil)
+	}
+
+	if err != nil {
+		return types.NewError("failed to create request: "+err.Error(), 0, 0, "")
+	}
+
+	// Set default headers
+	req.Header.Set("User-Agent", "Nxlang/1.0")
+	req.Header.Set("Accept", "*/*")
+
+	// Add custom headers
+	if headers != nil {
+		for key, val := range headers.Entries {
+			req.Header.Set(key, string(types.ToString(val)))
+		}
+	}
+
+	// Create client with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Send request
+	resp, err := client.Do(req)
+	if err != nil {
+		return types.NewError("request failed: "+err.Error(), 0, 0, "")
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return types.NewError("failed to read response body: "+err.Error(), 0, 0, "")
+	}
+
+	// Parse headers
+	respHeaders := make(map[string]string)
+	for k, v := range resp.Header {
+		if len(v) > 0 {
+			respHeaders[k] = strings.Join(v, ", ")
+		}
+	}
+
+	// Create response object
+	httpResp := &HTTPResponse{
+		StatusCode: resp.StatusCode,
+		Headers:    respHeaders,
+		Body:       string(respBody),
+	}
+
+	return httpResp
 }
 
 // registerStandardModules registers all standard library modules
@@ -770,6 +1932,7 @@ func (vm *VM) registerStandardModules() {
 			"orderedMap": vm.globals["orderedMap"],
 			"stack": vm.globals["stack"],
 			"queue": vm.globals["queue"],
+			"seq": vm.globals["seq"],
 			"keys": vm.globals["keys"],
 			"values": vm.globals["values"],
 			"delete": vm.globals["delete"],
@@ -816,6 +1979,20 @@ func (vm *VM) registerStandardModules() {
 		},
 	}
 	vm.modules["thread"] = threadModule
+
+	// HTTP module
+	httpModule := &Module{
+		Name: "http",
+		Exports: map[string]types.Object{
+			"httpGet":      vm.globals["httpGet"],
+			"httpPost":     vm.globals["httpPost"],
+			"httpPostJSON": vm.globals["httpPostJSON"],
+			"httpPut":      vm.globals["httpPut"],
+			"httpDelete":   vm.globals["httpDelete"],
+			"httpRequest":  vm.globals["httpRequest"],
+		},
+	}
+	vm.modules["http"] = httpModule
 }
 
 // Run executes the bytecode
@@ -833,6 +2010,12 @@ func (vm *VM) Run() error {
 		currentFrame.ip++
 
 		if err := vm.executeOpcode(op, currentFrame); err != nil {
+			// Error occurred - try to handle with try-catch
+			if vm.handleRuntimeError(err, currentFrame) {
+				// Error was caught by a try-catch block, continue execution
+				continue
+			}
+			// No catch block found, return the error
 			return err
 		}
 
@@ -842,6 +2025,121 @@ func (vm *VM) Run() error {
 	}
 
 	return nil
+}
+
+// RunFunction executes a function with the given arguments in a new VM
+// This is used for thread execution with isolated state
+func RunFunction(fn *types.Function, args []types.Object, globals map[string]types.Object) error {
+	// Create minimal bytecode structure for the function
+	bc := &bytecode.Bytecode{
+		Constants:  fn.ConstantPool,
+		MainFunc:   -1, // Not using main func, creating frame directly
+		SourceFile: "thread:" + fn.Name,
+	}
+
+	// Create new VM with isolated state
+	threadVM := &VM{
+		constants:    bc.Constants,
+		stack:        NewStack(),
+		frames:       make([]*Frame, MaxCallStackDepth),
+		framePointer: 1,
+		globals:      make(map[string]types.Object),
+		functionCache: make(map[int]*types.Function),
+		classCache:    make(map[int]*types.Class),
+		tryStack:     []*TryFrame{},
+		deferStack:   make([][]*DeferredCall, MaxCallStackDepth),
+		modules:      make(map[string]*Module),
+		modulePaths:  []string{".", "./nx_modules", "/usr/local/nx/modules"},
+	}
+
+	// Copy globals from parent VM
+	for k, v := range globals {
+		threadVM.globals[k] = v
+	}
+
+	// Register built-in functions
+	threadVM.registerBuiltins()
+
+	// Create frame for the function with arguments
+	threadVM.frames[0] = NewFrameFromFunction(fn, 0, args)
+
+	// Execute the function
+	return threadVM.Run()
+}
+
+// RunFunctionShared executes a function with the given arguments sharing the VM's globals
+// This is used for thread execution with shared state
+func (vm *VM) RunFunctionShared(fn *types.Function, args []types.Object) error {
+	// Create frame for the function with arguments
+	frame := NewFrameFromFunction(fn, 0, args)
+
+	// Push arguments to stack
+	for _, arg := range args {
+		vm.stack.Push(arg)
+	}
+
+	// Execute in a temporary frame context
+	originalFramePointer := vm.framePointer
+	vm.frames[0] = frame
+	vm.framePointer = 1
+
+	err := vm.Run()
+
+	// Restore original state
+	vm.framePointer = originalFramePointer
+
+	return err
+}
+
+// NewVMWithSharedGlobals creates a new VM that shares globals with the parent VM
+// Used for shared mode thread execution
+func (vm *VM) NewVMWithSharedGlobals(parent *VM) *VM {
+	sharedVM := &VM{
+		constants:     parent.constants,
+		stack:         NewStack(),
+		frames:        make([]*Frame, MaxCallStackDepth),
+		framePointer:  1,
+		globals:       parent.globals, // Share the same globals map
+		globalsMu:     parent.globalsMu, // Share the same mutex for globals access
+		functionCache: make(map[int]*types.Function),
+		classCache:    make(map[int]*types.Class),
+		tryStack:      []*TryFrame{},
+		deferStack:    make([][]*DeferredCall, MaxCallStackDepth),
+		modules:       parent.modules, // Share loaded modules
+		modulePaths:   parent.modulePaths,
+	}
+	// Register built-in functions for the shared VM
+	sharedVM.registerBuiltins()
+	return sharedVM
+}
+
+// RunFunctionInNewVM creates a new VM and executes the function with the given arguments
+// This is used for isolated thread execution
+func RunFunctionInNewVM(fn *types.Function, args []types.Object, parentVM *VM) error {
+	// Create new VM with the function's constant pool
+	threadVM := &VM{
+		constants:     fn.ConstantPool,
+		stack:         NewStack(),
+		frames:        make([]*Frame, MaxCallStackDepth),
+		framePointer:  1,
+		globals:       parentVM.CopyGlobals(),
+		functionCache: make(map[int]*types.Function),
+		classCache:    make(map[int]*types.Class),
+		tryStack:      []*TryFrame{},
+		deferStack:    make([][]*DeferredCall, MaxCallStackDepth),
+		modules:       make(map[string]*Module),
+		modulePaths:   []string{".", "./nx_modules", "/usr/local/nx/modules"},
+	}
+
+	// Register built-in functions
+	threadVM.registerBuiltins()
+
+	// Create frame for the function with arguments
+	threadVM.frames[0] = NewFrameFromFunction(fn, 0, args)
+
+	// Execute the function
+	err := threadVM.Run()
+	return err
 }
 
 // executeOpcode executes a single bytecode instruction
@@ -894,7 +2192,18 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 	case compiler.OpLoadGlobal:
 		nameIdx := int(frame.ReadUint16())
 		nameConst := vm.constants[nameIdx].(*bytecode.StringConstant)
-		val, ok := vm.globals[nameConst.Value]
+
+		var val types.Object
+		var ok bool
+
+		if vm.globalsMu != nil {
+			vm.globalsMu.RLock()
+			val, ok = vm.globals[nameConst.Value]
+			vm.globalsMu.RUnlock()
+		} else {
+			val, ok = vm.globals[nameConst.Value]
+		}
+
 		if !ok {
 			return vm.newError(fmt.Sprintf("undefined variable: %s", nameConst.Value), frame.ip)
 		}
@@ -904,17 +2213,19 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		nameIdx := int(frame.ReadUint16())
 		nameConst := vm.constants[nameIdx].(*bytecode.StringConstant)
 		val := vm.stack.Pop()
-		vm.globals[nameConst.Value] = val
+
+		if vm.globalsMu != nil {
+			vm.globalsMu.Lock()
+			vm.globals[nameConst.Value] = val
+			vm.globalsMu.Unlock()
+		} else {
+			vm.globals[nameConst.Value] = val
+		}
 
 	case compiler.OpAdd:
 		b := vm.stack.Pop()
 		a := vm.stack.Pop()
-		// Auto convert to match types (left-side priority)
-		convA, convB, convErr := types.AutoConvert(a, b)
-		if convErr != nil {
-			return vm.newError(convErr.Message, frame.ip)
-		}
-		res, err := vm.addObjects(convA, convB)
+		res, err := vm.addObjects(a, b)
 		if err != nil {
 			return err
 		}
@@ -967,13 +2278,6 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 	case compiler.OpNot:
 		a := vm.stack.Pop()
 		res := types.Bool(!types.ToBool(a))
-		return vm.stack.Push(res)
-
-	case compiler.OpIsNil:
-		a := vm.stack.Pop()
-		// Check if value is nil or undefined
-		isNil := a == nil || a.TypeCode() == types.TypeUndefined
-		res := types.Bool(isNil)
 		return vm.stack.Push(res)
 
 	case compiler.OpBitNot:
@@ -1118,24 +2422,10 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		}
 
 		switch fn := fnVal.(type) {
-		case *types.BoundMethod:
-			// Bound method call: prepend 'this' as first argument only if it's not a static method
-			var boundArgs []types.Object
-			if fn.Method.IsStatic {
-				boundArgs = args // Static method doesn't need this
-			} else {
-				boundArgs = make([]types.Object, 0, len(args)+1)
-				boundArgs = append(boundArgs, fn.Instance)
-				boundArgs = append(boundArgs, args...)
-			}
-			// Recursively call with the bound function and new args
-			vm.stack.Push(fn.Method)
-			for _, arg := range boundArgs {
-				vm.stack.Push(arg)
-			}
-			// Emit OpCall with new arg count (will be processed in next iteration)
-			frame.ip -= 2 // Rewind to re-execute OpCall
-			return nil
+		case *types.TypeWrapper:
+			// Type object call (type conversion)
+			result := fn.Call(args...)
+			return vm.stack.Push(result)
 
 		case *types.NativeFunction:
 			// Native function call
@@ -1144,64 +2434,24 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 		case *types.Function:
 			// Nxlang function call
-			processedArgs := make([]types.Object, fn.NumParameters)
-
-			// Copy provided arguments
-			for i := 0; i < argCount && i < fn.NumParameters; i++ {
-				processedArgs[i] = args[i]
-			}
-
-			// Fill default values for missing arguments
-			for i := argCount; i < fn.NumParameters; i++ {
-				if fn.DefaultValues == nil || fn.DefaultValues[i] == -1 {
-					if !fn.IsVariadic {
-						return vm.newError(fmt.Sprintf("expected at least %d arguments, got %d", i+1, argCount), frame.ip)
-					}
-					// For variadic functions, the last parameter is the variadic array
-					break
-				}
-				// Get default value from constant pool
-				defaultConst := fn.ConstantPool[fn.DefaultValues[i]]
-				defaultVal, err := vm.constantToObject(fn.DefaultValues[i], defaultConst)
-				if err != nil {
-					return err
-				}
-				processedArgs[i] = defaultVal
-			}
-
-			// Handle variadic parameters
-			if fn.IsVariadic {
-				// The last parameter is the variadic array
-				variadicIdx := fn.NumParameters - 1
-				var variadicArgs []types.Object
-
-				if argCount > fn.NumParameters {
-					// Collect all extra arguments
-					variadicArgs = args[fn.NumParameters-1:]
-				} else if argCount == fn.NumParameters {
-					// User provided an array for the variadic parameter
-					// Check if it's already an array
-					if args[variadicIdx] != nil {
-						if arr, ok := args[variadicIdx].(*collections.Array); ok {
-							// Already an array, use it directly
-							processedArgs[variadicIdx] = arr
-						} else {
-							// Wrap single value in array
-							variadicArgs = []types.Object{args[variadicIdx]}
-						}
+			// Check if we have minimum required arguments (parameters without defaults)
+			requiredParams := fn.NumParameters
+			if len(fn.DefaultValues) > 0 {
+				// Count parameters without default values
+				// DefaultValues[i] >= 0 means this parameter HAS a default value
+				// DefaultValues[i] == -1 means this parameter does NOT have a default
+				requiredParams = 0
+				for i := len(fn.DefaultValues) - 1; i >= 0; i-- {
+					if fn.DefaultValues[i] < 0 {
+						// This is the last parameter without default
+						requiredParams = i + 1
+						break
 					}
 				}
+			}
 
-				// If we have variadic args, create array
-				if variadicArgs != nil {
-					processedArgs[variadicIdx] = collections.NewArrayWithElements(variadicArgs)
-				}
-
-				// Ensure we always have an array for variadic parameter
-				if processedArgs[variadicIdx] == nil {
-					// No variadic args provided, create empty array
-					processedArgs[variadicIdx] = collections.NewArrayWithElements([]types.Object{})
-				}
+			if argCount < requiredParams && !fn.IsVariadic {
+				return vm.newError(fmt.Sprintf("expected at least %d arguments, got %d", requiredParams, argCount), frame.ip)
 			}
 
 			// Create bytecode function constant for frame
@@ -1211,16 +2461,90 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 				NumParameters: fn.NumParameters,
 				IsVariadic:    fn.IsVariadic,
 				Instructions:  fn.Instructions,
-				DefaultValues: fn.DefaultValues,
 			}
 
 			// Create new frame
 			basePointer := vm.stack.Size()
 			newFrame := NewFrame(bcFunc, basePointer)
 
-			// Copy processed arguments to locals
-			for i := 0; i < fn.NumParameters; i++ {
-				newFrame.locals[i] = processedArgs[i]
+			// Copy arguments to locals
+			if fn.IsVariadic {
+				// For variadic functions, pack extra arguments into an array
+				// NumParameters includes the variadic parameter, so we need to handle it specially
+				paramCount := fn.NumParameters
+				if paramCount > 0 {
+					// Copy fixed parameters
+					for i := 0; i < argCount && i < paramCount - 1; i++ {
+						newFrame.locals[i] = args[i]
+					}
+
+					// Pack remaining arguments into array for variadic parameter
+					variadicArgs := collections.NewArray()
+					for i := paramCount - 1; i < argCount; i++ {
+						variadicArgs.Append(args[i])
+					}
+					if paramCount > 0 {
+						newFrame.locals[paramCount-1] = variadicArgs
+					}
+				}
+			} else {
+				// Copy provided arguments
+				for i := 0; i < argCount && i < fn.NumParameters; i++ {
+					newFrame.locals[i] = args[i]
+				}
+
+				// Fill in default values for missing arguments
+				if len(fn.DefaultValues) > 0 {
+					for i := argCount; i < fn.NumParameters; i++ {
+						if i < len(fn.DefaultValues) && fn.DefaultValues[i] >= 0 {
+							// This parameter has a default value
+							defaultVal := fn.ConstantPool[fn.DefaultValues[i]]
+							newFrame.locals[i], _ = vm.constantToObject(fn.DefaultValues[i], defaultVal)
+						}
+					}
+				}
+			}
+
+			if vm.framePointer >= MaxCallStackDepth {
+				return &StackOverflowError{}
+			}
+
+			vm.frames[vm.framePointer] = newFrame
+			vm.framePointer++
+
+		case *types.BoundMethod:
+			// Bound method call (method bound to an instance)
+			methodFn := fn.Method
+			if argCount < methodFn.NumParameters && !methodFn.IsVariadic {
+				return vm.newError(fmt.Sprintf("expected %d arguments, got %d", methodFn.NumParameters, argCount), frame.ip)
+			}
+
+			// For instance methods, we need at least 1 local for 'this'
+			// Ensure NumLocals accounts for this
+			numLocals := methodFn.NumLocals
+			if numLocals < 1 {
+				numLocals = 1
+			}
+
+			// Create bytecode function constant for frame
+			bcFunc := &bytecode.FunctionConstant{
+				Name:          methodFn.Name,
+				NumLocals:     numLocals,
+				NumParameters: methodFn.NumParameters,
+				IsVariadic:    methodFn.IsVariadic,
+				Instructions:  methodFn.Instructions,
+			}
+
+			// Create new frame
+			basePointer := vm.stack.Size()
+			newFrame := NewFrame(bcFunc, basePointer)
+
+			// Set 'this' as the first local (instance)
+			newFrame.locals[0] = fn.Instance
+
+			// Copy arguments to locals (starting from index 1 for 'this')
+			for i := 0; i < argCount && i < methodFn.NumParameters; i++ {
+				newFrame.locals[i+1] = args[i]
 			}
 
 			if vm.framePointer >= MaxCallStackDepth {
@@ -1244,12 +2568,22 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 		// Pop frame
 		vm.framePointer--
-		// If we're returning from main, exit gracefully
+		// If we're returning from main, push return value back and exit gracefully
 		if vm.framePointer == 0 {
-			// Execution complete
+			// Push return value back on stack for callers (like runByteCode) to retrieve
+			vm.stack.Push(returnValue)
 			return nil
 		}
-		// Clear stack up to callee's base pointer
+
+		// Special case: if returning from init method, return the instance (this)
+		// instead of the actual return value
+		if calleeFrame.fn.Name == "init" && calleeFrame.locals != nil && len(calleeFrame.locals) > 0 {
+			if instance, ok := calleeFrame.locals[0].(*types.Instance); ok {
+				returnValue = instance
+			}
+		}
+
+		// Clear stack up to callee's base pointer, but save one slot for return value
 		for vm.stack.Size() > calleeFrame.basePointer {
 			vm.stack.Pop()
 		}
@@ -1270,10 +2604,20 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 			// Execution complete
 			return nil
 		}
+
+		// Special case: if returning from init method, push the instance (this)
+		if calleeFrame.fn.Name == "init" && calleeFrame.locals != nil && len(calleeFrame.locals) > 0 {
+			if instance, ok := calleeFrame.locals[0].(*types.Instance); ok {
+				return vm.stack.Push(instance)
+			}
+		}
+
 		// Clear stack up to callee's base pointer
 		for vm.stack.Size() > calleeFrame.basePointer {
 			vm.stack.Pop()
 		}
+		// Push undefined as return value
+		return vm.stack.Push(types.UndefinedValue)
 		// Push undefined to caller's stack
 		return vm.stack.Push(types.UndefinedValue)
 
@@ -1294,72 +2638,476 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 	case compiler.OpNewObject:
 		argCount := int(frame.ReadUint8())
 
-		// Pop arguments in reverse order
+		// Pop arguments first (they are on top of the stack)
 		args := make([]types.Object, argCount)
 		for i := argCount - 1; i >= 0; i-- {
 			args[i] = vm.stack.Pop()
 		}
 
-		// Pop class from stack
+		// Pop the class object from stack (it's below the arguments)
 		classVal := vm.stack.Pop()
-		class, ok := classVal.(*types.Class)
+		classObj, ok := classVal.(*types.Class)
 		if !ok {
-			return vm.newError("cannot instantiate non-class type", frame.ip)
+			return vm.newError(fmt.Sprintf("object constructor expects a class, got %T", classVal), frame.ip)
 		}
 
-		// Create new instance
+		// Create a new instance of the class
 		instance := &types.Instance{
-			Class:      class,
+			Class:      classObj,
 			Properties: make(map[string]types.Object),
 		}
 
-		// Call constructor if exists
-		if initMethod, ok := class.Methods["init"]; ok {
-			// Push instance as 'this' argument
-			allArgs := append([]types.Object{instance}, args...)
+		// Call constructor (init method) if it exists
+		if initMethod, ok := classObj.Methods["init"]; ok {
+			// Ensure at least 1 local for 'this'
+			numLocals := initMethod.NumLocals
+			if numLocals < 1 {
+				numLocals = 1
+			}
 
-			// Create frame for constructor call
+			// Create a new frame for init method
 			bcFunc := &bytecode.FunctionConstant{
 				Name:          initMethod.Name,
-				NumLocals:     initMethod.NumLocals,
+				NumLocals:     numLocals,
 				NumParameters: initMethod.NumParameters,
 				IsVariadic:    initMethod.IsVariadic,
 				Instructions:  initMethod.Instructions,
-				DefaultValues: initMethod.DefaultValues,
 			}
 
 			basePointer := vm.stack.Size()
 			newFrame := NewFrame(bcFunc, basePointer)
+			newFrame.locals[0] = instance // Set 'this'
 
-			// Copy arguments to locals (first local is 'this')
-			for i := 0; i < len(allArgs) && i < initMethod.NumParameters; i++ {
-				newFrame.locals[i] = allArgs[i]
+			// Copy arguments to locals
+			for i := 0; i < argCount && i < initMethod.NumParameters; i++ {
+				newFrame.locals[i+1] = args[i]
 			}
 
-			// Fill default values for missing parameters
-			for i := len(allArgs); i < initMethod.NumParameters; i++ {
-				if initMethod.DefaultValues != nil && initMethod.DefaultValues[i] != -1 {
-					defaultConst := initMethod.ConstantPool[initMethod.DefaultValues[i]]
-					defaultVal, err := vm.constantToObject(initMethod.DefaultValues[i], defaultConst)
-					if err != nil {
-						return err
-					}
-					newFrame.locals[i] = defaultVal
-				} else {
-					return vm.newError(fmt.Sprintf("constructor expected %d arguments, got %d", initMethod.NumParameters, argCount), frame.ip)
-				}
-			}
-
-			// Push constructor frame
 			if vm.framePointer >= MaxCallStackDepth {
 				return &StackOverflowError{}
 			}
+
+			// Push new frame and continue execution
 			vm.frames[vm.framePointer] = newFrame
 			vm.framePointer++
+
+			// Skip pushing instance - it will be done after init returns
+			// For now, just return and let the normal call mechanism work
+			return nil
 		}
 
-		// Push the new instance to stack
+		// No init method, just push instance
 		return vm.stack.Push(instance)
+
+	case compiler.OpMemberGet:
+		nameIdx := int(frame.ReadUint16())
+		obj := vm.stack.Pop()
+
+		// Get the member name from constants
+		nameConst := vm.constants[nameIdx].(*bytecode.StringConstant)
+		memberName := nameConst.Value
+
+		switch o := obj.(type) {
+		case *types.SuperReference:
+			// Access member of superclass
+			method, ok := o.Super.Methods[memberName]
+			if !ok {
+				return vm.newError(fmt.Sprintf("super: method '%s' not found in superclass %s", memberName, o.Super.Name), frame.ip)
+			}
+			// Create bound method with the instance
+			boundMethod := &types.BoundMethod{
+				Instance: o.Instance,
+				Method:   method,
+			}
+			return vm.stack.Push(boundMethod)
+		case *types.Instance:
+			// Check properties first
+			if val, ok := o.Properties[memberName]; ok {
+				return vm.stack.Push(val)
+			}
+			// Check class methods with inheritance
+			class := o.Class
+			for class != nil {
+				if method, ok := class.Methods[memberName]; ok {
+					// Return bound method
+					boundMethod := &types.BoundMethod{
+						Instance: o,
+						Method:   method,
+					}
+					return vm.stack.Push(boundMethod)
+				}
+				// Check static methods
+				if method, ok := class.StaticMethods[memberName]; ok {
+					return vm.stack.Push(method)
+				}
+				// Check static fields
+				if val, ok := class.StaticFields[memberName]; ok {
+					return vm.stack.Push(val)
+				}
+				// Traverse up the inheritance chain
+				class = class.SuperClass
+			}
+			return vm.newError(fmt.Sprintf("property '%s' not found on %s", memberName, o.Class.Name), frame.ip)
+		case *types.Class:
+			// Get static field or static method from class
+			if val, ok := o.StaticFields[memberName]; ok {
+				return vm.stack.Push(val)
+			}
+			// Check static methods
+			if method, ok := o.StaticMethods[memberName]; ok {
+				return vm.stack.Push(method)
+			}
+			return vm.newError(fmt.Sprintf("static member '%s' not found on class %s", memberName, o.Name), frame.ip)
+		case *concurrency.Mutex:
+			// Support method access on mutex
+			switch memberName {
+			case "lock", "Lock":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						o.Lock()
+						return types.UndefinedValue
+					},
+				})
+			case "unlock", "Unlock":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						o.Unlock()
+						return types.UndefinedValue
+					},
+				})
+			case "tryLock", "TryLock":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						return types.Bool(o.TryLock())
+					},
+				})
+			}
+			return vm.newError(fmt.Sprintf("cannot access member '%s' on %s", memberName, obj.TypeName()), frame.ip)
+		case *concurrency.RWMutex:
+			// Support method access on rwMutex
+			switch memberName {
+			case "lock", "Lock":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						o.Lock()
+						return types.UndefinedValue
+					},
+				})
+			case "unlock", "Unlock":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						o.Unlock()
+						return types.UndefinedValue
+					},
+				})
+			case "rlock", "RLock":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						o.RLock()
+						return types.UndefinedValue
+					},
+				})
+			case "runlock", "RUnlock":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						o.RUnlock()
+						return types.UndefinedValue
+					},
+				})
+			case "tryLock", "TryLock":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						return types.Bool(o.TryLock())
+					},
+				})
+			case "tryRLock", "TryRLock":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						return types.Bool(o.TryRLock())
+					},
+				})
+			}
+			return vm.newError(fmt.Sprintf("cannot access member '%s' on %s", memberName, obj.TypeName()), frame.ip)
+		case *collections.Seq:
+			// Support method access on seq
+			switch memberName {
+			case "Append", "append":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						for _, arg := range args {
+							o.Append(arg)
+						}
+						return o
+					},
+				})
+			case "Pop", "pop":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						return o.Pop()
+					},
+				})
+			case "Clear", "clear":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						o.Clear()
+						return types.UndefinedValue
+					},
+				})
+			case "Resize", "resize":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						if len(args) == 0 {
+							return types.NewError("resize() expects 1 argument", 0, 0, "")
+						}
+						size, err := types.ToInt(args[0])
+						if err != nil {
+							return err
+						}
+						o.Resize(int(size))
+						return types.UndefinedValue
+					},
+				})
+			case "Fill", "fill":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						if len(args) < 2 {
+							return types.NewError("fill() expects 2 arguments (value, count)", 0, 0, "")
+						}
+						count, err := types.ToInt(args[1])
+						if err != nil {
+							return err
+						}
+						o.Fill(args[0], int(count))
+						return o
+					},
+				})
+			case "Range", "range":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						if len(args) < 2 {
+							return types.NewError("range() expects 2 arguments (start, end)", 0, 0, "")
+						}
+						start, err := types.ToInt(args[0])
+						if err != nil {
+							return err
+						}
+						end, err := types.ToInt(args[1])
+						if err != nil {
+							return err
+						}
+						return o.Range(int(start), int(end))
+					},
+				})
+			case "Reverse", "reverse":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						return o.Reverse()
+					},
+				})
+			case "Join", "join":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						sep := ""
+						if len(args) > 0 {
+							sep = args[0].ToStr()
+						}
+						return types.String(o.Join(sep))
+					},
+				})
+			case "Includes", "includes":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						if len(args) == 0 {
+							return types.Bool(false)
+						}
+						return types.Bool(o.Includes(args[0]))
+					},
+				})
+			case "IndexOf", "indexof":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						if len(args) == 0 {
+							return types.Int(-1)
+						}
+						return types.Int(o.IndexOf(args[0]))
+					},
+				})
+			case "Get", "get":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						if len(args) == 0 {
+							return types.UndefinedValue
+						}
+						idx, err := types.ToInt(args[0])
+						if err != nil {
+							return err
+						}
+						return o.GetAuto(int(idx))
+					},
+				})
+			case "Set", "set":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						if len(args) < 2 {
+							return types.NewError("set() expects 2 arguments (index, value)", 0, 0, "")
+						}
+						idx, err := types.ToInt(args[0])
+						if err != nil {
+							return err
+						}
+						if errObj := o.Set(int(idx), args[1]); errObj != nil {
+							return errObj
+						}
+						return args[1]
+					},
+				})
+			case "Len", "len":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						return types.Int(o.Len())
+					},
+				})
+			case "Elements", "elements":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						return collections.NewArrayWithElements(o.Elements())
+					},
+				})
+			case "ForEach", "foreach":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						if len(args) == 0 {
+							return types.UndefinedValue
+						}
+						_, ok := args[0].(*types.Function)
+						if !ok {
+							return types.NewError("ForEach expects a function", 0, 0, "")
+						}
+						// ForEach implementation would require VM access, skip for now
+						return types.NewError("ForEach not fully implemented yet", 0, 0, "")
+					},
+				})
+			case "Map", "map":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						if len(args) == 0 {
+							return types.NewError("Map expects a function", 0, 0, "")
+						}
+						// Simple Map without VM access - limited functionality
+						return types.NewError("Map requires function call support", 0, 0, "")
+					},
+				})
+			case "Filter", "filter":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						if len(args) == 0 {
+							return types.NewError("Filter expects a function", 0, 0, "")
+						}
+						return types.NewError("Filter requires function call support", 0, 0, "")
+					},
+				})
+			case "Find", "find":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						if len(args) == 0 {
+							return types.UndefinedValue
+						}
+						return types.NewError("Find requires function call support", 0, 0, "")
+					},
+				})
+			case "FindIndex", "findindex":
+				return vm.stack.Push(&types.NativeFunction{
+					Fn: func(args ...types.Object) types.Object {
+						if len(args) == 0 {
+							return types.Int(-1)
+						}
+						return types.NewError("FindIndex requires function call support", 0, 0, "")
+					},
+				})
+			}
+			return vm.newError(fmt.Sprintf("cannot access member '%s' on %s", memberName, obj.TypeName()), frame.ip)
+
+		case *types.TypeWrapper:
+			// Get static method from type object
+			if method, ok := o.StaticMethods[memberName]; ok {
+				return vm.stack.Push(method)
+			}
+			return vm.newError(fmt.Sprintf("cannot access member '%s' on type %s", memberName, o.Name), frame.ip)
+
+		// Static methods for primitive types (deprecated - kept for backward compatibility)
+		case types.Int, types.UInt, types.Float, types.Bool, types.String, types.Byte, types.Char:
+			typeName := obj.TypeName()
+			switch typeName {
+			case "int":
+				switch memberName {
+				case "parse", "Parse":
+					return vm.stack.Push(&types.NativeFunction{
+						Fn: func(args ...types.Object) types.Object {
+							if len(args) == 0 {
+								return types.NewError("int.parse() expects 1 argument", 0, 0, "")
+							}
+							val, err := types.ToInt(args[0])
+							if err != nil {
+								return err
+							}
+							return val
+						},
+					})
+				}
+			case "float":
+				switch memberName {
+				case "parse", "Parse":
+					return vm.stack.Push(&types.NativeFunction{
+						Fn: func(args ...types.Object) types.Object {
+							if len(args) == 0 {
+								return types.NewError("float.parse() expects 1 argument", 0, 0, "")
+							}
+							val, err := types.ToFloat(args[0])
+							if err != nil {
+								return err
+							}
+							return val
+						},
+					})
+				}
+			case "string":
+				switch memberName {
+				case "parse", "Parse":
+					return vm.stack.Push(&types.NativeFunction{
+						Fn: func(args ...types.Object) types.Object {
+							if len(args) == 0 {
+								return types.NewError("string.parse() expects 1 argument", 0, 0, "")
+							}
+							return types.ToString(args[0])
+						},
+					})
+				}
+			}
+			return vm.newError(fmt.Sprintf("cannot access member '%s' on %s", memberName, obj.TypeName()), frame.ip)
+
+		default:
+			return vm.newError(fmt.Sprintf("cannot access member '%s' on %s", memberName, obj.TypeName()), frame.ip)
+		}
+
+	case compiler.OpMemberSet:
+		nameIdx := int(frame.ReadUint16())
+		value := vm.stack.Pop()
+		obj := vm.stack.Pop()
+
+		// Get the member name from constants
+		nameConst := vm.constants[nameIdx].(*bytecode.StringConstant)
+		memberName := nameConst.Value
+
+		switch o := obj.(type) {
+		case *types.Instance:
+			o.Properties[memberName] = value
+			return vm.stack.Push(types.UndefinedValue)
+		case *types.Class:
+			o.StaticFields[memberName] = value
+			return vm.stack.Push(types.UndefinedValue)
+		default:
+			return vm.newError(fmt.Sprintf("cannot set member '%s' on %s", memberName, obj.TypeName()), frame.ip)
+		}
 
 	case compiler.OpPrintLine:
 		val := vm.stack.Pop()
@@ -1370,6 +3118,57 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		val := vm.stack.Pop()
 		fmt.Fprint(os.Stdout, val.ToStr())
 		return vm.stack.Push(types.UndefinedValue)
+
+	case compiler.OpTypeCode:
+		// Get type code of value
+		val := vm.stack.Pop()
+		typeCode := val.TypeCode()
+		return vm.stack.Push(types.Int(typeCode))
+
+	case compiler.OpTypeName:
+		// Get type name of value
+		val := vm.stack.Pop()
+		typeName := val.TypeName()
+		return vm.stack.Push(types.String(typeName))
+
+	case compiler.OpIsError:
+		// Check if value is an error
+		val := vm.stack.Pop()
+		isErr := false
+		if _, ok := val.(*types.Error); ok {
+			isErr = true
+		} else if str, ok := val.(types.String); ok {
+			if strings.HasPrefix(string(str), "TXERROR:") {
+				isErr = true
+			}
+		} else if val == types.UndefinedValue {
+			isErr = true
+		}
+		return vm.stack.Push(types.Bool(isErr))
+
+	case compiler.OpLen:
+		// Get length of string, array, map, etc.
+		val := vm.stack.Pop()
+		var length int
+		switch v := val.(type) {
+		case *collections.Array:
+			length = v.Len()
+		case *collections.Map:
+			length = v.Len()
+		case *collections.OrderedMap:
+			length = v.Len()
+		case types.String:
+			length = len([]rune(string(v)))
+		default:
+			return vm.newError(fmt.Sprintf("len() not supported for %s type", val.TypeName()), frame.ip)
+		}
+		return vm.stack.Push(types.Int(length))
+
+	case compiler.OpIsNil:
+		// Check if value is nil or undefined
+		val := vm.stack.Pop()
+		isNil := val == nil || val == types.NullValue || val == types.UndefinedValue
+		return vm.stack.Push(types.Bool(isNil))
 
 	case compiler.OpIndexGet:
 		index := vm.stack.Pop()
@@ -1385,6 +3184,15 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 			if result == types.UndefinedValue {
 				return vm.newError(fmt.Sprintf("array index out of bounds: %d (length %d)", idx, coll.Len()), frame.ip)
 			}
+			return vm.stack.Push(result)
+
+		case *collections.Seq:
+			idx, err := types.ToInt(index)
+			if err != nil {
+				return err
+			}
+			// Auto-grow and get value
+			result := coll.GetAuto(int(idx))
 			return vm.stack.Push(result)
 
 		case *collections.Map:
@@ -1424,6 +3232,18 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 				return err
 			}
 			coll.Set(int(idx), value)
+			return vm.stack.Push(value)
+
+		case *collections.Seq:
+			idx, err := types.ToInt(index)
+			if err != nil {
+				return err
+			}
+			result := coll.Set(int(idx), value)
+			// Check if result is an error (not just undefined)
+			if errObj, ok := result.(*types.Error); ok {
+				return vm.newError(errObj.ToStr(), frame.ip)
+			}
 			return vm.stack.Push(value)
 
 		case *collections.Map:
@@ -1533,147 +3353,148 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 		return vm.stack.Push(exportVal)
 
-	case compiler.OpTypeCode:
-		obj := vm.stack.Pop()
-		return vm.stack.Push(types.Int(obj.TypeCode()))
+	case compiler.OpNewClass:
+		// Create new class from constant
+		classIdx := int(frame.ReadUint16())
+		if classIdx < 0 || classIdx >= len(vm.constants) {
+			return vm.newError(fmt.Sprintf("invalid class constant index: %d", classIdx), frame.ip)
+		}
+		// Use constantToObject to get the class instance
+		class, err := vm.constantToObject(classIdx, vm.constants[classIdx])
+		if err != nil {
+			return err
+		}
+		// Push the class to stack
+		return vm.stack.Push(class)
 
-	case compiler.OpTypeName:
-		obj := vm.stack.Pop()
-		return vm.stack.Push(types.String(obj.TypeName()))
-
-	case compiler.OpIsError:
-		obj := vm.stack.Pop()
-		_, isErr := obj.(*types.Error)
-		return vm.stack.Push(types.Bool(isErr))
-
-	case compiler.OpMemberGet:
+	case compiler.OpGetMethod:
+		// Get method from class/object
 		nameIdx := int(frame.ReadUint16())
+		if nameIdx < 0 || nameIdx >= len(vm.constants) {
+			return vm.newError(fmt.Sprintf("invalid method name constant index: %d", nameIdx), frame.ip)
+		}
 		nameConst := vm.constants[nameIdx].(*bytecode.StringConstant)
-		memberName := nameConst.Value
+		methodName := nameConst.Value
 
-		// Pop object from stack
-		objVal := vm.stack.Pop()
-
-		// Check if it's a class instance
-		if instance, ok := objVal.(*types.Instance); ok {
-			// Check for getter method first
-			getterName := "get" + strings.ToUpper(memberName[:1]) + memberName[1:]
-			if getter, ok := instance.Class.Methods[getterName]; ok && getter.IsGetter {
-				// Call getter method automatically
-				boundGetter := &types.BoundMethod{
-					Instance: instance,
-					Method:   getter,
-				}
-				vm.stack.Push(boundGetter)
-				// Rewind IP to call the getter
-				frame.ip -= 2
-				// Dummy arg count 0 for getter
-				vm.stack.Push(types.Int(0))
-				return nil
-			}
-
-			// Check instance properties
-			if val, ok := instance.Properties[memberName]; ok {
-				return vm.stack.Push(val)
-			}
+		obj := vm.stack.Pop()
+		switch o := obj.(type) {
+		case *types.Class:
 			// Check class methods
-			if method, ok := instance.Class.Methods[memberName]; ok {
-				// Return bound method with instance as 'this'
-				boundMethod := &types.BoundMethod{
-					Instance: instance,
-					Method:   method,
+			if method, ok := o.Methods[methodName]; ok {
+				return vm.stack.Push(method)
+			}
+			// Check static methods
+			if method, ok := o.StaticMethods[methodName]; ok {
+				return vm.stack.Push(method)
+			}
+			return vm.newError(fmt.Sprintf("method '%s' not found on class %s", methodName, o.Name), frame.ip)
+		case *types.Instance:
+			// Get method from instance's class (with inheritance)
+			class := o.Class
+			for class != nil {
+				if method, ok := class.Methods[methodName]; ok {
+					boundMethod := &types.BoundMethod{
+						Instance: o,
+						Method:   method,
+					}
+					return vm.stack.Push(boundMethod)
 				}
-				return vm.stack.Push(boundMethod)
-			}
-			// If not found, return undefined
-			return vm.stack.Push(types.UndefinedValue)
-		}
-
-		// Check if it's a super reference
-		if superRef, ok := objVal.(*types.SuperReference); ok {
-			// Look up method on the superclass
-			if method, ok := superRef.Super.Methods[memberName]; ok {
-				// Return bound method with the current instance as 'this'
-				boundMethod := &types.BoundMethod{
-					Instance: superRef.Instance,
-					Method:   method,
-				}
-				return vm.stack.Push(boundMethod)
-			}
-			// Check instance properties (same as normal member access)
-			if val, ok := superRef.Instance.Properties[memberName]; ok {
-				return vm.stack.Push(val)
-			}
-			// If not found, return undefined
-			return vm.stack.Push(types.UndefinedValue)
-		}
-
-		// Check if it's a class
-		if class, ok := objVal.(*types.Class); ok {
-			// First check static fields
-			if val, ok := class.StaticFields[memberName]; ok {
-				return vm.stack.Push(val)
-			}
-			// Then look up static methods
-			if method, ok := class.Methods[memberName]; ok {
-				if method.IsStatic {
-					// Static method: return plain function, no binding needed
+				// Check static methods too (for class-level access)
+				if method, ok := class.StaticMethods[methodName]; ok {
 					return vm.stack.Push(method)
 				}
-				// Instance method called on class: return undefined or error?
-				// For now return undefined, could add warning later
+				// Traverse up the inheritance chain
+				class = class.SuperClass
 			}
-			// If not found, return undefined
-			return vm.stack.Push(types.UndefinedValue)
+			return vm.newError(fmt.Sprintf("method '%s' not found on instance of %s", methodName, o.Class.Name), frame.ip)
+		default:
+			return vm.newError(fmt.Sprintf("cannot get method from %s type", obj.TypeName()), frame.ip)
 		}
 
-		return vm.newError(fmt.Sprintf("cannot get member '%s' of non-object type %s", memberName, objVal.TypeName()), frame.ip)
-
-	case compiler.OpMemberSet:
+	case compiler.OpSetMethod:
+		// Set method in class
 		nameIdx := int(frame.ReadUint16())
+		if nameIdx < 0 || nameIdx >= len(vm.constants) {
+			return vm.newError(fmt.Sprintf("invalid method name constant index: %d", nameIdx), frame.ip)
+		}
 		nameConst := vm.constants[nameIdx].(*bytecode.StringConstant)
-		memberName := nameConst.Value
+		methodName := nameConst.Value
 
-		// Pop value and object from stack
-		value := vm.stack.Pop()
-		objVal := vm.stack.Pop()
+		method := vm.stack.Pop()
+		obj := vm.stack.Pop()
 
-		// Check if it's a class instance
-		if instance, ok := objVal.(*types.Instance); ok {
-			// Check for setter method first
-			setterName := "set" + strings.ToUpper(memberName[:1]) + memberName[1:]
-			if setter, ok := instance.Class.Methods[setterName]; ok && setter.IsSetter {
-				// Call setter method automatically with the value
-				boundSetter := &types.BoundMethod{
-					Instance: instance,
-					Method:   setter,
+		switch o := obj.(type) {
+		case *types.Class:
+			// Set as regular method or static method based on method type
+			if fn, ok := method.(*types.Function); ok {
+				if fn.IsStatic {
+					o.StaticMethods[methodName] = fn
+				} else {
+					o.Methods[methodName] = fn
 				}
-				vm.stack.Push(boundSetter)
-				vm.stack.Push(value)
-				// Rewind IP to call the setter with 1 argument
-				frame.ip -= 2
-				// Arg count 1 for setter
-				vm.stack.Push(types.Int(1))
-				return nil
+			} else {
+				return vm.newError(fmt.Sprintf("expected function, got %s type", method.TypeName()), frame.ip)
 			}
-
-			// Set property on instance
-			instance.Properties[memberName] = value
-			return vm.stack.Push(value)
+			return vm.stack.Push(types.UndefinedValue)
+		default:
+			return vm.newError(fmt.Sprintf("cannot set method on %s type", obj.TypeName()), frame.ip)
 		}
 
-		// Check if it's a class (for static properties)
-		if class, ok := objVal.(*types.Class); ok {
-			// Initialize static fields map if needed
-			if class.StaticFields == nil {
-				class.StaticFields = make(map[string]types.Object)
-			}
-			// Set static property on class
-			class.StaticFields[memberName] = value
-			return vm.stack.Push(value)
+	case compiler.OpGetSuper:
+		// Pop the instance from stack
+		instance, ok := vm.stack.Pop().(*types.Instance)
+		if !ok {
+			return vm.newError("super expects an instance", frame.ip)
 		}
 
-		return vm.newError(fmt.Sprintf("cannot set member '%s' of non-object type %s", memberName, objVal.TypeName()), frame.ip)
+		// Get the superclass from the instance's class
+		superClass := instance.Class.SuperClass
+		if superClass == nil {
+			return vm.newError(fmt.Sprintf("class '%s' has no superclass", instance.Class.Name), frame.ip)
+		}
+
+		// Create and push SuperReference
+		superRef := &types.SuperReference{
+			Instance: instance,
+			Super:    superClass,
+		}
+		return vm.stack.Push(superRef)
+
+	case compiler.OpGetSuper2:
+		// Pop the instance from stack
+		instance, ok := vm.stack.Pop().(*types.Instance)
+		if !ok {
+			return vm.newError("super expects an instance", frame.ip)
+		}
+
+		// Get the superclass index from operand
+		superIndex := frame.ReadUint16()
+
+		// Get the superclass from VM constants
+		superClassVal := vm.constants[superIndex]
+		superClassStr, ok := superClassVal.(*bytecode.StringConstant)
+		if !ok {
+			return vm.newError("superclass must be a string", frame.ip)
+		}
+
+		// Look up the superclass object from globals
+		superClassObj, ok := vm.globals[superClassStr.Value]
+		if !ok {
+			return vm.newError(fmt.Sprintf("superclass '%s' not found", superClassStr.Value), frame.ip)
+		}
+
+		// Get the class from the global object
+		superClass, ok := superClassObj.(*types.Class)
+		if !ok {
+			return vm.newError(fmt.Sprintf("'%s' is not a class", superClassStr.Value), frame.ip)
+		}
+
+		// Create and push SuperReference
+		superRef := &types.SuperReference{
+			Instance: instance,
+			Super:    superClass,
+		}
+		return vm.stack.Push(superRef)
 
 	case compiler.OpThrow:
 		errVal := vm.stack.Pop()
@@ -1686,7 +3507,6 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 			// If error doesn't have stack yet, add it
 			err.Stack = vm.collectCallStack()
 		}
-
 		vm.lastError = err
 
 		// Unwind the stack to find the appropriate catch block
@@ -1725,37 +3545,6 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		// No catch block found, return the error
 		return err
 
-	case compiler.OpLen:
-		obj := vm.stack.Pop()
-		switch val := obj.(type) {
-		case *collections.Array:
-			return vm.stack.Push(types.Int(val.Len()))
-		case types.String:
-			// Return rune count for UTF-8 strings
-			runes := []rune(string(val))
-			return vm.stack.Push(types.Int(len(runes)))
-		case *collections.Map:
-			return vm.stack.Push(types.Int(val.Len()))
-		default:
-			return vm.newError(fmt.Sprintf("cannot get length of type %s", obj.TypeName()), frame.ip)
-		}
-
-	case compiler.OpGetSuper:
-		obj := vm.stack.Pop()
-		instance, ok := obj.(*types.Instance)
-		if !ok {
-			return vm.newError(fmt.Sprintf("super keyword only valid on class instances, got %s", obj.TypeName()), frame.ip)
-		}
-		if instance.Class.SuperClass == nil {
-			return vm.stack.Push(types.NullValue)
-		}
-		// Return super reference containing both instance and superclass
-		superRef := &types.SuperReference{
-			Instance: instance,
-			Super:    instance.Class.SuperClass,
-		}
-		return vm.stack.Push(superRef)
-
 	default:
 		return vm.newError(fmt.Sprintf("unknown opcode: %#02x", op), frame.ip)
 	}
@@ -1789,80 +3578,80 @@ func (vm *VM) constantToObject(index int, c bytecode.Constant) (types.Object, er
 			NumLocals:     constType.NumLocals,
 			NumParameters: constType.NumParameters,
 			IsVariadic:    constType.IsVariadic,
-			IsStatic:      constType.IsStatic,
-			AccessModifier: constType.AccessModifier,
-			IsGetter:      (constType.Flags & 0x01) != 0,
-			IsSetter:      (constType.Flags & 0x02) != 0,
-			DefaultValues: constType.DefaultValues,
 			Instructions:  constType.Instructions,
 			ConstantPool:  vm.constants,
+			DefaultValues: constType.DefaultValues,
 		}
 		// Cache the function instance
 		vm.functionCache[index] = fn
 		return fn, nil
-
 	case *bytecode.ClassConstant:
-		// Check class cache first
-		if cls, ok := vm.classCache[index]; ok {
-			return cls, nil
+		// Check cache first
+		if class, ok := vm.classCache[index]; ok {
+			return class, nil
 		}
-		// Convert bytecode class to types.Class
-		cls := &types.Class{
-			Name:         constType.Name,
-			Methods:      make(map[string]*types.Function),
+		// Create a types.Class from the bytecode constant
+		class := &types.Class{
+			Name:       constType.Name,
+			SuperClass: nil,
+			Methods:    make(map[string]*types.Function),
 			StaticFields: make(map[string]types.Object),
+			StaticMethods: make(map[string]*types.Function),
 		}
-
-		// Resolve superclass if present
+		// Copy methods from bytecode constant (method name -> function index)
+		for methodName, methodIdx := range constType.Methods {
+			// Get the function from constant pool
+			if methodFn, ok := vm.constants[methodIdx].(*bytecode.FunctionConstant); ok {
+				fn := &types.Function{
+					Name:          methodFn.Name,
+					NumLocals:     methodFn.NumLocals,
+					NumParameters: methodFn.NumParameters,
+					IsVariadic:    methodFn.IsVariadic,
+					Instructions:  methodFn.Instructions,
+					ConstantPool:  vm.constants,
+					DefaultValues: methodFn.DefaultValues,
+				}
+				class.Methods[methodName] = fn
+				// Cache the function
+				vm.functionCache[methodIdx] = fn
+			}
+		}
+		// Copy static methods from bytecode constant
+		for methodName, methodIdx := range constType.StaticMethods {
+			if methodFn, ok := vm.constants[methodIdx].(*bytecode.FunctionConstant); ok {
+				fn := &types.Function{
+					Name:          methodFn.Name,
+					NumLocals:     methodFn.NumLocals,
+					NumParameters: methodFn.NumParameters,
+					IsVariadic:    methodFn.IsVariadic,
+					Instructions:  methodFn.Instructions,
+					ConstantPool:  vm.constants,
+					IsStatic:      true,
+					DefaultValues: methodFn.DefaultValues,
+				}
+				class.StaticMethods[methodName] = fn
+				vm.functionCache[methodIdx] = fn
+			}
+		}
+		// Resolve superclass if specified
 		if constType.SuperClass != "" {
-			// Look up superclass in global scope
-			superVal, ok := vm.globals[constType.SuperClass]
-			if !ok {
-				return nil, vm.newError(fmt.Sprintf("superclass %s not found", constType.SuperClass), 0)
-			}
-			superCls, ok := superVal.(*types.Class)
-			if !ok {
-				return nil, vm.newError(fmt.Sprintf("%s is not a class", constType.SuperClass), 0)
-			}
-			cls.SuperClass = superCls
-
-			// Inherit methods from superclass
-			for name, method := range superCls.Methods {
-				cls.Methods[name] = method
+			// Superclass should be in globals (already created)
+			if superVal, ok := vm.globals[constType.SuperClass]; ok {
+				if superClass, ok := superVal.(*types.Class); ok {
+					class.SuperClass = superClass
+				}
 			}
 		}
-
-		// Add own methods (override inherited ones)
-		for methodName, funcIdx := range constType.Methods {
-			// Resolve method function from constant pool
-			funcConst := vm.constants[funcIdx]
-			methodObj, err := vm.constantToObject(funcIdx, funcConst)
-			if err != nil {
-				return nil, err
-			}
-			method, ok := methodObj.(*types.Function)
-			if !ok {
-				return nil, vm.newError(fmt.Sprintf("method %s is not a function", methodName), 0)
-			}
-			method.OwnerClass = cls // Set the owner class of this method
-			cls.Methods[methodName] = method
-		}
-
-		// Cache the class instance
-		if vm.classCache == nil {
-			vm.classCache = make(map[int]*types.Class)
-		}
-		vm.classCache[index] = cls
-		return cls, nil
-
+		// Cache the class
+		vm.classCache[index] = class
+		return class, nil
 	case *bytecode.InterfaceConstant:
-		// Create interface instance
+		// Create a types.Interface from the bytecode constant
 		iface := &types.Interface{
 			Name:    constType.Name,
 			Methods: constType.Methods,
 		}
 		return iface, nil
-
 	default:
 		return nil, vm.newError(fmt.Sprintf("unsupported constant type: %T", c), 0)
 	}
@@ -1894,12 +3683,24 @@ func (vm *VM) collectCallStack() []types.StackFrame {
 
 // LoadModule loads a module by path
 func (vm *VM) LoadModule(modulePath string) (*Module, error) {
-	// Check if module is already loaded
-	if mod, ok := vm.modules[modulePath]; ok {
-		return mod, nil
+	// Standard library modules are built-in - return VM's copy directly
+	standardModules := map[string]bool{
+		"math":       true,
+		"string":     true,
+		"collection": true,
+		"time":       true,
+		"json":       true,
+		"thread":     true,
+		"http":       true,
+	}
+	if standardModules[modulePath] {
+		if mod, ok := vm.modules[modulePath]; ok {
+			return mod, nil
+		}
+		return nil, fmt.Errorf("standard library module '%s' not found in VM", modulePath)
 	}
 
-	// Check if it's a standard library module (already registered in vm.modules)
+	// Check if module is already loaded
 	if mod, ok := vm.modules[modulePath]; ok {
 		return mod, nil
 	}
@@ -2114,6 +3915,60 @@ func (vm *VM) runDeferred(frameIndex int) {
 	}
 	// Clear deferred functions for this frame
 	vm.deferStack[frameIndex] = nil
+}
+
+// handleRuntimeError handles runtime errors by looking for a try-catch block
+// Returns true if the error was caught and execution should continue
+func (vm *VM) handleRuntimeError(err error, frame *Frame) bool {
+	// Convert to types.Error if needed
+	var typeErr *types.Error
+	var ok bool
+	if typeErr, ok = err.(*types.Error); !ok {
+		// Wrap the error with stack trace
+		stack := vm.collectCallStack()
+		typeErr = types.NewErrorWithStack(err.Error(), 0, 0, "", stack)
+	} else if len(typeErr.Stack) == 0 {
+		// If error doesn't have stack yet, add it
+		typeErr.Stack = vm.collectCallStack()
+	}
+	vm.lastError = typeErr
+
+	// Unwind the stack to find the appropriate catch block
+	for len(vm.tryStack) > 0 {
+		tryFrame := vm.tryStack[len(vm.tryStack)-1]
+		vm.tryStack = vm.tryStack[:len(vm.tryStack)-1]
+
+		// First, run all deferred functions in this frame
+		vm.runDeferred(tryFrame.frameIndex)
+
+		// Check if there's a catch block
+		if tryFrame.catchOffset != 0xFFFF {
+			// Jump to catch block
+			frame := vm.frames[tryFrame.frameIndex]
+			frame.ip = tryFrame.catchOffset
+			// Restore stack and base pointer
+			vm.stack.SetSize(tryFrame.stackPointer)
+			// Push the error to the stack for catch
+			vm.stack.Push(typeErr)
+			vm.lastError = nil
+			return true
+		}
+
+		// If there's a finally block, run it
+		if tryFrame.finallyOffset != 0xFFFF {
+			// Jump to finally block
+			frame := vm.frames[tryFrame.frameIndex]
+			frame.ip = tryFrame.finallyOffset
+			// Restore stack and base pointer
+			vm.stack.SetSize(tryFrame.stackPointer)
+			vm.lastError = typeErr
+			return true
+		}
+	}
+
+	// No catch block found
+	vm.lastError = nil
+	return false
 }
 
 // Comparison operators

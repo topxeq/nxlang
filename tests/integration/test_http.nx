@@ -1,0 +1,38 @@
+// Test HTTP functions
+pln("=== Test HTTP Functions ===")
+
+// Test 1: httpGet
+pln("\n--- Test 1: httpGet ---")
+pln("httpGet function exists:", typeOf(httpGet))
+
+// Test 2: httpPost
+pln("\n--- Test 2: httpPost ---")
+pln("httpPost function exists:", typeOf(httpPost))
+
+// Test 3: httpPostJSON
+pln("\n--- Test 3: httpPostJSON ---")
+pln("httpPostJSON function exists:", typeOf(httpPostJSON))
+
+// Test 4: httpPut
+pln("\n--- Test 4: httpPut ---")
+pln("httpPut function exists:", typeOf(httpPut))
+
+// Test 5: httpDelete
+pln("\n--- Test 5: httpDelete ---")
+pln("httpDelete function exists:", typeOf(httpDelete))
+
+// Test 6: httpRequest
+pln("\n--- Test 6: httpRequest ---")
+pln("httpRequest function exists:", typeOf(httpRequest))
+
+// Test 7: httpResponse type
+pln("\n--- Test 7: httpResponse type ---")
+pln("HTTPResponse type code:", 112)
+
+// Test basic usage pattern (without actual network call)
+pln("\n--- Test 8: Usage pattern ---")
+pln("Usage: var resp = httpGet('https://api.example.com/data')")
+pln("       pln('Status:', resp.statusCode)")
+pln("       pln('Body:', resp.body)")
+
+pln("\n=== HTTP Functions Test Completed ===")

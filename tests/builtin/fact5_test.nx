@@ -1,0 +1,8 @@
+func factorial(n) {
+    if (n <= 1) {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+
+pln("Factorial of 5: ", factorial(5)) // Should be 120

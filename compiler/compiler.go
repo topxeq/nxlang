@@ -9,6 +9,7 @@ import (
 
 	"github.com/topxeq/nxlang/bytecode"
 	"github.com/topxeq/nxlang/parser"
+	"github.com/topxeq/nxlang/types"
 )
 
 // Module represents a compiled Nxlang module
@@ -45,6 +46,16 @@ type Compiler struct {
 
 	// Interface cache for implementation checking
 	interfaces map[string]*bytecode.InterfaceConstant // Map of interface name to interface constant
+
+	// Class stack for super reference resolution in inheritance
+	classStack []ClassContext
+}
+
+// ClassContext holds the current class being compiled
+type ClassContext struct {
+	Name       string // Current class name
+	SuperName  string // Superclass name (empty if no superclass)
+	SuperIndex int    // Index of superclass constant in constants array
 }
 
 // LoopContext holds the target positions for break and continue in a loop
@@ -101,6 +112,29 @@ func (c *Compiler) resolveModule(importPath string) (*Module, error) {
 	// Check if module is already cached
 	if mod, ok := c.modules[importPath]; ok {
 		return mod, nil
+	}
+
+	// Standard library modules are built-in and don't have source files
+	// They are registered at runtime by the VM, so we skip file lookup for them
+	standardModules := map[string]bool{
+		"math":       true,
+		"string":     true,
+		"collection": true,
+		"time":       true,
+		"json":       true,
+		"thread":     true,
+		"http":       true,
+	}
+	if standardModules[importPath] {
+		// Create a placeholder module - exports will be populated at runtime by VM
+		// The VM will handle providing the actual built-in functions
+		placeholder := &Module{
+			Name:    importPath,
+			Path:    "builtin:" + importPath,
+			Exports: make(map[string]string),
+		}
+		c.modules[importPath] = placeholder
+		return placeholder, nil
 	}
 
 	// Resolve the module file path
@@ -243,17 +277,42 @@ func (c *Compiler) resolveModule(importPath string) (*Module, error) {
 func registerBuiltins(st *SymbolTable) {
 	builtins := []string{
 		"pr", "pln", "pl", "printf", "sprintf",
-		"typeCode", "typeName", "isErr", "toStr",
-		"len", "append", "array", "map", "orderedMap", "stack", "queue", "keys", "values", "delete", "sortMap", "reverseMap", "moveKey", "moveKeyToFirst", "moveKeyToLast",
+		"typeCode", "typeName", "typeOf", "isErr", "toStr",
+		"len", "append", "array", "map", "orderedMap", "stack", "queue", "seq", "keys", "values", "delete", "sortMap", "reverseMap", "moveKey", "moveKeyToFirst", "moveKeyToLast",
 		"abs", "sqrt", "sin", "cos", "tan", "floor", "ceil", "round", "pow", "random",
 		"toUpper", "toLower", "trim", "split", "join", "contains", "replace", "substr", "startsWith", "endsWith",
-		"now", "unix", "unixMilli", "formatTime", "parseTime", "sleep", "thread", "mutex", "rwMutex",
+		"now", "unix", "unixMilli", "formatTime", "parseTime", "sleep", "thread", "mutex", "rwMutex", "waitForThreads",
 		"toJson", "fromJson",
+		"compile", "runByteCode", "runCode", "addMethod", "addMember",
+		"ref", "deref", "setref",
+		// Type conversion functions
+		"int", "float", "bool", "string", "byte", "uint", "char", "bytes", "chars",
+		// Graphics/Canvas functions
+		"canvas", "clear", "drawPoint", "drawLine", "drawRectangle", "fillRectangle", "drawCircle", "fillCircle", "savePNG", "loadPNG", "getPixel", "canvasWidth", "canvasHeight",
+		// Data/CSV functions
+		"openCSV", "readCSV", "writeCSV", "parseCSV", "toCSV", "createCSVReader", "createCSVWriter", "closeCSV", "readCSVRow", "readCSVAll", "writeCSVRow", "getCSVHeaders",
+		// Plugin functions
+		"loadPlugin", "unloadPlugin", "callPlugin", "listPlugins",
+		// HTTP functions
+		"httpGet", "httpPost", "httpPostJSON", "httpPut", "httpDelete", "httpRequest",
 	}
 
 	for i, name := range builtins {
 		st.DefineBuiltin(i, name)
 	}
+
+	// Register predefined constants as built-in symbols
+	st.DefineConstant("undefined", types.UndefinedValue)
+	st.DefineConstant("null", types.NullValue)
+	st.DefineConstant("nil", types.NullValue)
+
+	// Predefined variable 'args' for dynamic argument passing (e.g., in runCode)
+	// The actual value is set at runtime
+	st.DefineBuiltin(len(builtins), "args")
+
+	// Mathematical constants
+	st.DefineConstant("piC", types.Float(3.141592653589793))
+	st.DefineConstant("eC", types.Float(2.718281828459045))
 }
 
 // Compile compiles an AST program into bytecode
@@ -334,41 +393,62 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return err
 			}
 
-			// Store iteratee in a local variable
+			// Define local variables for iteration state
 			iterSym := c.symbolTable.Define("__iter__")
-			c.emit(OpStoreLocal, iterSym.Index)
+			c.storeSymbol(iterSym)
 
-			// Define local variables for iteration
 			keysSym := c.symbolTable.Define("__keys__")
 			lenSym := c.symbolTable.Define("__len__")
 			idxSym := c.symbolTable.Define("__idx__")
 
+			// Define key and value variables
+			keySym := c.symbolTable.Define(n.Key.Value)
+			var valSym *Symbol
+			if n.Value != nil {
+				vs := c.symbolTable.Define(n.Value.Value)
+				valSym = &vs
+			}
+
 			// Get type code of iteratee
-			c.emit(OpLoadLocal, iterSym.Index)
+			c.loadSymbol(iterSym)
 			c.emit(OpTypeCode)
 
-			// Check if it's array (type code 6)
-			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 6}))
+			// Check if it's array (type code 0x10 = 16)
+			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 0x10}))
 			c.emit(OpEq)
 			jumpToArray := c.emit(OpJmpIfTrue, 0xFFFF)
 
-			// Check if it's string (type code 8)
-			c.emit(OpLoadLocal, iterSym.Index)
+			// Check if it's string (type code 0x08 = 8)
+			c.loadSymbol(iterSym)
 			c.emit(OpTypeCode)
-			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 8}))
+			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 0x08}))
 			c.emit(OpEq)
 			jumpToString := c.emit(OpJmpIfTrue, 0xFFFF)
 
+			// Check if it's int (type code 0x05 = 5)
+			c.loadSymbol(iterSym)
+			c.emit(OpTypeCode)
+			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 0x05}))
+			c.emit(OpEq)
+			jumpToInt := c.emit(OpJmpIfTrue, 0xFFFF)
+
+			// Check if it's float (type code 0x07 = 7)
+			c.loadSymbol(iterSym)
+			c.emit(OpTypeCode)
+			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 0x07}))
+			c.emit(OpEq)
+			jumpToFloat := c.emit(OpJmpIfTrue, 0xFFFF)
+
 			// Map/Object case: get keys array
-			c.emit(OpLoadLocal, iterSym.Index)
+			c.loadSymbol(iterSym)
 			c.emit(OpLoadGlobal, c.addConstant(&bytecode.StringConstant{Value: "keys"}))
 			c.emit(OpCall, 1)
-			c.emit(OpStoreLocal, keysSym.Index)
+			c.storeSymbol(keysSym)
 
 			// Get length of keys array
-			c.emit(OpLoadLocal, keysSym.Index)
+			c.loadSymbol(keysSym)
 			c.emit(OpLen)
-			c.emit(OpStoreLocal, lenSym.Index)
+			c.storeSymbol(lenSym)
 
 			jumpToInit := c.emit(OpJmp, 0xFFFF)
 
@@ -376,34 +456,70 @@ func (c *Compiler) Compile(node parser.Node) error {
 			arrayCasePos := len(c.currentInstructions())
 			c.changeOperand(jumpToArray, arrayCasePos)
 			// Get array length
-			c.emit(OpLoadLocal, iterSym.Index)
+			c.loadSymbol(iterSym)
 			c.emit(OpLen)
-			c.emit(OpStoreLocal, lenSym.Index)
+			c.storeSymbol(lenSym)
 			// Set keys to nil for sequential iteration
 			c.emit(OpPush, c.addConstant(&bytecode.NilConstant{}))
-			c.emit(OpStoreLocal, keysSym.Index)
-			jumpToInitPos := len(c.currentInstructions())
-			c.changeOperand(jumpToInit, jumpToInitPos)
+			c.storeSymbol(keysSym)
+			// Jump to common init
+			jumpToInitArr := c.emit(OpJmp, 0xFFFF)
 
 			// String case handler
 			stringCasePos := len(c.currentInstructions())
 			c.changeOperand(jumpToString, stringCasePos)
 			// Get string length (rune count)
-			c.emit(OpLoadLocal, iterSym.Index)
+			c.loadSymbol(iterSym)
 			c.emit(OpLen)
-			c.emit(OpStoreLocal, lenSym.Index)
+			c.storeSymbol(lenSym)
 			// Set keys to nil for sequential iteration
 			c.emit(OpPush, c.addConstant(&bytecode.NilConstant{}))
-			c.emit(OpStoreLocal, keysSym.Index)
+			c.storeSymbol(keysSym)
+			// Jump to common init
+			jumpToInitStr := c.emit(OpJmp, 0xFFFF)
+
+			// Int case handler
+			intCasePos := len(c.currentInstructions())
+			c.changeOperand(jumpToInt, intCasePos)
+			// Use the int value directly as length
+			c.loadSymbol(iterSym)
+			c.storeSymbol(lenSym)
+			// Set keys to nil for sequential iteration
+			c.emit(OpPush, c.addConstant(&bytecode.NilConstant{}))
+			c.storeSymbol(keysSym)
+			// Jump to common init
+			jumpToInitInt := c.emit(OpJmp, 0xFFFF)
+
+			// Float case handler
+			floatCasePos := len(c.currentInstructions())
+			c.changeOperand(jumpToFloat, floatCasePos)
+			// Convert float to int and use as length
+			c.loadSymbol(iterSym)
+			c.storeSymbol(lenSym)
+			// Set keys to nil for sequential iteration
+			c.emit(OpPush, c.addConstant(&bytecode.NilConstant{}))
+			c.storeSymbol(keysSym)
+			// Jump to common init
+			jumpToInitFloat := c.emit(OpJmp, 0xFFFF)
+
+			// Map/Object case continues here (no jump needed)
+
+			// Patch all case handler jumps to common init
+			jumpToInitPos := len(c.currentInstructions())
+			c.changeOperand(jumpToInit, jumpToInitPos)
+			c.changeOperand(jumpToInitArr, jumpToInitPos)
+			c.changeOperand(jumpToInitStr, jumpToInitPos)
+			c.changeOperand(jumpToInitInt, jumpToInitPos)
+			c.changeOperand(jumpToInitFloat, jumpToInitPos)
 
 			// Initialize index to 0
 			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 0}))
-			c.emit(OpStoreLocal, idxSym.Index)
+			c.storeSymbol(idxSym)
 
 			// Compare index < length
 			conditionPos := len(c.currentInstructions())
-			c.emit(OpLoadLocal, idxSym.Index)
-			c.emit(OpLoadLocal, lenSym.Index)
+			c.loadSymbol(idxSym)
+			c.loadSymbol(lenSym)
 			c.emit(OpLt)
 
 			// Jump if false to end of loop
@@ -416,67 +532,105 @@ func (c *Compiler) Compile(node parser.Node) error {
 			})
 
 			// Check if we have keys (map/object iteration)
-			c.emit(OpLoadLocal, keysSym.Index)
+			c.loadSymbol(keysSym)
 			c.emit(OpIsNil)
 			jumpToSeqIter := c.emit(OpJmpIfTrue, 0xFFFF)
 
 			// Map/Object iteration: get key from keys array
-			c.emit(OpLoadLocal, keysSym.Index)
-			c.emit(OpLoadLocal, idxSym.Index)
+			c.loadSymbol(keysSym)
+			c.loadSymbol(idxSym)
 			c.emit(OpIndexGet)
-			keyTempSym := c.symbolTable.Define("__key_temp__")
-			c.emit(OpStoreLocal, keyTempSym.Index)
+			// Store key variable
+			c.storeSymbol(keySym)
 
 			// Get value from iteratee using key
-			c.emit(OpLoadLocal, iterSym.Index)
-			c.emit(OpLoadLocal, keyTempSym.Index)
+			c.loadSymbol(iterSym)
+			c.loadSymbol(keySym)
 			c.emit(OpIndexGet)
 
 			// Store value if requested
 			if n.Value != nil {
-				valSym := c.symbolTable.Define(n.Value.Value)
-				c.emit(OpStoreLocal, valSym.Index)
-			}
-
-			// Store key variable
-			keySym := c.symbolTable.Define(n.Key.Value)
-			c.emit(OpLoadLocal, keyTempSym.Index)
-			c.emit(OpStoreLocal, keySym.Index)
-
-			// Pop unused value if only key is needed
-			if n.Value == nil {
+				c.storeSymbol(*valSym)
+			} else {
 				c.emit(OpPop)
 			}
 
 			jumpToBody := c.emit(OpJmp, 0xFFFF)
 
-			// Sequential iteration for array/string
+			// Sequential iteration for array/string/numeric
 			seqIterPos := len(c.currentInstructions())
 			c.changeOperand(jumpToSeqIter, seqIterPos)
 
-			// Get element by index
-			c.emit(OpLoadLocal, iterSym.Index)
-			c.emit(OpLoadLocal, idxSym.Index)
+			// Check if iteratee is a number (int or float) for range iteration
+			c.loadSymbol(iterSym)
+			c.emit(OpTypeCode)
+			// Check for int (0x05)
+			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 0x05}))
+			c.emit(OpEq)
+			jumpToIntRange := c.emit(OpJmpIfTrue, 0xFFFF)
+
+			// Check for float (0x07)
+			c.loadSymbol(iterSym)
+			c.emit(OpTypeCode)
+			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 0x07}))
+			c.emit(OpEq)
+			jumpToFloatRange := c.emit(OpJmpIfTrue, 0xFFFF)
+
+			// Array/String case: Get element by index
+			arrayStringPos := len(c.currentInstructions())
+			c.changeOperand(jumpToIntRange, arrayStringPos)
+			c.loadSymbol(iterSym)
+			c.loadSymbol(idxSym)
 			c.emit(OpIndexGet)
 
 			// Store value if requested
 			if n.Value != nil {
-				valSym := c.symbolTable.Define(n.Value.Value)
-				c.emit(OpStoreLocal, valSym.Index)
+				c.storeSymbol(*valSym)
 			}
 
 			// Store key (index for array/string)
-			seqKeySym := c.symbolTable.Define(n.Key.Value)
-			c.emit(OpLoadLocal, idxSym.Index)
-			c.emit(OpStoreLocal, seqKeySym.Index)
+			c.loadSymbol(idxSym)
+			c.storeSymbol(keySym)
 
 			// Pop unused value if only key is needed
 			if n.Value == nil {
 				c.emit(OpPop)
 			}
 
+			jumpToBody2 := c.emit(OpJmp, 0xFFFF)
+
+			// Int range case: value is the index itself
+			intRangePos := len(c.currentInstructions())
+			c.changeOperand(jumpToIntRange, intRangePos)
+			// Store key (index)
+			c.loadSymbol(idxSym)
+			c.storeSymbol(keySym)
+			// Store value (same as key for range)
+			if n.Value != nil {
+				c.loadSymbol(idxSym)
+				c.storeSymbol(*valSym)
+			}
+
+			jumpToBody3 := c.emit(OpJmp, 0xFFFF)
+
+			// Float range case: value is the index (as float)
+			floatRangePos := len(c.currentInstructions())
+			c.changeOperand(jumpToFloatRange, floatRangePos)
+			// Store key (index as int)
+			c.loadSymbol(idxSym)
+			c.storeSymbol(keySym)
+			// Store value (index converted to float for float range)
+			if n.Value != nil {
+				c.loadSymbol(idxSym)
+				// Convert int to float if needed
+				c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 0}))
+				c.emit(OpAdd) // This will convert to float if lenSym is float
+			}
+
 			bodyPos := len(c.currentInstructions())
 			c.changeOperand(jumpToBody, bodyPos)
+			c.changeOperand(jumpToBody2, bodyPos)
+			c.changeOperand(jumpToBody3, bodyPos)
 
 			// Compile loop body
 			if err := c.Compile(n.Body); err != nil {
@@ -494,10 +648,10 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 
 			// Increment index
-			c.emit(OpLoadLocal, idxSym.Index)
+			c.loadSymbol(idxSym)
 			c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 1}))
 			c.emit(OpAdd)
-			c.emit(OpStoreLocal, idxSym.Index)
+			c.storeSymbol(idxSym)
 
 			// Jump back to condition
 			c.emit(OpJmp, conditionPos)
@@ -881,8 +1035,35 @@ func (c *Compiler) Compile(node parser.Node) error {
 		// Add class name to outer symbol table first, so it can be referenced
 		c.symbolTable.Define(n.Name.Value)
 
+		// Compile superclass first if it exists
+		superIndex := -1
+		if n.SuperClass != nil {
+			// Load superclass symbol
+			superSym, ok := c.symbolTable.Resolve(n.SuperClass.Value)
+			if !ok {
+				// Forward reference - will be resolved at runtime from globals
+				// Define as a placeholder in symbol table
+				superSym = c.symbolTable.Define(n.SuperClass.Value)
+			}
+			c.loadSymbol(superSym)
+			superIndex = c.addConstant(&bytecode.StringConstant{Value: n.SuperClass.Value})
+		}
+
 		// Compile all methods
 		methods := make(map[string]int) // method name -> function constant index
+		staticMethods := make(map[string]int) // static method name -> function constant index
+
+		// Push class context for method compilation
+		classCtx := ClassContext{
+			Name:       n.Name.Value,
+			SuperName:  "",
+			SuperIndex: -1,
+		}
+		if n.SuperClass != nil {
+			classCtx.SuperName = n.SuperClass.Value
+			classCtx.SuperIndex = superIndex
+		}
+		c.classStack = append(c.classStack, classCtx)
 
 		for _, method := range n.Methods {
 			// Enter new scope for method
@@ -947,7 +1128,12 @@ func (c *Compiler) Compile(node parser.Node) error {
 				DefaultValues: scope.defaultValues,
 			}
 			funcIdx := c.addConstant(funcConst)
-			methods[method.Name] = funcIdx
+			// Store in appropriate map based on whether it's static
+			if method.IsStatic {
+				staticMethods[method.Name] = funcIdx
+			} else {
+				methods[method.Name] = funcIdx
+			}
 
 			// Exit scope
 			c.leaveScope()
@@ -990,6 +1176,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			SuperClass:  "",
 			Interfaces:  make([]string, len(n.Implements)),
 			Methods:     methods,
+			StaticMethods: staticMethods,
 		}
 
 		if n.SuperClass != nil {
@@ -1039,6 +1226,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 				fieldNameIdx := c.addConstant(&bytecode.StringConstant{Value: fieldName.Value})
 				c.emit(OpMemberSet, fieldNameIdx)
 			}
+		}
+
+		// Pop class context
+		if len(c.classStack) > 0 {
+			c.classStack = c.classStack[:len(c.classStack)-1]
 		}
 
 		return nil
@@ -1137,9 +1329,18 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if !ok {
 			return fmt.Errorf("'super' keyword not allowed outside of class methods")
 		}
-		// Load 'this' instance, then get its superclass
+		// Check if we have a class context
+		if len(c.classStack) == 0 {
+			return fmt.Errorf("'super' keyword not allowed outside of class methods")
+		}
+		// Get current class context
+		currentClass := c.classStack[len(c.classStack)-1]
+		if currentClass.SuperName == "" {
+			return fmt.Errorf("class '%s' has no superclass", currentClass.Name)
+		}
+		// Load 'this' instance, then get its superclass using the stored super index
 		c.loadSymbol(symbol)
-		c.emit(OpGetSuper)
+		c.emit(OpGetSuper2, currentClass.SuperIndex)
 		return nil
 
 	case *parser.MemberExpression:
@@ -1831,9 +2032,38 @@ func (c *Compiler) loadSymbol(symbol Symbol) {
 	case ScopeLocal:
 		c.emit(OpLoadLocal, symbol.Index)
 	case ScopeBuiltin:
-		// For built-ins, we load the function name as a global - the VM will resolve it
-		nameIdx := c.addConstant(&bytecode.StringConstant{Value: symbol.Name})
-		c.emit(OpLoadGlobal, nameIdx)
+		// Check if it's a constant (has a Type value)
+		if symbol.Type != nil {
+			// It's a constant, convert types.Object to bytecode.Constant and push the value directly
+			var constVal bytecode.Constant
+			switch v := symbol.Type.(type) {
+			case types.Int:
+				constVal = &bytecode.IntConstant{Value: int64(v)}
+			case types.Float:
+				constVal = &bytecode.FloatConstant{Value: float64(v)}
+			case types.Bool:
+				constVal = &bytecode.BoolConstant{Value: bool(v)}
+			case types.String:
+				constVal = &bytecode.StringConstant{Value: string(v)}
+			case types.Char:
+				constVal = &bytecode.CharConstant{Value: rune(v)}
+			case *types.Null:
+				constVal = &bytecode.NilConstant{}
+			case *types.Undefined:
+				constVal = &bytecode.NilConstant{}
+			default:
+				// For other types (like functions), load as global
+				nameIdx := c.addConstant(&bytecode.StringConstant{Value: symbol.Name})
+				c.emit(OpLoadGlobal, nameIdx)
+				return
+			}
+			constIdx := c.addConstant(constVal)
+			c.emit(OpPush, constIdx)
+		} else {
+			// For built-in functions, load as a global - the VM will resolve it
+			nameIdx := c.addConstant(&bytecode.StringConstant{Value: symbol.Name})
+			c.emit(OpLoadGlobal, nameIdx)
+		}
 	case ScopeFree:
 		c.emit(OpLoadUpvalue, symbol.Index)
 	case ScopeFunction:
@@ -2082,10 +2312,11 @@ func (c *Compiler) currentScope() *CompilationScope {
 // Bytecode returns the compiled bytecode
 func (c *Compiler) Bytecode() *bytecode.Bytecode {
 	// Find main function (create if not exists)
+	// Use symbolTable.Count() to get the actual number of local definitions
 	mainFunc := &bytecode.FunctionConstant{
 		Name: "main",
 		Instructions: c.currentInstructions(),
-		NumLocals: c.currentScope().numLocals,
+		NumLocals: c.symbolTable.Count(),
 	}
 	mainIdx := c.addConstant(mainFunc)
 

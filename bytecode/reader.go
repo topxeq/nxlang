@@ -187,18 +187,16 @@ func (r *Reader) readConstant(constType ConstantType) (Constant, error) {
 		isStatic := isStaticByte != 0
 
 		// Read access modifier
-		accessModByte, err := r.readByte()
+		accessModifier, err := r.readByte()
 		if err != nil {
 			return nil, err
 		}
-		accessMod := uint8(accessModByte)
 
-		// Read flags (getter/setter)
-		flagsByte, err := r.readByte()
+		// Read flags
+		flags, err := r.readByte()
 		if err != nil {
 			return nil, err
 		}
-		flags := uint8(flagsByte)
 
 		// Read default values
 		var defaultCount uint32
@@ -215,15 +213,15 @@ func (r *Reader) readConstant(constType ConstantType) (Constant, error) {
 		}
 
 		return &FunctionConstant{
-			Name:          name,
-			Instructions:  instructions,
-			NumLocals:     int(numLocals),
-			NumParameters: int(numParams),
-			IsVariadic:    isVariadic,
-			IsStatic:      isStatic,
-			AccessModifier: accessMod,
-			Flags:         flags,
-			DefaultValues: defaultValues,
+			Name:           name,
+			Instructions:   instructions,
+			NumLocals:      int(numLocals),
+			NumParameters:  int(numParams),
+			IsVariadic:     isVariadic,
+			IsStatic:       isStatic,
+			AccessModifier: accessModifier,
+			Flags:          flags,
+			DefaultValues:  defaultValues,
 		}, nil
 
 	case ConstClass:
@@ -241,39 +239,180 @@ func (r *Reader) readConstant(constType ConstantType) (Constant, error) {
 			name = string(nameBytes)
 		}
 
-		// Read superclass index
-		var superClass uint32
-		if err := binary.Read(r.r, binary.LittleEndian, &superClass); err != nil {
+		// Read superclass name (string)
+		var superClassLen uint32
+		if err := binary.Read(r.r, binary.LittleEndian, &superClassLen); err != nil {
 			return nil, err
 		}
+		var superClass string
+		if superClassLen > 0 {
+			superClassBytes := make([]byte, superClassLen)
+			if _, err := io.ReadFull(r.r, superClassBytes); err != nil {
+				return nil, err
+			}
+			superClass = string(superClassBytes)
+		}
 
-		// Read methods
+		// Read interfaces
+		var interfaceCount uint32
+		if err := binary.Read(r.r, binary.LittleEndian, &interfaceCount); err != nil {
+			return nil, err
+		}
+		interfaces := make([]string, interfaceCount)
+		for i := 0; i < int(interfaceCount); i++ {
+			var ifaceLen uint32
+			if err := binary.Read(r.r, binary.LittleEndian, &ifaceLen); err != nil {
+				return nil, err
+			}
+			if ifaceLen > 0 {
+				ifaceBytes := make([]byte, ifaceLen)
+				if _, err := io.ReadFull(r.r, ifaceBytes); err != nil {
+					return nil, err
+				}
+				interfaces[i] = string(ifaceBytes)
+			}
+		}
+
+		// Read methods (map[string]int)
 		var methodCount uint32
 		if err := binary.Read(r.r, binary.LittleEndian, &methodCount); err != nil {
 			return nil, err
 		}
-		methods := make([]int, methodCount)
+		methods := make(map[string]int, methodCount)
 		for i := 0; i < int(methodCount); i++ {
-			var idx uint32
-			if err := binary.Read(r.r, binary.LittleEndian, &idx); err != nil {
+			// Read method name
+			var nameLen uint32
+			if err := binary.Read(r.r, binary.LittleEndian, &nameLen); err != nil {
 				return nil, err
 			}
-			methods[i] = int(idx)
+			var methodName string
+			if nameLen > 0 {
+				nameBytes := make([]byte, nameLen)
+				if _, err := io.ReadFull(r.r, nameBytes); err != nil {
+					return nil, err
+				}
+				methodName = string(nameBytes)
+			}
+			// Read method index
+			var methodIdx uint32
+			if err := binary.Read(r.r, binary.LittleEndian, &methodIdx); err != nil {
+				return nil, err
+			}
+			methods[methodName] = int(methodIdx)
 		}
 
-		// Temporary: convert old format to new format
-		methodMap := make(map[string]int)
-		// For now, we'll ignore method names, this is just to make compilation work
-		// Proper implementation will come later when we update bytecode format
+		// Read static methods (map[string]int)
+		var staticMethodCount uint32
+		if err := binary.Read(r.r, binary.LittleEndian, &staticMethodCount); err != nil {
+			return nil, err
+		}
+		staticMethods := make(map[string]int, staticMethodCount)
+		for i := 0; i < int(staticMethodCount); i++ {
+			// Read method name
+			var nameLen uint32
+			if err := binary.Read(r.r, binary.LittleEndian, &nameLen); err != nil {
+				return nil, err
+			}
+			var methodName string
+			if nameLen > 0 {
+				nameBytes := make([]byte, nameLen)
+				if _, err := io.ReadFull(r.r, nameBytes); err != nil {
+					return nil, err
+				}
+				methodName = string(nameBytes)
+			}
+			// Read method index
+			var methodIdx uint32
+			if err := binary.Read(r.r, binary.LittleEndian, &methodIdx); err != nil {
+				return nil, err
+			}
+			staticMethods[methodName] = int(methodIdx)
+		}
+
 		return &ClassConstant{
-			Name:       name,
-			SuperClass: "", // Temporary, will implement properly later
-			Methods:    methodMap,
+			Name:          name,
+			SuperClass:    superClass,
+			Interfaces:    interfaces,
+			Methods:       methods,
+			StaticMethods: staticMethods,
 		}, nil
+
+	case ConstInterface:
+		return r.readInterfaceConstant()
 
 	default:
 		return nil, &ErrInvalidConstantType{Type: constType}
 	}
+}
+
+// readConstant reads a single constant from the input
+func (r *Reader) readInterfaceConstant() (*InterfaceConstant, error) {
+	// Read name
+	var nameLen uint32
+	if err := binary.Read(r.r, binary.LittleEndian, &nameLen); err != nil {
+		return nil, err
+	}
+	var name string
+	if nameLen > 0 {
+		nameBytes := make([]byte, nameLen)
+		if _, err := io.ReadFull(r.r, nameBytes); err != nil {
+			return nil, err
+		}
+		name = string(nameBytes)
+	}
+
+	// Read method count
+	var methodCount uint32
+	if err := binary.Read(r.r, binary.LittleEndian, &methodCount); err != nil {
+		return nil, err
+	}
+
+	// Read methods (map[string][]string)
+	methods := make(map[string][]string, methodCount)
+	for i := 0; i < int(methodCount); i++ {
+		// Read method name
+		var methodNameLen uint32
+		if err := binary.Read(r.r, binary.LittleEndian, &methodNameLen); err != nil {
+			return nil, err
+		}
+		var methodName string
+		if methodNameLen > 0 {
+			methodNameBytes := make([]byte, methodNameLen)
+			if _, err := io.ReadFull(r.r, methodNameBytes); err != nil {
+				return nil, err
+			}
+			methodName = string(methodNameBytes)
+		}
+
+		// Read parameter count
+		var paramCount uint32
+		if err := binary.Read(r.r, binary.LittleEndian, &paramCount); err != nil {
+			return nil, err
+		}
+
+		// Read parameter names
+		paramNames := make([]string, paramCount)
+		for j := 0; j < int(paramCount); j++ {
+			var paramLen uint32
+			if err := binary.Read(r.r, binary.LittleEndian, &paramLen); err != nil {
+				return nil, err
+			}
+			if paramLen > 0 {
+				paramBytes := make([]byte, paramLen)
+				if _, err := io.ReadFull(r.r, paramBytes); err != nil {
+					return nil, err
+				}
+				paramNames[j] = string(paramBytes)
+			}
+		}
+
+		methods[methodName] = paramNames
+	}
+
+	return &InterfaceConstant{
+		Name:    name,
+		Methods: methods,
+	}, nil
 }
 
 // readByte reads a single byte from the input

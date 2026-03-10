@@ -1,0 +1,64 @@
+// Test graphics/canvas functionality
+pln("=== Test Graphics/Canvas ===")
+
+// Test 1: Create canvas
+pln("\n--- Test 1: Create Canvas ---")
+var c = canvas(100, 100)
+pln("Created canvas:", c)
+pln("Canvas width:", canvasWidth(c))
+pln("Canvas height:", canvasHeight(c))
+
+// Test 2: Clear canvas
+pln("\n--- Test 2: Clear Canvas ---")
+clear(c, 255, 255, 255, 255)  // Clear to white
+pln("Canvas cleared to white")
+
+// Test 3: Draw point
+pln("\n--- Test 3: Draw Point ---")
+drawPoint(c, 50, 50, 255, 0, 0, 255)  // Red point at center
+pln(" Drew red point at (50, 50)")
+
+// Test 4: Draw line
+pln("\n--- Test 4: Draw Line ---")
+drawLine(c, 0, 0, 99, 99, 0, 255, 0, 255)  // Green diagonal line
+pln("Drew green diagonal line")
+
+// Test 5: Draw rectangle
+pln("\n--- Test 5: Draw Rectangle ---")
+drawRectangle(c, 10, 10, 80, 80, 0, 0, 255, 255)  // Blue rectangle outline
+pln("Drew blue rectangle outline")
+
+// Test 6: Fill rectangle
+pln("\n--- Test 6: Fill Rectangle ---")
+fillRectangle(c, 20, 20, 30, 30, 255, 255, 0, 255)  // Yellow filled rectangle
+pln("Drew yellow filled rectangle")
+
+// Test 7: Draw circle
+pln("\n--- Test 7: Draw Circle ---")
+drawCircle(c, 75, 75, 20, 255, 0, 255, 255)  // Magenta circle
+pln("Drew magenta circle")
+
+// Test 8: Fill circle
+pln("\n--- Test 8: Fill Circle ---")
+fillCircle(c, 25, 75, 15, 0, 255, 255, 255)  // Cyan filled circle
+pln("Drew cyan filled circle")
+
+// Test 9: Get pixel
+pln("\n--- Test 9: Get Pixel ---")
+var pixel = getPixel(c, 50, 50)
+pln("Pixel at (50, 50):", pixel)
+
+// Test 10: Save to PNG
+pln("\n--- Test 10: Save to PNG ---")
+var result = savePNG(c, "test_canvas.png")
+pln("Save result:", result)
+
+// Test 11: Load PNG
+pln("\n--- Test 11: Load PNG ---")
+var c2 = loadPNG("test_canvas.png")
+pln("Loaded canvas:", c2)
+pln("Loaded canvas width:", canvasWidth(c2))
+pln("Loaded canvas height:", canvasHeight(c2))
+
+pln("\n=== Graphics Test Completed ===")
+pln("Check test_canvas.png for the generated image")

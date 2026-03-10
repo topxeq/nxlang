@@ -30,6 +30,7 @@ func NewLexer(input string) *Lexer {
 // readChar reads the next character from input
 func (l *Lexer) readChar() {
 	if l.readPos >= len(l.input) {
+		l.pos = l.readPos // Update pos to reflect current position
 		l.ch = 0 // EOF
 	} else {
 		r, size := utf8.DecodeRuneInString(l.input[l.readPos:])

@@ -125,98 +125,37 @@ func ToChar(obj Object) (Char, *Error) {
 	}
 }
 
-// ConvertToType converts an object to the specified target type, following Nxlang conversion rules
-// Returns the converted object and an error if conversion is not possible
-func ConvertToType(targetType uint8, value Object) (Object, *Error) {
-	switch targetType {
-	case TypeUndefined:
-		return UndefinedValue, nil
-	case TypeNull:
-		return NullValue, nil
-	case TypeBool:
-		return Bool(ToBool(value)), nil
-	case TypeByte:
-		return ToByte(value)
-	case TypeChar:
-		return ToChar(value)
-	case TypeInt:
-		return ToInt(value)
-	case TypeUInt:
-		i, err := ToInt(value)
+// ToUint converts an Object to a UInt value following Nxlang conversion rules
+func ToUint(obj Object) (UInt, *Error) {
+	switch v := obj.(type) {
+	case Bool:
+		if v {
+			return UInt(1), nil
+		}
+		return UInt(0), nil
+	case Byte:
+		return UInt(v), nil
+	case Char:
+		return UInt(v), nil
+	case Int:
+		if v < 0 {
+			return 0, NewError("int value cannot be negative for uint", 0, 0, "")
+		}
+		return UInt(v), nil
+	case UInt:
+		return v, nil
+	case Float:
+		if v < 0 {
+			return 0, NewError("float value cannot be negative for uint", 0, 0, "")
+		}
+		return UInt(v), nil
+	case String:
+		num, err := strconv.ParseUint(string(v), 10, 64)
 		if err != nil {
-			return nil, err
+			return 0, NewError(fmt.Sprintf("cannot convert string '%s' to uint", v), 0, 0, "")
 		}
-		return UInt(i), nil
-	case TypeFloat:
-		return ToFloat(value)
-	case TypeString:
-		return ToString(value), nil
+		return UInt(num), nil
 	default:
-		// For non-primitive types, return the value as-is if types match
-		if value.TypeCode() == targetType {
-			return value, nil
-		}
-		return nil, NewError(fmt.Sprintf("cannot convert %s to target type %s", value.TypeName(), typeNames[targetType]), 0, 0, "")
+		return 0, NewError(fmt.Sprintf("cannot convert %s to uint", obj.TypeName()), 0, 0, "")
 	}
-}
-
-// AutoConvert converts right value to match left value type (left-side priority rule)
-// Used for binary operations where right operand should be converted to left operand type
-// Returns (convertedLeft, convertedRight, error)
-func AutoConvert(left, right Object) (Object, Object, *Error) {
-	leftType := left.TypeCode()
-	rightType := right.TypeCode()
-
-	// Same type, no conversion needed
-	if leftType == rightType {
-		return left, right, nil
-	}
-
-	// String concatenation special case: if either is string, convert both to string
-	if leftType == TypeString || rightType == TypeString {
-		return ToString(left), ToString(right), nil
-	}
-
-	// Numeric type promotion hierarchy: Byte < Char < Int < UInt < Float
-	typeOrder := map[uint8]int{
-		TypeByte:  1,
-		TypeChar:  2,
-		TypeInt:   3,
-		TypeUInt:  4,
-		TypeFloat: 5,
-	}
-
-	leftOrder, leftIsNumeric := typeOrder[leftType]
-	rightOrder, rightIsNumeric := typeOrder[rightType]
-
-	if leftIsNumeric && rightIsNumeric {
-		// Both numeric, promote to higher type
-		if leftOrder > rightOrder {
-			// Convert right to left type
-			convertedRight, err := ConvertToType(leftType, right)
-			if err != nil {
-				return nil, nil, err
-			}
-			return left, convertedRight, nil
-		} else if rightOrder > leftOrder {
-			// Convert left to right type
-			convertedLeft, err := ConvertToType(rightType, left)
-			if err != nil {
-				return nil, nil, err
-			}
-			return convertedLeft, right, nil
-		}
-		// Same order, should have same type, already handled above
-	}
-
-	// Bool conversion
-	if leftType == TypeBool {
-		return left, Bool(ToBool(right)), nil
-	}
-	if rightType == TypeBool {
-		return Bool(ToBool(left)), right, nil
-	}
-
-	// If no conversion rule applies, return as-is (will fail in operation)
-	return left, right, nil
 }

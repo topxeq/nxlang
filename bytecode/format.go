@@ -94,6 +94,7 @@ type ClassConstant struct {
 	SuperClass  string // Name of superclass
 	Interfaces  []string // List of interface names this class implements
 	Methods     map[string]int // Map of method name to function constant index
+	StaticMethods map[string]int // Map of static method name to function constant index
 }
 
 // InterfaceConstant represents a compiled interface

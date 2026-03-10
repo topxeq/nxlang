@@ -1,0 +1,85 @@
+// Test data/CSV functionality
+pln("=== Test Data/CSV Processing ===")
+
+// Test 1: Create CSV data
+pln("\n--- Test 1: Create CSV Data ---")
+var data = [
+    ["Name", "Age", "City"],
+    ["Alice", "25", "New York"],
+    ["Bob", "30", "London"],
+    ["Charlie", "35", "Tokyo"]
+]
+pln("CSV data created:", data)
+
+// Test 2: Write CSV file
+pln("\n--- Test 2: Write CSV File ---")
+var result = writeCSV("test.csv", data)
+pln("Write result:", result)
+
+// Test 3: Read CSV file
+pln("\n--- Test 3: Read CSV File ---")
+var readData = readCSV("test.csv")
+pln("Read data:", readData)
+pln("Row count:", len(readData))
+
+// Test 4: Parse CSV string
+pln("\n--- Test 4: Parse CSV String ---")
+var csvStr = "a,b,c\n1,2,3\n4,5,6"
+var parsed = parseCSV(csvStr)
+pln("Parsed CSV:", parsed)
+
+// Test 5: To CSV string
+pln("\n--- Test 5: Convert to CSV String ---")
+var backToCSV = toCSV(data)
+pln("CSV string:")
+pr(backToCSV)
+
+// Test 6: CSV with headers
+pln("\n--- Test 6: CSV with Headers ---")
+var headers = ["Product", "Price", "Quantity"]
+var products = [
+    ["Apple", "1.50", "100"],
+    ["Banana", "0.75", "200"],
+    ["Orange", "2.00", "150"]
+]
+var result2 = writeCSV("products.csv", products, headers)
+pln("Write products result:", result2)
+
+// Test 7: Read back products
+pln("\n--- Test 7: Read Products ---")
+var productsRead = readCSV("products.csv")
+pln("Products read:", productsRead)
+
+// Test 8: Open CSV and read row by row
+pln("\n--- Test 8: Read CSV Row by Row ---")
+var reader = openCSV("test.csv", false)
+pln("Reader:", reader)
+
+var row1 = readCSVRow(reader)
+pln("First row:", row1)
+
+var row2 = readCSVRow(reader)
+pln("Second row:", row2)
+
+closeCSV(reader)
+pln("Reader closed")
+
+// Test 9: Create CSV writer and write rows
+pln("\n--- Test 9: Create CSV Writer ---")
+var writer = createCSVWriter("output.csv")
+pln("Writer:", writer)
+
+writeCSVRow(writer, ["Col1", "Col2", "Col3"])
+writeCSVRow(writer, ["Value1", "Value2", "Value3"])
+writeCSVRow(writer, ["Data1", "Data2", "Data3"])
+
+closeCSV(writer)
+pln("Writer closed")
+
+// Test 10: Verify output file
+pln("\n--- Test 10: Verify Output ---")
+var outputData = readCSV("output.csv")
+pln("Output data:", outputData)
+
+pln("\n=== Data/CSV Test Completed ===")
+pln("Generated files: test.csv, products.csv, output.csv")

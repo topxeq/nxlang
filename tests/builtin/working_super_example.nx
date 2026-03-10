@@ -1,0 +1,41 @@
+// Working super inheritance example
+class Shape {
+    func init(color) {
+        this.color = color
+    }
+
+    func getColor() {
+        return this.color
+    }
+
+    func getArea() {
+        return 0 // Base implementation
+    }
+}
+
+class Circle : Shape {
+    func init(color, radius) {
+        super.init(color) // Call parent constructor
+        this.radius = radius
+    }
+
+    func getArea() {
+        return 3.14159 * this.radius * this.radius // Override parent method
+    }
+
+    func getParentArea() {
+        return super.getArea() // Call parent implementation
+    }
+}
+
+// Create instances
+var shape = new Shape("red")
+var circle = new Circle("blue", 5)
+
+// Store results in variables
+var shapeColor = shape.getColor()
+var shapeArea = shape.getArea()
+
+var circleColor = circle.getColor()
+var circleArea = circle.getArea()
+var circleParentArea = circle.getParentArea()

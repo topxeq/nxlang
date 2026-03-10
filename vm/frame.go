@@ -67,3 +67,25 @@ func (f *Frame) ReadUint16() uint16 {
 	f.ip += 2
 	return val
 }
+
+// NewFrameFromFunction creates a new frame from a runtime Function object
+func NewFrameFromFunction(fn *types.Function, basePointer int, args []types.Object) *Frame {
+	// Create bytecode.FunctionConstant from types.Function
+	bcFn := &bytecode.FunctionConstant{
+		Name:          fn.Name,
+		NumLocals:     fn.NumLocals,
+		NumParameters: fn.NumParameters,
+		IsVariadic:    fn.IsVariadic,
+		Instructions:  fn.Instructions,
+	}
+
+	frame := NewFrame(bcFn, basePointer)
+
+	// Copy function's constant pool for access during execution
+	// Set up arguments as initial locals
+	for i := 0; i < len(args) && i < len(frame.locals); i++ {
+		frame.locals[i] = args[i]
+	}
+
+	return frame
+}

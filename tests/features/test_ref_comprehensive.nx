@@ -1,0 +1,125 @@
+// Test object reference and dereference - comprehensive test
+pln("=== Test Object Reference Comprehensive ===")
+
+// Test 1: Basic ref and deref
+pln("\n--- Test 1: Basic ref/deref ---")
+var x = 100
+var r = ref(x)
+pln("Original x:", x)
+pln("Reference r:", r)
+pln("Dereferenced r:", deref(r))
+pln("Type of r:", typeOf(r))
+
+// Test 2: Set reference value
+pln("\n--- Test 2: Set reference value ---")
+setref(r, 200)
+pln("After setref(r, 200):")
+pln("  x (original) is still:", x)
+pln("  deref(r) is now:", deref(r))
+pln("Note: ref() creates a reference to the VALUE, not the VARIABLE")
+
+// Test 3: Ref to array (reference type)
+pln("\n--- Test 3: Ref to array ---")
+var arr = [1, 2, 3]
+var arrRef = ref(arr)
+pln("Original arr:", arr)
+
+// Modify array elements through the reference
+var a = deref(arrRef)
+a[0] = 999
+pln("After modifying element via deref:")
+pln("  arr is now:", arr)
+pln("  Note: arrays are reference types!")
+
+// Test 4: Ref to object (reference type)
+pln("\n--- Test 4: Ref to object ---")
+class Point {
+    func init(x, y) {
+        this.x = x
+        this.y = y
+    }
+
+    func setX(newX) {
+        this.x = newX
+    }
+
+    func getY() {
+        return this.y
+    }
+}
+
+var p = new Point(10, 20)
+var pRef = ref(p)
+pln("Original point x:", p.x)
+
+// Modify object through reference
+var pt = deref(pRef)
+pt.setX(500)
+pln("After pt.setX(500) where pt = deref(pRef):")
+pln("  p.x is now:", p.x)
+pln("  Note: objects are reference types!")
+
+// Test 5: Swap function using references
+pln("\n--- Test 5: Swap using references ---")
+func makeRef(val) {
+    return ref(val)
+}
+
+var a = 100
+var b = 200
+var refA = makeRef(a)
+var refB = makeRef(b)
+
+pln("Before swap: a =", a, ", b =", b)
+
+// Swap values through references
+var temp = deref(refA)
+setref(refA, deref(refB))
+setref(refB, temp)
+
+pln("After swap via refs: a =", a, ", b =", b)
+pln("Via deref: refA =", deref(refA), ", refB =", deref(refB))
+
+// Test 6: Reference to reference
+pln("\n--- Test 6: Reference chain ---")
+var v = 42
+var r1 = ref(v)
+var r2 = ref(r1)
+pln("v =", v)
+pln("r1 (ref to v) =", r1)
+pln("r2 (ref to r1) =", r2)
+pln("deref(r2) =", deref(r2))
+pln("deref(deref(r2)) =", deref(deref(r2)))
+
+// Test 7: Using ref with map
+pln("\n--- Test 7: Ref to map ---")
+var m = {"name": "Alice", "age": 30}
+var mRef = ref(m)
+pln("Original m:", m)
+
+var mapVal = deref(mRef)
+mapVal["age"] = 31
+pln("After modifying via deref:")
+pln("  m is now:", m)
+pln("  Note: maps are reference types!")
+
+// Test 8: Practical use case - accumulator
+pln("\n--- Test 8: Accumulator pattern ---")
+func createAccumulator() {
+    var sum = 0
+    return ref(sum)
+}
+
+var acc = createAccumulator()
+pln("Initial accumulator:", deref(acc))
+
+setref(acc, deref(acc) + 10)
+pln("After +10:", deref(acc))
+
+setref(acc, deref(acc) + 20)
+pln("After +20:", deref(acc))
+
+setref(acc, deref(acc) * 2)
+pln("After *2:", deref(acc))
+
+pln("\n=== All Reference Tests Completed ===")

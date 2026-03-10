@@ -1,0 +1,27 @@
+// Debug test
+pln("=== Debug Test ===")
+
+class A {
+    func init(x) {
+        this.x = x
+    }
+}
+
+class B : A {
+    func init(x, y) {
+        super.init(x)
+        this.y = y
+    }
+}
+
+class C : B {
+    func init(x, y, z) {
+        super.init(x, y)
+        this.z = z
+    }
+}
+
+pln("Creating C...")
+var c1 = new C(1, 2, 3)
+pln("x:", c1.x, "y:", c1.y, "z:", c1.z)
+pln("=== Done ===")

@@ -1,0 +1,41 @@
+// Test compile and runByteCode with function
+pln("=== Test compile and runByteCode ===")
+
+// Test 1: Simple compile and run
+source1 := "return 1 + 2"
+
+pln("Test 1: Compile and run simple code")
+pln("Compiling source...")
+bc := compile(source1)
+bcLen := len(bc)
+pln("Bytecode length:", bcLen)
+
+if isErr(bc) {
+    pln("Compile error:", bc)
+} else if bcLen > 0 {
+    pln("Running bytecode...")
+    result := runByteCode(bc)
+    pln("Result:", result)
+}
+
+// Test 2: Compile function and call with parameters
+pln("\nTest 2: Compile function and call")
+source2 := "func multiply(x, y) {
+    return x * y
+}
+return multiply(3, 4)"
+
+pln("Compiling function...")
+bc2 := compile(source2)
+pln("Bytecode length:", len(bc2))
+
+if isErr(bc2) {
+    pln("Compile error:", bc2)
+} else if len(bc2) > 0 {
+    pln("Running function...")
+    result2 := runByteCode(bc2)
+    pln("Result2:", result2)
+}
+
+pln("\n=== All tests completed ===")
+

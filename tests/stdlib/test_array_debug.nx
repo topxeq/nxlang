@@ -1,0 +1,7 @@
+// Test array for comparison
+pln("=== Test Array ===")
+var a1 = array()
+pln("Empty array:", a1, "len:", len(a1))
+
+var a2 = array(1, 2, 3, 4, 5)
+pln("Array with elements:", a2, "len:", len(a2))

@@ -185,15 +185,76 @@ func (w *Writer) writeConstant(c Constant) error {
 			}
 		}
 
-		// Write superclass index (temporary: 0 for now)
-		if err := binary.Write(w.buf, binary.LittleEndian, uint32(0)); err != nil {
+		// Write superclass name (string)
+		superClassLen := uint32(len(constType.SuperClass))
+		if err := binary.Write(w.buf, binary.LittleEndian, superClassLen); err != nil {
 			return err
 		}
+		if superClassLen > 0 {
+			if _, err := w.buf.WriteString(constType.SuperClass); err != nil {
+				return err
+			}
+		}
 
-		// Write methods (temporary: 0 methods for now)
-		methodCount := uint32(0)
+		// Write interfaces
+		interfaceCount := uint32(len(constType.Interfaces))
+		if err := binary.Write(w.buf, binary.LittleEndian, interfaceCount); err != nil {
+			return err
+		}
+		for _, iface := range constType.Interfaces {
+			ifaceLen := uint32(len(iface))
+			if err := binary.Write(w.buf, binary.LittleEndian, ifaceLen); err != nil {
+				return err
+			}
+			if ifaceLen > 0 {
+				if _, err := w.buf.WriteString(iface); err != nil {
+					return err
+				}
+			}
+		}
+
+		// Write methods (map[string]int)
+		methodCount := uint32(len(constType.Methods))
 		if err := binary.Write(w.buf, binary.LittleEndian, methodCount); err != nil {
 			return err
+		}
+		for methodName, methodIdx := range constType.Methods {
+			// Write method name
+			methodNameLen := uint32(len(methodName))
+			if err := binary.Write(w.buf, binary.LittleEndian, methodNameLen); err != nil {
+				return err
+			}
+			if methodNameLen > 0 {
+				if _, err := w.buf.WriteString(methodName); err != nil {
+					return err
+				}
+			}
+			// Write method index
+			if err := binary.Write(w.buf, binary.LittleEndian, uint32(methodIdx)); err != nil {
+				return err
+			}
+		}
+
+		// Write static methods (map[string]int)
+		staticMethodCount := uint32(len(constType.StaticMethods))
+		if err := binary.Write(w.buf, binary.LittleEndian, staticMethodCount); err != nil {
+			return err
+		}
+		for methodName, methodIdx := range constType.StaticMethods {
+			// Write method name
+			methodNameLen := uint32(len(methodName))
+			if err := binary.Write(w.buf, binary.LittleEndian, methodNameLen); err != nil {
+				return err
+			}
+			if methodNameLen > 0 {
+				if _, err := w.buf.WriteString(methodName); err != nil {
+					return err
+				}
+			}
+			// Write method index
+			if err := binary.Write(w.buf, binary.LittleEndian, uint32(methodIdx)); err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -213,6 +274,36 @@ func (w *Writer) writeConstant(c Constant) error {
 		methodCount := uint32(len(constType.Methods))
 		if err := binary.Write(w.buf, binary.LittleEndian, methodCount); err != nil {
 			return err
+		}
+		// Write methods (map[string][]string)
+		for methodName, paramNames := range constType.Methods {
+			// Write method name
+			methodNameLen := uint32(len(methodName))
+			if err := binary.Write(w.buf, binary.LittleEndian, methodNameLen); err != nil {
+				return err
+			}
+			if methodNameLen > 0 {
+				if _, err := w.buf.WriteString(methodName); err != nil {
+					return err
+				}
+			}
+			// Write parameter count
+			paramCount := uint32(len(paramNames))
+			if err := binary.Write(w.buf, binary.LittleEndian, paramCount); err != nil {
+				return err
+			}
+			// Write parameter names
+			for _, param := range paramNames {
+				paramLen := uint32(len(param))
+				if err := binary.Write(w.buf, binary.LittleEndian, paramLen); err != nil {
+					return err
+				}
+				if paramLen > 0 {
+					if _, err := w.buf.WriteString(param); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		return nil
 

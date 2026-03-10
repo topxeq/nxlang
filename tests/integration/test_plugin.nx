@@ -1,0 +1,39 @@
+// Test plugin functionality
+pln("=== Test Plugin System ===")
+
+// Test 1: Check plugin functions exist
+pln("\n--- Test 1: Check plugin functions ---")
+pln("loadPlugin exists:", typeOf(loadPlugin))
+pln("unloadPlugin exists:", typeOf(unloadPlugin))
+pln("callPlugin exists:", typeOf(callPlugin))
+pln("listPlugins exists:", typeOf(listPlugins))
+
+// Test 2: List initial plugins (should be empty)
+pln("\n--- Test 2: Initial plugins ---")
+var initialPlugins = listPlugins()
+pln("Initial plugins count:", len(initialPlugins))
+
+// Test 3: Try to call plugin function without loading (should fail)
+pln("\n--- Test 3: Call without loading (expected to fail) ---")
+var result = callPlugin("example", "hello", "World")
+pln("Result:", result)
+pln("Is error:", isErr(result))
+
+// Test 4: Load plugin (note: this will fail if plugin not compiled)
+pln("\n--- Test 4: Load plugin ---")
+// Note: The plugin file needs to be compiled first with:
+// go build -buildmode=plugin -o example.nxp plugins/example_plugin/main.go
+pln("To test plugin loading, compile the example plugin first:")
+pln("  go build -buildmode=plugin -o example.nxp plugins/example_plugin/main.go")
+pln("Then run: nx test_plugin.nx")
+
+// Test 5: Usage examples (when plugin is loaded)
+pln("\n--- Test 5: Usage examples (for reference) ---")
+pln("After loading plugin, use:")
+pln("  callPlugin('example', 'hello', 'World')  // Returns: Hello, World! From Example Plugin.")
+pln("  callPlugin('example', 'upper', 'hello')  // Returns: HELLO")
+pln("  callPlugin('example', 'add', 10, 20)     // Returns: 30")
+pln("  callPlugin('example', 'multiply', 3, 4)  // Returns: 12")
+pln("  callPlugin('example', 'info')            // Returns: plugin info map")
+
+pln("\n=== Plugin Test Completed ===")

@@ -10,7 +10,6 @@ import (
 	"github.com/topxeq/nxlang/bytecode"
 	"github.com/topxeq/nxlang/compiler"
 	"github.com/topxeq/nxlang/parser"
-	"github.com/topxeq/nxlang/stdlib"
 	"github.com/topxeq/nxlang/vm"
 )
 
@@ -98,7 +97,6 @@ func runFile(path string, scriptArgs []string) {
 		// Execute
 		bytecode := comp.Bytecode()
 		vm := vm.NewVM(bytecode)
-		stdlib.RegisterAll(vm)
 		vm.SetArgs(scriptArgs)
 
 		if err := vm.Run(); err != nil {
@@ -124,7 +122,6 @@ func runFile(path string, scriptArgs []string) {
 
 		// Execute
 		vm := vm.NewVM(bc)
-		stdlib.RegisterAll(vm)
 		vm.SetArgs(scriptArgs)
 
 		if err := vm.Run(); err != nil {
@@ -230,7 +227,6 @@ func startREPL() {
 		// Execute
 		bytecode := comp.Bytecode()
 		vm := vm.NewVM(bytecode)
-		stdlib.RegisterAll(vm)
 
 		if err := vm.Run(); err != nil {
 			fmt.Printf("Runtime error: %v\n", err)

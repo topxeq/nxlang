@@ -1,0 +1,43 @@
+// Three-level inheritance test
+pln("=== Three-level Inheritance Test ===")
+
+class GrandParent {
+    func init(greeting) {
+        this.greeting = greeting
+    }
+
+    func getGreeting() {
+        return this.greeting
+    }
+}
+
+class Parent : GrandParent {
+    func init(greeting, name) {
+        super.init(greeting)
+        this.name = name
+    }
+
+    func getName() {
+        return this.name
+    }
+}
+
+class Child : Parent {
+    func init(greeting, name, age) {
+        super.init(greeting, name)
+        this.age = age
+    }
+
+    func getAge() {
+        return this.age
+    }
+}
+
+pln("Creating Child...")
+var child1 = new Child("Hello", "Alice", 10)
+pln("Created child:", child1)
+pln("Greeting:", child1.getGreeting())
+pln("Name:", child1.getName())
+pln("Age:", child1.getAge())
+
+pln("\n=== Test Passed ===")
