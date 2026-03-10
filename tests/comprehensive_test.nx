@@ -1,0 +1,128 @@
+// Test Nxlang features as specified in task.md
+
+pln("=== Testing Basic Features ===")
+
+// Test 1: Hello World
+pln("1. Hello World:")
+pln("Hello World")
+
+// Test 2: Arithmetic
+pln("\n2. Arithmetic:")
+pln("1 + 2 =", 1 + 2)
+pln("10 - 3 =", 10 - 3)
+pln("4 * 5 =", 4 * 5)
+pln("20 / 4 =", 20 / 4)
+
+// Test 3: Variables
+pln("\n3. Variables:")
+let a = 10
+var b = 20
+c := a + b
+pln("a =", a, "b =", b, "c =", c)
+
+// Test 4: Functions
+pln("\n4. Functions:")
+func add(x, y) {
+    return x + y
+}
+pln("add(3, 5) =", add(3, 5))
+
+// Test 5: Recursion
+pln("\n5. Recursion (fibonacci):")
+func fib(n) {
+    if n <= 1 {
+        return n
+    }
+    return fib(n-1) + fib(n-2)
+}
+pln("fib(8) =", fib(8))
+
+// Test 6: Arrays
+pln("\n6. Arrays:")
+let arr = [1, 2, 3, 4, 5]
+pln("arr =", arr)
+pln("len(arr) =", len(arr))
+
+// Test 7: Maps
+pln("\n7. Maps:")
+let m = {"name": "Tom", "age": 16}
+pln("m =", m)
+
+// Test 8: if statement
+pln("\n8. if statement:")
+let x = 10
+if (x > 5) {
+    pln("x > 5")
+}
+
+// Test 9: for-in loop
+pln("\n9. for-in loop:")
+for i, v in arr {
+    pln("arr[", i, "] =", v)
+}
+
+// Test 10: for loop with range
+pln("\n10. for with range:")
+for i in 5 {
+    pln("i =", i)
+}
+
+// Test 11: typeOf and typeCode
+pln("\n11. typeOf and typeCode:")
+pln("typeOf(123):", typeOf(123))
+pln("typeOf(true):", typeOf(true))
+pln("typeOf('hello'):", typeOf("hello"))
+pln("typeOf([1,2]):", typeOf([1,2]))
+pln("typeCode(123):", typeCode(123))
+
+// Test 12: Type conversions
+pln("\n12. Type conversions:")
+pln("int(3.14):", int(3.14))
+pln("float(123):", float(123))
+pln("bool(0):", bool(0))
+pln("bool(1):", bool(1))
+pln("string(123):", string(123))
+pln("toStr(123):", toStr(123))
+
+// Test 13: isErr function
+pln("\n13. isErr function:")
+pln("isErr('hello'):", isErr("hello"))
+pln("isErr(undefined):", isErr(undefined))
+pln("isErr(null):", isErr(null))
+
+// Test 14: Constants
+pln("\n14. Constants:")
+const MY_CONST = 100
+pln("MY_CONST:", MY_CONST)
+pln("piC:", piC)
+pln("eC:", eC)
+
+// Test 15: String operations
+pln("\n15. String operations:")
+let s = "Hello World"
+pln("toUpper(s):", toUpper(s))
+pln("toLower(s):", toLower(s))
+pln("len(s):", len(s))
+pln("trim('  hi  '):", trim("  hi  "))
+pln("split('a,b,c', ','):", split("a,b,c", ","))
+
+// Test 16: Math functions
+pln("\n16. Math functions:")
+pln("sqrt(16):", sqrt(16))
+pln("abs(-5):", abs(-5))
+pln("pow(2, 3):", pow(2, 3))
+pln("sin(0):", sin(0))
+pln("cos(0):", cos(0))
+
+// Test 17: Time functions
+pln("\n17. Time functions:")
+pln("now():", now())
+pln("unix():", unix())
+pln("unixMilli():", unixMilli())
+
+// Test 18: bytes and chars
+pln("\n18. bytes and chars:")
+pln("bytes('Hello'):", bytes("Hello"))
+pln("chars('Hello'):", chars("Hello"))
+
+pln("\n=== All tests completed ===")
