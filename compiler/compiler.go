@@ -14,35 +14,35 @@ import (
 
 // Module represents a compiled Nxlang module
 type Module struct {
-	Name        string
-	Path        string
-	Exports     map[string]string // Maps export names to symbol names in the module
-	Bytecode    *bytecode.Bytecode
+	Name     string
+	Path     string
+	Exports  map[string]string // Maps export names to symbol names in the module
+	Bytecode *bytecode.Bytecode
 }
 
 // Compiler compiles AST nodes into bytecode
 type Compiler struct {
-	constants []bytecode.Constant
+	constants   []bytecode.Constant
 	symbolTable *SymbolTable
 
-	scopes []CompilationScope
+	scopes     []CompilationScope
 	scopeIndex int
 
 	errors []string
 
 	// Line number tracking
-	currentLine int
-	currentColumn int
+	currentLine     int
+	currentColumn   int
 	lineNumberTable []bytecode.LineInfo
 
 	// Loop stack for break/continue support
 	loopStack []LoopContext
 
 	// Module system support
-	ModulePath   string // Path of the current module being compiled
-	modules      map[string]*Module // Cache of already compiled modules
-	Exports      map[string]string // Exports from the current module: export name -> symbol name
-	isModule     bool // Whether we're compiling a module
+	ModulePath string             // Path of the current module being compiled
+	modules    map[string]*Module // Cache of already compiled modules
+	Exports    map[string]string  // Exports from the current module: export name -> symbol name
+	isModule   bool               // Whether we're compiling a module
 
 	// Interface cache for implementation checking
 	interfaces map[string]*bytecode.InterfaceConstant // Map of interface name to interface constant
@@ -67,10 +67,10 @@ type LoopContext struct {
 
 // CompilationScope represents a function scope being compiled
 type CompilationScope struct {
-	instructions []byte
-	numLocals int
+	instructions  []byte
+	numLocals     int
 	numParameters int
-	isVariadic bool
+	isVariadic    bool
 	defaultValues []int
 }
 
@@ -78,7 +78,7 @@ type CompilationScope struct {
 func NewCompiler() *Compiler {
 	mainScope := CompilationScope{
 		instructions: []byte{},
-		numLocals: 0,
+		numLocals:    0,
 	}
 
 	symbolTable := NewSymbolTable()
@@ -86,15 +86,15 @@ func NewCompiler() *Compiler {
 	registerBuiltins(symbolTable)
 
 	return &Compiler{
-		constants: []bytecode.Constant{},
-		symbolTable: symbolTable,
-		scopes: []CompilationScope{mainScope},
-		scopeIndex: 0,
-		errors: []string{},
+		constants:       []bytecode.Constant{},
+		symbolTable:     symbolTable,
+		scopes:          []CompilationScope{mainScope},
+		scopeIndex:      0,
+		errors:          []string{},
 		lineNumberTable: []bytecode.LineInfo{},
-		modules: make(map[string]*Module),
-		Exports: make(map[string]string),
-		interfaces: make(map[string]*bytecode.InterfaceConstant),
+		modules:         make(map[string]*Module),
+		Exports:         make(map[string]string),
+		interfaces:      make(map[string]*bytecode.InterfaceConstant),
 	}
 }
 
@@ -281,10 +281,24 @@ func registerBuiltins(st *SymbolTable) {
 		"len", "append", "array", "map", "orderedMap", "stack", "queue", "seq", "keys", "values", "delete", "sortMap", "reverseMap", "moveKey", "moveKeyToFirst", "moveKeyToLast",
 		"abs", "sqrt", "sin", "cos", "tan", "floor", "ceil", "round", "pow", "random",
 		"toUpper", "toLower", "trim", "split", "join", "contains", "replace", "substr", "startsWith", "endsWith",
-		"now", "unix", "unixMilli", "formatTime", "parseTime", "sleep", "thread", "mutex", "rwMutex", "waitForThreads",
+		"now", "unix", "unixMilli", "unixNano", "timestamp", "formatTime", "parseTime", "addDate", "addDuration", "year", "month", "day", "hour", "minute", "second", "weekday", "isAfter", "isBefore", "dateDiff", "sleep", "thread", "mutex", "rwMutex", "waitForThreads",
 		"toJson", "fromJson",
 		"compile", "runByteCode", "runCode", "addMethod", "addMember",
 		"ref", "deref", "setref",
+		// File operations
+		"readFile", "writeFile",
+		// Debug functions
+		"debug", "trace", "vars", "breakpoint", "typeInfo",
+		// Functional programming
+		"range", "each", "map", "filter", "reduce", "call",
+		// Performance and system functions
+		"profilerStart", "profilerStop", "instructionCount", "gc", "memoryUsage", "version", "exit",
+		// Encoding and hash functions
+		"md5", "sha1", "sha256", "base64Encode", "base64Decode", "hexEncode", "hexDecode",
+		// Regex functions
+		"match", "replaceRegex", "splitRegex", "findRegex",
+		// String conversion
+		"strconv",
 		// Type conversion functions
 		"int", "float", "bool", "string", "byte", "uint", "char", "bytes", "chars",
 		// Graphics/Canvas functions
@@ -317,6 +331,11 @@ func registerBuiltins(st *SymbolTable) {
 
 // Compile compiles an AST program into bytecode
 func (c *Compiler) Compile(node parser.Node) error {
+	// Set current line from AST node
+	if lineNode, ok := node.(interface{ Line() int }); ok {
+		c.currentLine = lineNode.Line()
+	}
+
 	switch n := node.(type) {
 	case *parser.Program:
 		for _, stmt := range n.Statements {
@@ -333,7 +352,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if err := c.Compile(n.Expression); err != nil {
 			return err
 		}
-		c.emit(OpPop)
+		// Only emit OpPop if not in the top-level main scope
+		// This allows the result to remain on the stack for REPL and testing
+		if c.scopeIndex > 0 {
+			c.emit(OpPop)
+		}
 		return nil
 
 	case *parser.WhileStatement:
@@ -378,7 +401,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 		// Patch all break jumps in this loop
 		for i := 0; i < len(c.currentInstructions())-2; i++ {
 			if c.currentInstructions()[i] == byte(OpJmp) &&
-				(int(c.currentInstructions()[i+1])<<8 | int(c.currentInstructions()[i+2])) == 0xFFFF {
+				(int(c.currentInstructions()[i+1])<<8|int(c.currentInstructions()[i+2])) == 0xFFFF {
 				c.changeOperand(i, afterLoopPos)
 			}
 		}
@@ -663,7 +686,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			// Patch all break jumps
 			for i := 0; i < len(c.currentInstructions())-2; i++ {
 				if c.currentInstructions()[i] == byte(OpJmp) &&
-					(int(c.currentInstructions()[i+1])<<8 | int(c.currentInstructions()[i+2])) == 0xFFFF {
+					(int(c.currentInstructions()[i+1])<<8|int(c.currentInstructions()[i+2])) == 0xFFFF {
 					c.changeOperand(i, endPos)
 				}
 			}
@@ -736,9 +759,9 @@ func (c *Compiler) Compile(node parser.Node) error {
 		c.changeOperand(jumpAfterPos, afterLoopPos)
 
 		// Patch all break jumps in this loop
-		for i := 0; i < len(c.currentInstructions()) - 2; i++ {
+		for i := 0; i < len(c.currentInstructions())-2; i++ {
 			if c.currentInstructions()[i] == byte(OpJmp) &&
-				(int(c.currentInstructions()[i+1])<<8 | int(c.currentInstructions()[i+2])) == 0xFFFF {
+				(int(c.currentInstructions()[i+1])<<8|int(c.currentInstructions()[i+2])) == 0xFFFF {
 				c.changeOperand(i, afterLoopPos)
 			}
 		}
@@ -1014,11 +1037,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 
 		// Create function constant
 		funcConst := &bytecode.FunctionConstant{
-			Name: n.Name.Value,
-			Instructions: c.currentInstructions(),
-			NumLocals: c.currentScope().numLocals,
+			Name:          n.Name.Value,
+			Instructions:  c.currentInstructions(),
+			NumLocals:     c.currentScope().numLocals,
 			NumParameters: c.currentScope().numParameters,
-			IsVariadic: c.currentScope().isVariadic,
+			IsVariadic:    c.currentScope().isVariadic,
 			DefaultValues: c.currentScope().defaultValues,
 		}
 		funcIdx := c.addConstant(funcConst)
@@ -1050,7 +1073,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 
 		// Compile all methods
-		methods := make(map[string]int) // method name -> function constant index
+		methods := make(map[string]int)       // method name -> function constant index
 		staticMethods := make(map[string]int) // static method name -> function constant index
 
 		// Push class context for method compilation
@@ -1117,15 +1140,15 @@ func (c *Compiler) Compile(node parser.Node) error {
 				flags |= 0x02 // Bit 1: isSetter
 			}
 			funcConst := &bytecode.FunctionConstant{
-				Name:          method.Name,
-				Instructions:  c.currentInstructions(),
-				NumLocals:     scope.numLocals,
-				NumParameters: scope.numParameters,
-				IsVariadic:    scope.isVariadic,
-				IsStatic:      method.IsStatic,
+				Name:           method.Name,
+				Instructions:   c.currentInstructions(),
+				NumLocals:      scope.numLocals,
+				NumParameters:  scope.numParameters,
+				IsVariadic:     scope.isVariadic,
+				IsStatic:       method.IsStatic,
 				AccessModifier: uint8(method.AccessModifier),
-				Flags:         flags,
-				DefaultValues: scope.defaultValues,
+				Flags:          flags,
+				DefaultValues:  scope.defaultValues,
 			}
 			funcIdx := c.addConstant(funcConst)
 			// Store in appropriate map based on whether it's static
@@ -1172,10 +1195,10 @@ func (c *Compiler) Compile(node parser.Node) error {
 
 		// Create class constant
 		classConst := &bytecode.ClassConstant{
-			Name:        n.Name.Value,
-			SuperClass:  "",
-			Interfaces:  make([]string, len(n.Implements)),
-			Methods:     methods,
+			Name:          n.Name.Value,
+			SuperClass:    "",
+			Interfaces:    make([]string, len(n.Implements)),
+			Methods:       methods,
 			StaticMethods: staticMethods,
 		}
 
@@ -1953,6 +1976,50 @@ func (c *Compiler) Compile(node parser.Node) error {
 		return nil
 
 	case *parser.DeferStatement:
+		// Handle block syntax: defer { ... }
+		if n.Block != nil {
+			// For defer block, we need to compile the block into a function
+			// and then defer that function call
+			c.enterScope()
+
+			// Compile the block body
+			for _, stmt := range n.Block.Statements {
+				if err := c.Compile(stmt); err != nil {
+					return err
+				}
+			}
+
+			// Add implicit return if not present
+			c.emit(OpReturnVoid)
+
+			// Get the compiled instructions
+			instructions := c.currentInstructions()
+			numLocals := c.symbolTable.Count()
+
+			c.leaveScope()
+
+			// Create a function constant for the deferred block
+			fnConstant := &bytecode.FunctionConstant{
+				Name:          "defer",
+				NumLocals:     numLocals,
+				NumParameters: 0,
+				IsVariadic:    false,
+				Instructions:  instructions,
+			}
+
+			// Add to constant pool
+			fnIdx := c.addConstant(fnConstant)
+
+			// Emit OpLoadConst to load the function
+			c.emit(OpLoadConst, fnIdx)
+
+			// Emit DEFER opcode with 0 arguments
+			c.emit(OpDefer, 0)
+
+			return nil
+		}
+
+		// Original function call syntax: defer functionCall()
 		// Compile all arguments first (evaluated immediately)
 		for _, arg := range n.Call.Arguments {
 			if err := c.Compile(arg); err != nil {
@@ -2097,7 +2164,7 @@ func (c *Compiler) emit(op Opcode, operands ...int) int {
 	if c.currentLine > 0 {
 		c.lineNumberTable = append(c.lineNumberTable, bytecode.LineInfo{
 			Offset: pos,
-			Line: c.currentLine,
+			Line:   c.currentLine,
 			Column: c.currentColumn,
 		})
 	}
@@ -2120,7 +2187,7 @@ func makeInstruction(op Opcode, operands ...int) []byte {
 		return []byte{}
 	}
 
-	instruction := make([]byte, 1 + info.Operands)
+	instruction := make([]byte, 1+info.Operands)
 	instruction[0] = byte(op)
 
 	offset := 1
@@ -2285,7 +2352,7 @@ func constantsEqual(a, b bytecode.Constant) bool {
 func (c *Compiler) enterScope() {
 	scope := CompilationScope{
 		instructions: []byte{},
-		numLocals: 0,
+		numLocals:    0,
 	}
 	c.scopes = append(c.scopes, scope)
 	c.scopeIndex++
@@ -2314,15 +2381,15 @@ func (c *Compiler) Bytecode() *bytecode.Bytecode {
 	// Find main function (create if not exists)
 	// Use symbolTable.Count() to get the actual number of local definitions
 	mainFunc := &bytecode.FunctionConstant{
-		Name: "main",
+		Name:         "main",
 		Instructions: c.currentInstructions(),
-		NumLocals: c.symbolTable.Count(),
+		NumLocals:    c.symbolTable.Count(),
 	}
 	mainIdx := c.addConstant(mainFunc)
 
 	return &bytecode.Bytecode{
-		Constants: c.constants,
-		MainFunc: mainIdx,
+		Constants:       c.constants,
+		MainFunc:        mainIdx,
 		LineNumberTable: c.lineNumberTable,
 	}
 }

@@ -96,6 +96,24 @@ func ToString(obj Object) String {
 
 // ToByte converts an Object to a Byte value
 func ToByte(obj Object) (Byte, *Error) {
+	// Handle string specially - convert single character to its byte value
+	if s, ok := obj.(String); ok {
+		if len(s) == 1 {
+			return Byte([]rune(string(s))[0]), nil
+		}
+		if len(s) == 0 {
+			return 0, NewError("cannot convert empty string to byte", 0, 0, "")
+		}
+		// Try parsing as number
+		i, err := ToInt(obj)
+		if err != nil {
+			return 0, err
+		}
+		if i < 0 || i > 255 {
+			return 0, NewError(fmt.Sprintf("int %d out of byte range (0-255)", i), 0, 0, "")
+		}
+		return Byte(i), nil
+	}
 	i, err := ToInt(obj)
 	if err != nil {
 		return 0, err
@@ -115,7 +133,12 @@ func ToChar(obj Object) (Char, *Error) {
 		if len(v) == 0 {
 			return 0, NewError("cannot convert empty string to char", 0, 0, "")
 		}
-		return Char([]rune(string(v))[0]), nil
+		// Only allow single character strings
+		runes := []rune(string(v))
+		if len(runes) != 1 {
+			return 0, NewError("cannot convert multi-character string to char", 0, 0, "")
+		}
+		return Char(runes[0]), nil
 	default:
 		i, err := ToInt(obj)
 		if err != nil {

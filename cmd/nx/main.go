@@ -10,6 +10,7 @@ import (
 	"github.com/topxeq/nxlang/bytecode"
 	"github.com/topxeq/nxlang/compiler"
 	"github.com/topxeq/nxlang/parser"
+	"github.com/topxeq/nxlang/types"
 	"github.com/topxeq/nxlang/vm"
 )
 
@@ -98,9 +99,10 @@ func runFile(path string, scriptArgs []string) {
 		bytecode := comp.Bytecode()
 		vm := vm.NewVM(bytecode)
 		vm.SetArgs(scriptArgs)
+		vm.SetSourceCode(string(source))
 
 		if err := vm.Run(); err != nil {
-			fmt.Printf("Runtime error: %v\n", err)
+			printRuntimeError(err, vm)
 			os.Exit(1)
 		}
 
@@ -234,4 +236,35 @@ func startREPL() {
 	}
 
 	fmt.Println("Goodbye!")
+}
+
+// printRuntimeError prints a runtime error with detailed information
+func printRuntimeError(err error, vmobj *vm.VM) {
+	// Try to get the error as Nxlang Error
+	if nxErr, ok := err.(*types.Error); ok {
+		fmt.Printf("Runtime Error: %s", nxErr.Message)
+		if nxErr.Line > 0 {
+			fmt.Printf(" at line %d", nxErr.Line)
+		}
+		fmt.Println()
+
+		// Print code line if available
+		if nxErr.Code != "" {
+			fmt.Printf("    %s\n", nxErr.Code)
+		}
+
+		// Print stack trace if available
+		if len(nxErr.Stack) > 0 {
+			fmt.Println("Stack trace:")
+			for _, frame := range nxErr.Stack {
+				if frame.Line > 0 {
+					fmt.Printf("  at %s() at %s:%d:%d\n", frame.FunctionName, frame.Filename, frame.Line, frame.Column)
+				} else {
+					fmt.Printf("  at %s()\n", frame.FunctionName)
+				}
+			}
+		}
+	} else {
+		fmt.Printf("Runtime error: %v\n", err)
+	}
 }

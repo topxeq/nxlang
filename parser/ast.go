@@ -276,11 +276,11 @@ type ForStatement struct {
 	Body      *BlockStatement
 
 	// For...in specific fields
-	IsForIn       bool        // Whether this is a for...in loop
-	IsNumericRange bool       // Whether iterating over a numeric range
-	Key           *Identifier // Key variable for for...in
-	Value         *Identifier // Value variable for for...in (optional)
-	Iterate       Expression  // The expression to iterate over
+	IsForIn        bool        // Whether this is a for...in loop
+	IsNumericRange bool        // Whether iterating over a numeric range
+	Key            *Identifier // Key variable for for...in
+	Value          *Identifier // Value variable for for...in (optional)
+	Iterate        Expression  // The expression to iterate over
 }
 
 func (fs *ForStatement) statementNode()       {}
@@ -363,10 +363,10 @@ type FunctionLiteral struct {
 	Name           string
 	Parameters     []*FunctionParameter
 	Body           *BlockStatement
-	IsStatic       bool // Whether this is a static method
+	IsStatic       bool           // Whether this is a static method
 	AccessModifier AccessModifier // Access level of the method
-	IsGetter       bool // Whether this is a getter property
-	IsSetter       bool // Whether this is a setter property
+	IsGetter       bool           // Whether this is a getter property
+	IsSetter       bool           // Whether this is a setter property
 }
 
 func (fl *FunctionLiteral) expressionNode()      {}
@@ -548,9 +548,9 @@ func (id *InterfaceDeclaration) Column() int          { return id.Token.Column }
 
 // NewExpression represents a new operator expression (e.g., new ClassName())
 type NewExpression struct {
-	Token  Token // 'new' token
-	Class  Expression
-	Args   []Expression
+	Token Token // 'new' token
+	Class Expression
+	Args  []Expression
 }
 
 func (ne *NewExpression) expressionNode()      {}
@@ -582,10 +582,10 @@ func (se *SuperExpression) Column() int          { return se.Token.Column }
 
 // TryStatement represents a try-catch-finally statement
 type TryStatement struct {
-	Token     Token // 'try' token
-	TryBlock  *BlockStatement
-	Catch     *CatchStatement
-	Finally   *FinallyStatement
+	Token    Token // 'try' token
+	TryBlock *BlockStatement
+	Catch    *CatchStatement
+	Finally  *FinallyStatement
 }
 
 func (ts *TryStatement) statementNode()       {}
@@ -595,8 +595,8 @@ func (ts *TryStatement) Column() int          { return ts.Token.Column }
 
 // CatchStatement represents a catch clause in a try statement
 type CatchStatement struct {
-	Token    Token // 'catch' token
-	Param    *Identifier
+	Token      Token // 'catch' token
+	Param      *Identifier
 	CatchBlock *BlockStatement
 }
 
@@ -620,6 +620,7 @@ func (fs *FinallyStatement) Column() int          { return fs.Token.Column }
 type DeferStatement struct {
 	Token Token // 'defer' token
 	Call  *CallExpression
+	Block *BlockStatement // Block to defer (for defer { ... } syntax)
 }
 
 func (ds *DeferStatement) statementNode()       {}
@@ -640,17 +641,17 @@ func (ts *ThrowStatement) Column() int          { return ts.Token.Column }
 
 // ImportSpec represents a single import specifier in an import statement
 type ImportSpec struct {
-	Name *Identifier // Name of the export from the module
+	Name  *Identifier // Name of the export from the module
 	Alias *Identifier // Optional local alias name
 }
 
 // ImportStatement represents an import statement
 type ImportStatement struct {
-	Token Token // 'import' token
-	Specs []*ImportSpec // List of import specifiers
-	ModulePath *StringLiteral // Module path for namespace imports
-	Namespace *Identifier // Optional namespace for import * as
-	DefaultImport *Identifier // Optional default import name
+	Token         Token          // 'import' token
+	Specs         []*ImportSpec  // List of import specifiers
+	ModulePath    *StringLiteral // Module path for namespace imports
+	Namespace     *Identifier    // Optional namespace for import * as
+	DefaultImport *Identifier    // Optional default import name
 }
 
 func (is *ImportStatement) statementNode()       {}
@@ -660,16 +661,16 @@ func (is *ImportStatement) Column() int          { return is.Token.Column }
 
 // ExportSpec represents a single export specifier in an export statement
 type ExportSpec struct {
-	Name *Identifier // Name of the exported item
+	Name  *Identifier // Name of the exported item
 	Alias *Identifier // Optional alias name
 }
 
 // ExportStatement represents an export statement
 type ExportStatement struct {
-	Token Token // 'export' token
-	Specs []*ExportSpec // List of export specifiers
-	Declaration Statement // Optional declaration being exported (func, const, etc.)
-	IsDefault bool // Whether this is a default export
+	Token       Token         // 'export' token
+	Specs       []*ExportSpec // List of export specifiers
+	Declaration Statement     // Optional declaration being exported (func, const, etc.)
+	IsDefault   bool          // Whether this is a default export
 }
 
 func (es *ExportStatement) statementNode()       {}

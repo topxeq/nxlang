@@ -1,0 +1,70 @@
+// Test file for new features
+
+// ============== Test Range ==============
+pln("=== Test Range ===")
+
+let r1 = range(5)
+pln("range(5):", r1)
+pln("len(r1):", len(r1))
+
+let r2 = range(1, 6)
+pln("range(1,6):", r2)
+
+let r3 = range(0, 10, 2)
+pln("range(0,10,2):", r3)
+
+let r4 = range(10, 0, -2)
+pln("range(10,0,-2):", r4)
+
+// ============== Test Debug Functions ==============
+pln("\n=== Test Debug ===")
+
+let a = 10
+let b = 20
+debug(a, b, "test")
+
+trace("hello trace")
+
+typeInfo(123)
+typeInfo("hello")
+typeInfo([1, 2, 3])
+
+// ============== Test Time Functions ==============
+pln("\n=== Test Time Functions ===")
+
+let now = now()
+pln("now():", now)
+
+let formatted = formatTime(now, "2006-01-02 15:04:05")
+pln("formatTime():", formatted)
+
+pln("year():", year(now))
+pln("month():", month(now))
+pln("day():", day(now))
+pln("hour():", hour(now))
+pln("minute():", minute(now))
+pln("second():", second(now))
+pln("weekday():", weekday(now))
+
+// ============== Test File Operations ==============
+pln("\n=== Test File Operations ===")
+
+writeFile("/tmp/nx_test.txt", "Hello from Nxlang test!")
+let content = readFile("/tmp/nx_test.txt")
+pln("File content:", content)
+
+// ============== Test JSON ==============
+pln("\n=== Test JSON ===")
+
+let obj = {"name": "Tom", "age": 16, "active": true}
+let jsonStr = toJson(obj)
+pln("toJson():", jsonStr)
+
+let sortedJson = toJson(obj, "-sort")
+pln("toJson(-sort):", sortedJson)
+
+let parsed = fromJson(jsonStr)
+pln("fromJson():", parsed)
+pln("name:", parsed["name"])
+
+pln("\n=== All Tests Passed ===")

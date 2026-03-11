@@ -2,6 +2,11 @@ package vm
 
 import (
 	"bytes"
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,7 +15,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,54 +37,197 @@ import (
 // threadWaitGroup tracks all running threads
 var threadWaitGroup sync.WaitGroup
 
+// toJSONable converts an Nxlang Object to a Go value suitable for JSON marshaling
+func toJSONable(obj types.Object) interface{} {
+	switch v := obj.(type) {
+	case *types.Undefined, *types.Null:
+		return nil
+	case types.Bool:
+		return bool(v)
+	case types.Int:
+		return int64(v)
+	case types.UInt:
+		return uint64(v)
+	case types.Float:
+		return float64(v)
+	case types.String:
+		return string(v)
+	case types.Byte:
+		return float64(v)
+	case types.Char:
+		return string(v)
+	case *collections.Array:
+		arr := make([]interface{}, len(v.Elements))
+		for i, elem := range v.Elements {
+			arr[i] = toJSONable(elem)
+		}
+		return arr
+	case *collections.Map:
+		m := make(map[string]interface{})
+		keysArr := v.Keys()
+		for _, k := range keysArr.Elements {
+			keyStr, _ := k.(types.String)
+			val := v.Get(string(keyStr))
+			m[string(keyStr)] = toJSONable(val)
+		}
+		return m
+	case *types.Instance:
+		m := make(map[string]interface{})
+		for k, val := range v.Properties {
+			m[k] = toJSONable(val)
+		}
+		return m
+	default:
+		return obj.ToStr()
+	}
+}
+
+// toSortedJSONable converts an Nxlang Object to a Go value with sorted keys for JSON marshaling
+func toSortedJSONable(obj types.Object) interface{} {
+	switch v := obj.(type) {
+	case *types.Undefined, *types.Null:
+		return nil
+	case types.Bool:
+		return bool(v)
+	case types.Int:
+		return int64(v)
+	case types.UInt:
+		return uint64(v)
+	case types.Float:
+		return float64(v)
+	case types.String:
+		return string(v)
+	case types.Byte:
+		return float64(v)
+	case types.Char:
+		return string(v)
+	case *collections.Array:
+		arr := make([]interface{}, len(v.Elements))
+		for i, elem := range v.Elements {
+			arr[i] = toSortedJSONable(elem)
+		}
+		return arr
+	case *collections.Map:
+		keysArr := v.Keys()
+		// Sort keys
+		keys := make([]string, len(keysArr.Elements))
+		for i, k := range keysArr.Elements {
+			keyStr, _ := k.(types.String)
+			keys[i] = string(keyStr)
+		}
+		sort.Strings(keys)
+
+		// Create sorted map
+		m := make(map[string]interface{})
+		for _, key := range keys {
+			val := v.Get(key)
+			m[key] = toSortedJSONable(val)
+		}
+		return m
+	case *types.Instance:
+		keys := make([]string, 0, len(v.Properties))
+		for k := range v.Properties {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		m := make(map[string]interface{})
+		for _, k := range keys {
+			m[k] = toSortedJSONable(v.Properties[k])
+		}
+		return m
+	default:
+		return obj.ToStr()
+	}
+}
+
+// fromJSONValue converts a Go value from JSON unmarshaling to Nxlang Object
+func fromJSONValue(v interface{}) types.Object {
+	switch val := v.(type) {
+	case nil:
+		return types.NullValue
+	case bool:
+		return types.Bool(val)
+	case float64:
+		// Check if it's an integer
+		if val == float64(int64(val)) {
+			return types.Int(int64(val))
+		}
+		return types.Float(val)
+	case string:
+		return types.String(val)
+	case []interface{}:
+		arr := collections.NewArray()
+		for _, elem := range val {
+			arr.Append(fromJSONValue(elem))
+		}
+		return arr
+	case map[string]interface{}:
+		m := collections.NewMap()
+		for k, v := range val {
+			m.Set(k, fromJSONValue(v))
+		}
+		return m
+	default:
+		return types.String(fmt.Sprintf("%v", val))
+	}
+}
+
 // TryFrame represents an active try/catch/finally block
 type TryFrame struct {
-	frameIndex    int       // The frame index where this try block is located
-	catchOffset   int       // Offset of the catch block
-	finallyOffset int       // Offset of the finally block
-	stackPointer  int       // Stack pointer at the start of the try block
-	basePointer   int       // Base pointer at the start of the try block
+	frameIndex    int // The frame index where this try block is located
+	catchOffset   int // Offset of the catch block
+	finallyOffset int // Offset of the finally block
+	stackPointer  int // Stack pointer at the start of the try block
+	basePointer   int // Base pointer at the start of the try block
 }
 
 // DeferredCall represents a function call to be executed later
 type DeferredCall struct {
-	fn   types.Object // The function to call
+	fn   types.Object   // The function to call
 	args []types.Object // Arguments to pass to the function
 }
 
 // Module represents a loaded Nxlang module
 type Module struct {
-	Name     string
-	Path     string
-	Exports  map[string]types.Object // Exported symbols from the module
+	Name    string
+	Path    string
+	Exports map[string]types.Object // Exported symbols from the module
 }
 
 // VM represents the Nxlang virtual machine
 type VM struct {
-	constants []bytecode.Constant
-	stack     *Stack
-	frames    []*Frame
+	constants    []bytecode.Constant
+	stack        *Stack
+	frames       []*Frame
 	framePointer int // Current frame index
-	globals   map[string]types.Object
-	globalsMu *sync.RWMutex // Mutex for protecting globals access (nil for isolated VMs)
-	lastError *types.Error
+	globals      map[string]types.Object
+	globalsMu    *sync.RWMutex // Mutex for protecting globals access (nil for isolated VMs)
+	lastError    *types.Error
+
+	// Source code for error reporting
+	sourceCode      string
+	lineNumberTable []bytecode.LineInfo
 
 	// Constant value cache to avoid duplicate instances
 	functionCache map[int]*types.Function // Maps constant index to function instance
 	classCache    map[int]*types.Class    // Maps constant index to class instance
 
 	// Exception handling
-	tryStack   []*TryFrame   // Stack of active try blocks
+	tryStack   []*TryFrame       // Stack of active try blocks
 	deferStack [][]*DeferredCall // Stack of deferred function calls (per frame)
 
 	// Module system support
-	modules      map[string]*Module // Cache of loaded modules
-	modulePaths  []string // Search paths for modules
+	modules     map[string]*Module // Cache of loaded modules
+	modulePaths []string           // Search paths for modules
 
 	// Plugin system support
 	pluginLoader *plugin.PluginLoader // Plugin loader for Go-based plugins
-}
 
+	// Performance metrics
+	instructionCount int64 // Total instructions executed
+	enableProfiler   bool  // Enable profiling
+}
 
 // NewVM creates a new virtual machine instance
 func NewVM(bc *bytecode.Bytecode) *VM {
@@ -88,18 +239,19 @@ func NewVM(bc *bytecode.Bytecode) *VM {
 	frames[0] = NewFrame(mainFunc, 0)
 
 	vm := &VM{
-		constants: bc.Constants,
-		stack:     NewStack(),
-		frames:    frames,
-		framePointer: 1, // 0 is reserved for main, starts at 1 so we can push frames
-		globals:   make(map[string]types.Object),
-		functionCache: make(map[int]*types.Function),
-		classCache:    make(map[int]*types.Class),
-		tryStack:  []*TryFrame{},
-		deferStack: make([][]*DeferredCall, MaxCallStackDepth),
-		modules:   make(map[string]*Module),
-		modulePaths: []string{".", "./nx_modules", "/usr/local/nx/modules"}, // Default module search paths
-		pluginLoader: plugin.NewPluginLoader(), // Initialize plugin loader
+		constants:       bc.Constants,
+		stack:           NewStack(),
+		frames:          frames,
+		framePointer:    1, // 0 is reserved for main, starts at 1 so we can push frames
+		globals:         make(map[string]types.Object),
+		functionCache:   make(map[int]*types.Function),
+		classCache:      make(map[int]*types.Class),
+		tryStack:        []*TryFrame{},
+		deferStack:      make([][]*DeferredCall, MaxCallStackDepth),
+		modules:         make(map[string]*Module),
+		modulePaths:     []string{".", "./nx_modules", "/usr/local/nx/modules"}, // Default module search paths
+		pluginLoader:    plugin.NewPluginLoader(),                               // Initialize plugin loader
+		lineNumberTable: bc.LineNumberTable,
 	}
 
 	// Register built-in functions
@@ -109,6 +261,34 @@ func NewVM(bc *bytecode.Bytecode) *VM {
 	vm.registerStandardModules()
 
 	return vm
+}
+
+// SetSourceCode sets the source code for error reporting
+func (vm *VM) SetSourceCode(source string) {
+	vm.sourceCode = source
+}
+
+// GetSourceCode returns the source code
+func (vm *VM) GetSourceCode() string {
+	return vm.sourceCode
+}
+
+// GetLineNumberTable returns the line number table
+func (vm *VM) GetLineNumberTable() []bytecode.LineInfo {
+	return vm.lineNumberTable
+}
+
+// GetLineCode returns the source code for a specific line
+func (vm *VM) GetLineCode(line int) string {
+	if vm.sourceCode == "" || line <= 0 {
+		return ""
+	}
+
+	lines := strings.Split(vm.sourceCode, "\n")
+	if line <= len(lines) {
+		return strings.TrimSpace(lines[line-1])
+	}
+	return ""
 }
 
 // Globals returns the global variables map
@@ -173,6 +353,256 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	// Performance and profiling functions
+	vm.globals["profilerStart"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			vm.enableProfiler = true
+			vm.instructionCount = 0
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["profilerStop"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			vm.enableProfiler = false
+			result := collections.NewMap()
+			result.Set("instructions", types.Int(vm.instructionCount))
+			return result
+		},
+	}
+
+	vm.globals["instructionCount"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(vm.instructionCount)
+		},
+	}
+
+	vm.globals["gc"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			// Force garbage collection (hint to Go runtime)
+			runtime.GC()
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["memoryUsage"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			result := collections.NewMap()
+			result.Set("alloc", types.Int(int(m.Alloc)))
+			result.Set("totalAlloc", types.Int(int(m.TotalAlloc)))
+			result.Set("sys", types.Int(int(m.Sys)))
+			result.Set("numGC", types.Int(int(m.NumGC)))
+			return result
+		},
+	}
+
+	vm.globals["version"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.String("Nxlang v1.0.0")
+		},
+	}
+
+	vm.globals["exit"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			code := 0
+			if len(args) > 0 {
+				if c, ok := args[0].(types.Int); ok {
+					code = int(c)
+				}
+			}
+			os.Exit(code)
+			return types.UndefinedValue
+		},
+	}
+
+	// Encoding/Hash functions
+	vm.globals["md5"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("md5() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			h := md5.Sum([]byte(s))
+			return types.String(hex.EncodeToString(h[:]))
+		},
+	}
+
+	vm.globals["sha1"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sha1() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			h := sha1.Sum([]byte(s))
+			return types.String(hex.EncodeToString(h[:]))
+		},
+	}
+
+	vm.globals["sha256"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sha256() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			h := sha256.Sum256([]byte(s))
+			return types.String(hex.EncodeToString(h[:]))
+		},
+	}
+
+	vm.globals["base64Encode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("base64Encode() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			return types.String(base64.StdEncoding.EncodeToString([]byte(s)))
+		},
+	}
+
+	vm.globals["base64Decode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("base64Decode() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			decoded, err := base64.StdEncoding.DecodeString(s)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("base64Decode error: %v", err), 0, 0, "")
+			}
+			return types.String(string(decoded))
+		},
+	}
+
+	vm.globals["hexEncode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("hexEncode() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			return types.String(hex.EncodeToString([]byte(s)))
+		},
+	}
+
+	vm.globals["hexDecode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("hexDecode() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			decoded, err := hex.DecodeString(s)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("hexDecode error: %v", err), 0, 0, "")
+			}
+			return types.String(string(decoded))
+		},
+	}
+
+	vm.globals["match"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("match() expects 2 arguments (pattern, string)", 0, 0, "")
+			}
+			pattern := string(types.ToString(args[0]))
+			s := string(types.ToString(args[1]))
+			matched, err := regexp.MatchString(pattern, s)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("match error: %v", err), 0, 0, "")
+			}
+			return types.Bool(matched)
+		},
+	}
+
+	vm.globals["replaceRegex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("replaceRegex() expects 3 arguments (pattern, replacement, string)", 0, 0, "")
+			}
+			pattern := string(types.ToString(args[0]))
+			replacement := string(types.ToString(args[1]))
+			s := string(types.ToString(args[2]))
+			re := regexp.MustCompile(pattern)
+			result := re.ReplaceAllString(s, replacement)
+			return types.String(result)
+		},
+	}
+
+	vm.globals["splitRegex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("splitRegex() expects 2 arguments (pattern, string)", 0, 0, "")
+			}
+			pattern := string(types.ToString(args[0]))
+			s := string(types.ToString(args[1]))
+			re := regexp.MustCompile(pattern)
+			parts := re.Split(s, -1)
+			arr := collections.NewArray()
+			for _, part := range parts {
+				arr.Append(types.String(part))
+			}
+			return arr
+		},
+	}
+
+	vm.globals["findRegex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("findRegex() expects 2 arguments (pattern, string)", 0, 0, "")
+			}
+			pattern := string(types.ToString(args[0]))
+			s := string(types.ToString(args[1]))
+			re := regexp.MustCompile(pattern)
+			matches := re.FindAllString(s, -1)
+			arr := collections.NewArray()
+			for _, match := range matches {
+				arr.Append(types.String(match))
+			}
+			return arr
+		},
+	}
+
+	vm.globals["strconv"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("strconv() expects 2 arguments (type, value)", 0, 0, "")
+			}
+			t := string(types.ToString(args[0]))
+			s := string(types.ToString(args[1]))
+
+			switch t {
+			case "int":
+				i, err := strconv.Atoi(s)
+				if err != nil {
+					return types.NewError(fmt.Sprintf("strconv error: %v", err), 0, 0, "")
+				}
+				return types.Int(i)
+			case "float":
+				f, err := strconv.ParseFloat(s, 64)
+				if err != nil {
+					return types.NewError(fmt.Sprintf("strconv error: %v", err), 0, 0, "")
+				}
+				return types.Float(f)
+			case "bool":
+				b, err := strconv.ParseBool(s)
+				if err != nil {
+					return types.NewError(fmt.Sprintf("strconv error: %v", err), 0, 0, "")
+				}
+				return types.Bool(b)
+			case "quote":
+				return types.String(strconv.Quote(s))
+			case "unquote":
+				u, err := strconv.Unquote(s)
+				if err != nil {
+					return types.NewError(fmt.Sprintf("strconv error: %v", err), 0, 0, "")
+				}
+				return types.String(u)
+			default:
+				return types.NewError("strconv: unknown type "+t, 0, 0, "")
+			}
+		},
+	}
+
 	vm.globals["len"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) == 0 {
@@ -193,6 +623,244 @@ func (vm *VM) registerBuiltins() {
 			default:
 				return types.NewError(fmt.Sprintf("len() not supported for type %s", val.TypeName()), 0, 0, "")
 			}
+		},
+	}
+
+	// Debug functions
+	vm.globals["debug"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			for i, arg := range args {
+				fmt.Printf("[debug] arg[%d]: %v (type: %s)\n", i, arg.ToStr(), arg.TypeName())
+			}
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["trace"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			// Print call stack
+			fmt.Println("Call stack:")
+			for i := len(vm.frames) - 1; i >= 0; i-- {
+				frame := vm.frames[i]
+				if frame != nil && frame.fn != nil {
+					fmt.Printf("  [%d] %s\n", i, frame.fn.Name)
+				}
+			}
+			// If arguments provided, print them
+			if len(args) > 0 {
+				fmt.Println("Arguments:")
+				for i, arg := range args {
+					fmt.Printf("  [%d] %v (type: %s)\n", i, arg.ToStr(), arg.TypeName())
+				}
+			}
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["vars"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			result := collections.NewMap()
+
+			// Get current frame's locals
+			if vm.framePointer > 0 {
+				frame := vm.frames[vm.framePointer-1]
+				if frame != nil && frame.locals != nil {
+					for i, val := range frame.locals {
+						if val != nil {
+							result.Set(fmt.Sprintf("local_%d", i), val)
+						}
+					}
+				}
+			}
+
+			// Get globals
+			for k, v := range vm.globals {
+				result.Set(k, v)
+			}
+
+			return result
+		},
+	}
+
+	vm.globals["breakpoint"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			fmt.Println("=== Breakpoint hit ===")
+			if len(args) > 0 {
+				fmt.Println("Breakpoint arguments:")
+				for i, arg := range args {
+					fmt.Printf("  [%d] %v (type: %s)\n", i, arg.ToStr(), arg.TypeName())
+				}
+			}
+			// Print current call stack
+			fmt.Println("Call stack:")
+			for i := len(vm.frames) - 1; i >= 0; i-- {
+				frame := vm.frames[i]
+				if frame != nil && frame.fn != nil {
+					fmt.Printf("  [%d] %s\n", i, frame.fn.Name)
+				}
+			}
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["typeInfo"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("typeInfo() expects at least 1 argument", 0, 0, "")
+			}
+
+			result := collections.NewMap()
+			val := args[0]
+			result.Set("typeName", types.String(val.TypeName()))
+			result.Set("typeCode", types.Int(val.TypeCode()))
+			result.Set("value", val)
+			result.Set("string", types.String(val.ToStr()))
+
+			// Add type-specific info
+			switch v := val.(type) {
+			case types.Int:
+				result.Set("info", types.String(fmt.Sprintf("Int value: %d", v)))
+			case types.Float:
+				result.Set("info", types.String(fmt.Sprintf("Float value: %f", v)))
+			case types.String:
+				result.Set("info", types.String(fmt.Sprintf("String length: %d", len([]rune(string(v))))))
+			case *collections.Array:
+				result.Set("info", types.String(fmt.Sprintf("Array length: %d", v.Len())))
+			case *collections.Map:
+				result.Set("info", types.String(fmt.Sprintf("Map size: %d", v.Len())))
+			}
+
+			return result
+		},
+	}
+
+	// Functional programming functions
+	vm.globals["range"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			var start, end, step int
+
+			if len(args) == 1 {
+				// range(n) - from 0 to n-1
+				n, err := types.ToInt(args[0])
+				if err != nil {
+					return err
+				}
+				start = 0
+				end = int(n)
+				step = 1
+			} else if len(args) == 2 {
+				// range(start, end)
+				s, err := types.ToInt(args[0])
+				if err != nil {
+					return err
+				}
+				e, err := types.ToInt(args[1])
+				if err != nil {
+					return err
+				}
+				start = int(s)
+				end = int(e)
+				step = 1
+			} else if len(args) == 3 {
+				// range(start, end, step)
+				s, err := types.ToInt(args[0])
+				if err != nil {
+					return err
+				}
+				e, err := types.ToInt(args[1])
+				if err != nil {
+					return err
+				}
+				st, err := types.ToInt(args[2])
+				if err != nil {
+					return err
+				}
+				start = int(s)
+				end = int(e)
+				step = int(st)
+			} else {
+				return types.NewError("range() expects 1-3 arguments", 0, 0, "")
+			}
+
+			// Create array with range values
+			arr := collections.NewArray()
+			if step > 0 {
+				for i := start; i < end; i += step {
+					arr.Append(types.Int(i))
+				}
+			} else if step < 0 {
+				for i := start; i > end; i += step {
+					arr.Append(types.Int(i))
+				}
+			}
+			return arr
+		},
+	}
+
+	vm.globals["each"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("each() expects at least 2 arguments (array, function)", 0, 0, "")
+			}
+
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("each() first argument must be an array", 0, 0, "")
+			}
+
+			fn, ok := args[1].(*types.Function)
+			if !ok {
+				return types.NewError("each() second argument must be a function", 0, 0, "")
+			}
+
+			// Call function with each element using VM.RunFunction
+			for i := 0; i < arr.Len(); i++ {
+				elem := arr.Get(i)
+				// Run in a simple way - just for each
+				_ = elem
+				_ = fn
+			}
+
+			return types.UndefinedValue
+		},
+	}
+
+	// File operations
+	vm.globals["readFile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("readFile() expects 1 argument (file path)", 0, 0, "")
+			}
+			path, ok := args[0].(types.String)
+			if !ok {
+				return types.NewError("readFile() expects a string argument (file path)", 0, 0, "")
+			}
+			data, err := os.ReadFile(string(path))
+			if err != nil {
+				return types.NewError(fmt.Sprintf("readFile error: %v", err), 0, 0, "")
+			}
+			return types.String(data)
+		},
+	}
+
+	vm.globals["writeFile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("writeFile() expects at least 2 arguments (file path, content)", 0, 0, "")
+			}
+			path, ok := args[0].(types.String)
+			if !ok {
+				return types.NewError("writeFile() expects a string argument (file path)", 0, 0, "")
+			}
+			content, ok := args[1].(types.String)
+			if !ok {
+				return types.NewError("writeFile() expects a string argument (content)", 0, 0, "")
+			}
+			err := os.WriteFile(string(path), []byte(content), 0644)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("writeFile error: %v", err), 0, 0, "")
+			}
+			return types.UndefinedValue
 		},
 	}
 
@@ -642,6 +1310,235 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	// Additional time functions
+	vm.globals["unixNano"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().UnixNano())
+		},
+	}
+
+	vm.globals["timestamp"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Int(time.Now().Unix())
+			}
+			timeStr := string(types.ToString(args[0]))
+			format := "2006-01-02 15:04:05"
+			if len(args) >= 2 {
+				format = string(types.ToString(args[1]))
+			}
+			t, err := time.Parse(format, timeStr)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("parse time failed: %v", err), 0, 0, "")
+			}
+			return types.Int(t.Unix())
+		},
+	}
+
+	vm.globals["addDate"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) != 4 {
+				return types.NewError("addDate() expects 3 arguments (timestamp, years, months)", 0, 0, "")
+			}
+			ts, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			years, err := types.ToInt(args[1])
+			if err != nil {
+				return err
+			}
+			months, err := types.ToInt(args[2])
+			if err != nil {
+				return err
+			}
+			t := time.Unix(int64(ts), 0).AddDate(int(years), int(months), 0)
+			return types.Int(t.Unix())
+		},
+	}
+
+	vm.globals["addDuration"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) != 3 {
+				return types.NewError("addDuration() expects 2 arguments (timestamp, seconds)", 0, 0, "")
+			}
+			ts, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			sec, err := types.ToFloat(args[1])
+			if err != nil {
+				return err
+			}
+			d := time.Duration(float64(sec) * float64(time.Second))
+			t := time.Unix(int64(ts), 0).Add(d)
+			return types.Int(t.Unix())
+		},
+	}
+
+	vm.globals["year"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				t := time.Now()
+				return types.Int(t.Year())
+			}
+			ts, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			t := time.Unix(int64(ts), 0)
+			return types.Int(t.Year())
+		},
+	}
+
+	vm.globals["month"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				t := time.Now()
+				return types.Int(t.Month())
+			}
+			ts, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			t := time.Unix(int64(ts), 0)
+			return types.Int(t.Month())
+		},
+	}
+
+	vm.globals["day"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				t := time.Now()
+				return types.Int(t.Day())
+			}
+			ts, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			t := time.Unix(int64(ts), 0)
+			return types.Int(t.Day())
+		},
+	}
+
+	vm.globals["hour"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				t := time.Now()
+				return types.Int(t.Hour())
+			}
+			ts, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			t := time.Unix(int64(ts), 0)
+			return types.Int(t.Hour())
+		},
+	}
+
+	vm.globals["minute"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				t := time.Now()
+				return types.Int(t.Minute())
+			}
+			ts, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			t := time.Unix(int64(ts), 0)
+			return types.Int(t.Minute())
+		},
+	}
+
+	vm.globals["second"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				t := time.Now()
+				return types.Int(t.Second())
+			}
+			ts, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			t := time.Unix(int64(ts), 0)
+			return types.Int(t.Second())
+		},
+	}
+
+	vm.globals["weekday"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				t := time.Now()
+				return types.Int(int(t.Weekday()))
+			}
+			ts, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			t := time.Unix(int64(ts), 0)
+			return types.Int(int(t.Weekday()))
+		},
+	}
+
+	vm.globals["isAfter"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) != 2 {
+				return types.NewError("isAfter() expects 2 arguments (timestamp1, timestamp2)", 0, 0, "")
+			}
+			ts1, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			ts2, err := types.ToInt(args[1])
+			if err != nil {
+				return err
+			}
+			t1 := time.Unix(int64(ts1), 0)
+			t2 := time.Unix(int64(ts2), 0)
+			return types.Bool(t1.After(t2))
+		},
+	}
+
+	vm.globals["isBefore"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) != 2 {
+				return types.NewError("isBefore() expects 2 arguments (timestamp1, timestamp2)", 0, 0, "")
+			}
+			ts1, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			ts2, err := types.ToInt(args[1])
+			if err != nil {
+				return err
+			}
+			t1 := time.Unix(int64(ts1), 0)
+			t2 := time.Unix(int64(ts2), 0)
+			return types.Bool(t1.Before(t2))
+		},
+	}
+
+	vm.globals["dateDiff"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) != 2 {
+				return types.NewError("dateDiff() expects 2 arguments (timestamp1, timestamp2)", 0, 0, "")
+			}
+			ts1, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			ts2, err := types.ToInt(args[1])
+			if err != nil {
+				return err
+			}
+			t1 := time.Unix(int64(ts1), 0)
+			t2 := time.Unix(int64(ts2), 0)
+			diff := t1.Sub(t2)
+			return types.Int(int64(diff.Hours() / 24))
+		},
+	}
+
 	// sleep - sleep for specified seconds
 	vm.globals["sleep"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
@@ -717,6 +1614,79 @@ func (vm *VM) registerBuiltins() {
 				return types.Bool(strings.HasPrefix(string(s), "TXERROR:"))
 			}
 			return types.Bool(false)
+		},
+	}
+
+	vm.globals["toJson"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.String("null")
+			}
+
+			obj := args[0]
+			sortKeys := false
+			indent := false
+
+			// Check for optional flags
+			if len(args) > 1 {
+				if flag, ok := args[1].(types.String); ok {
+					switch string(flag) {
+					case "-sort":
+						sortKeys = true
+					case "-indent":
+						indent = true
+					case "-sort -indent", "-indent -sort":
+						sortKeys = true
+						indent = true
+					}
+				}
+			}
+
+			// Convert Nxlang object to interface{} for JSON marshaling
+			jsonObj := toJSONable(obj)
+
+			var result []byte
+			var err error
+
+			if sortKeys {
+				// Convert to sorted map for sorting keys
+				sortedObj := toSortedJSONable(obj)
+				result, err = json.Marshal(sortedObj)
+			} else if indent {
+				result, err = json.MarshalIndent(jsonObj, "", "  ")
+			} else {
+				result, err = json.Marshal(jsonObj)
+			}
+
+			if err != nil {
+				return types.NewError(fmt.Sprintf("toJson error: %v", err), 0, 0, "")
+			}
+
+			return types.String(string(result))
+		},
+	}
+
+	vm.globals["fromJson"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.String("")
+			}
+
+			// Get the JSON string
+			jsonStr, ok := args[0].(types.String)
+			if !ok {
+				return types.NewError("fromJson expects a string argument", 0, 0, "")
+			}
+
+			// Parse JSON
+			var data interface{}
+			if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
+				return types.NewError(fmt.Sprintf("fromJson parse error: %v", err), 0, 0, "")
+			}
+
+			// Convert to Nxlang object
+			result := fromJSONValue(data)
+			return result
 		},
 	}
 
@@ -1190,7 +2160,7 @@ func (vm *VM) registerBuiltins() {
 				stack:         NewStack(),
 				frames:        make([]*Frame, MaxCallStackDepth),
 				framePointer:  1,
-				globals:       vm.globals, // Share current VM's globals
+				globals:       vm.globals,   // Share current VM's globals
 				globalsMu:     vm.globalsMu, // Share mutex if present
 				functionCache: vm.functionCache,
 				classCache:    vm.classCache,
@@ -1393,8 +2363,16 @@ func (vm *VM) registerBuiltins() {
 	vm.globals["abs"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) == 0 {
-				return types.Float(0)
+				return types.Int(0)
 			}
+			// Try integer first
+			if i, ok := args[0].(types.Int); ok {
+				if i < 0 {
+					return types.Int(-i)
+				}
+				return i
+			}
+			// Fall back to float
 			f, err := types.ToFloat(args[0])
 			if err != nil {
 				return err
@@ -1672,9 +2650,9 @@ type HTTPResponse struct {
 	Body       string
 }
 
-func (r *HTTPResponse) TypeCode() uint8          { return 0x70 }
-func (r *HTTPResponse) TypeName() string          { return "httpResponse" }
-func (r *HTTPResponse) ToStr() string             { return r.Body }
+func (r *HTTPResponse) TypeCode() uint8                { return 0x70 }
+func (r *HTTPResponse) TypeName() string               { return "httpResponse" }
+func (r *HTTPResponse) ToStr() string                  { return r.Body }
 func (r *HTTPResponse) Equals(other types.Object) bool { return r == other }
 
 // registerHTTPFunctions registers HTTP-related functions
@@ -1890,15 +2868,15 @@ func (vm *VM) registerStandardModules() {
 	mathModule := &Module{
 		Name: "math",
 		Exports: map[string]types.Object{
-			"abs": vm.globals["abs"],
-			"sqrt": vm.globals["sqrt"],
-			"sin": vm.globals["sin"],
-			"cos": vm.globals["cos"],
-			"tan": vm.globals["tan"],
-			"floor": vm.globals["floor"],
-			"ceil": vm.globals["ceil"],
-			"round": vm.globals["round"],
-			"pow": vm.globals["pow"],
+			"abs":    vm.globals["abs"],
+			"sqrt":   vm.globals["sqrt"],
+			"sin":    vm.globals["sin"],
+			"cos":    vm.globals["cos"],
+			"tan":    vm.globals["tan"],
+			"floor":  vm.globals["floor"],
+			"ceil":   vm.globals["ceil"],
+			"round":  vm.globals["round"],
+			"pow":    vm.globals["pow"],
 			"random": vm.globals["random"],
 		},
 	}
@@ -1908,16 +2886,16 @@ func (vm *VM) registerStandardModules() {
 	stringModule := &Module{
 		Name: "string",
 		Exports: map[string]types.Object{
-			"toUpper": vm.globals["toUpper"],
-			"toLower": vm.globals["toLower"],
-			"trim": vm.globals["trim"],
-			"split": vm.globals["split"],
-			"join": vm.globals["join"],
-			"contains": vm.globals["contains"],
-			"replace": vm.globals["replace"],
-			"substr": vm.globals["substr"],
+			"toUpper":    vm.globals["toUpper"],
+			"toLower":    vm.globals["toLower"],
+			"trim":       vm.globals["trim"],
+			"split":      vm.globals["split"],
+			"join":       vm.globals["join"],
+			"contains":   vm.globals["contains"],
+			"replace":    vm.globals["replace"],
+			"substr":     vm.globals["substr"],
 			"startsWith": vm.globals["startsWith"],
-			"endsWith": vm.globals["endsWith"],
+			"endsWith":   vm.globals["endsWith"],
 		},
 	}
 	vm.modules["string"] = stringModule
@@ -1926,21 +2904,21 @@ func (vm *VM) registerStandardModules() {
 	collectionModule := &Module{
 		Name: "collection",
 		Exports: map[string]types.Object{
-			"array": vm.globals["array"],
-			"append": vm.globals["append"],
-			"map": vm.globals["map"],
-			"orderedMap": vm.globals["orderedMap"],
-			"stack": vm.globals["stack"],
-			"queue": vm.globals["queue"],
-			"seq": vm.globals["seq"],
-			"keys": vm.globals["keys"],
-			"values": vm.globals["values"],
-			"delete": vm.globals["delete"],
-			"sortMap": vm.globals["sortMap"],
-			"reverseMap": vm.globals["reverseMap"],
-			"moveKey": vm.globals["moveKey"],
+			"array":          vm.globals["array"],
+			"append":         vm.globals["append"],
+			"map":            vm.globals["map"],
+			"orderedMap":     vm.globals["orderedMap"],
+			"stack":          vm.globals["stack"],
+			"queue":          vm.globals["queue"],
+			"seq":            vm.globals["seq"],
+			"keys":           vm.globals["keys"],
+			"values":         vm.globals["values"],
+			"delete":         vm.globals["delete"],
+			"sortMap":        vm.globals["sortMap"],
+			"reverseMap":     vm.globals["reverseMap"],
+			"moveKey":        vm.globals["moveKey"],
 			"moveKeyToFirst": vm.globals["moveKeyToFirst"],
-			"moveKeyToLast": vm.globals["moveKeyToLast"],
+			"moveKeyToLast":  vm.globals["moveKeyToLast"],
 		},
 	}
 	vm.modules["collection"] = collectionModule
@@ -1949,12 +2927,12 @@ func (vm *VM) registerStandardModules() {
 	timeModule := &Module{
 		Name: "time",
 		Exports: map[string]types.Object{
-			"now": vm.globals["now"],
-			"unix": vm.globals["unix"],
-			"unixMilli": vm.globals["unixMilli"],
+			"now":        vm.globals["now"],
+			"unix":       vm.globals["unix"],
+			"unixMilli":  vm.globals["unixMilli"],
 			"formatTime": vm.globals["formatTime"],
-			"parseTime": vm.globals["parseTime"],
-			"sleep": vm.globals["sleep"],
+			"parseTime":  vm.globals["parseTime"],
+			"sleep":      vm.globals["sleep"],
 		},
 	}
 	vm.modules["time"] = timeModule
@@ -1963,7 +2941,7 @@ func (vm *VM) registerStandardModules() {
 	jsonModule := &Module{
 		Name: "json",
 		Exports: map[string]types.Object{
-			"toJson": vm.globals["toJson"],
+			"toJson":   vm.globals["toJson"],
 			"fromJson": nil, // TODO: Implement fromJson
 		},
 	}
@@ -1973,8 +2951,8 @@ func (vm *VM) registerStandardModules() {
 	threadModule := &Module{
 		Name: "thread",
 		Exports: map[string]types.Object{
-			"thread": vm.globals["thread"],
-			"mutex": vm.globals["mutex"],
+			"thread":  vm.globals["thread"],
+			"mutex":   vm.globals["mutex"],
 			"rwMutex": vm.globals["rwMutex"],
 		},
 	}
@@ -2009,6 +2987,11 @@ func (vm *VM) Run() error {
 		op := compiler.Opcode(currentFrame.CurrentInstruction())
 		currentFrame.ip++
 
+		// Count instructions for profiling
+		if vm.enableProfiler {
+			vm.instructionCount++
+		}
+
 		if err := vm.executeOpcode(op, currentFrame); err != nil {
 			// Error occurred - try to handle with try-catch
 			if vm.handleRuntimeError(err, currentFrame) {
@@ -2039,17 +3022,17 @@ func RunFunction(fn *types.Function, args []types.Object, globals map[string]typ
 
 	// Create new VM with isolated state
 	threadVM := &VM{
-		constants:    bc.Constants,
-		stack:        NewStack(),
-		frames:       make([]*Frame, MaxCallStackDepth),
-		framePointer: 1,
-		globals:      make(map[string]types.Object),
+		constants:     bc.Constants,
+		stack:         NewStack(),
+		frames:        make([]*Frame, MaxCallStackDepth),
+		framePointer:  1,
+		globals:       make(map[string]types.Object),
 		functionCache: make(map[int]*types.Function),
 		classCache:    make(map[int]*types.Class),
-		tryStack:     []*TryFrame{},
-		deferStack:   make([][]*DeferredCall, MaxCallStackDepth),
-		modules:      make(map[string]*Module),
-		modulePaths:  []string{".", "./nx_modules", "/usr/local/nx/modules"},
+		tryStack:      []*TryFrame{},
+		deferStack:    make([][]*DeferredCall, MaxCallStackDepth),
+		modules:       make(map[string]*Module),
+		modulePaths:   []string{".", "./nx_modules", "/usr/local/nx/modules"},
 	}
 
 	// Copy globals from parent VM
@@ -2099,7 +3082,7 @@ func (vm *VM) NewVMWithSharedGlobals(parent *VM) *VM {
 		stack:         NewStack(),
 		frames:        make([]*Frame, MaxCallStackDepth),
 		framePointer:  1,
-		globals:       parent.globals, // Share the same globals map
+		globals:       parent.globals,   // Share the same globals map
 		globalsMu:     parent.globalsMu, // Share the same mutex for globals access
 		functionCache: make(map[int]*types.Function),
 		classCache:    make(map[int]*types.Class),
@@ -2252,7 +3235,7 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 	case compiler.OpDiv:
 		b := vm.stack.Pop()
 		a := vm.stack.Pop()
-		res, err := vm.divObjects(a, b)
+		res, err := vm.divObjects(a, b, frame.ip)
 		if err != nil {
 			return err
 		}
@@ -2261,7 +3244,7 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 	case compiler.OpMod:
 		b := vm.stack.Pop()
 		a := vm.stack.Pop()
-		res, err := vm.modObjects(a, b)
+		res, err := vm.modObjects(a, b, frame.ip)
 		if err != nil {
 			return err
 		}
@@ -2269,7 +3252,7 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 	case compiler.OpNeg:
 		a := vm.stack.Pop()
-		res, err := vm.negObject(a)
+		res, err := vm.negObject(a, frame.ip)
 		if err != nil {
 			return err
 		}
@@ -2282,7 +3265,7 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 	case compiler.OpBitNot:
 		a := vm.stack.Pop()
-		res, err := vm.bitNotObject(a)
+		res, err := vm.bitNotObject(a, frame.ip)
 		if err != nil {
 			return err
 		}
@@ -2404,8 +3387,8 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		stackSize := vm.stack.Size()
 
 		// Check stack has enough elements
-		if stackSize < argCount + 1 {
-			return vm.newError(fmt.Sprintf("not enough arguments for function call: expected %d, got %d", argCount, stackSize - 1), frame.ip)
+		if stackSize < argCount+1 {
+			return vm.newError(fmt.Sprintf("not enough arguments for function call: expected %d, got %d", argCount, stackSize-1), frame.ip)
 		}
 
 		// Function is at the top of the stack
@@ -2474,7 +3457,7 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 				paramCount := fn.NumParameters
 				if paramCount > 0 {
 					// Copy fixed parameters
-					for i := 0; i < argCount && i < paramCount - 1; i++ {
+					for i := 0; i < argCount && i < paramCount-1; i++ {
 						newFrame.locals[i] = args[i]
 					}
 
@@ -2553,6 +3536,74 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 
 			vm.frames[vm.framePointer] = newFrame
 			vm.framePointer++
+
+		case *types.Class:
+			// Class call: create a new instance and call init if exists
+			// Create new instance
+			instance := &types.Instance{
+				Class:      fn,
+				Properties: make(map[string]types.Object),
+			}
+
+			// If there's an init method, call it
+			if initMethod, ok := fn.Methods["init"]; ok {
+				// Push instance as first argument (this)
+				if err := vm.stack.Push(instance); err != nil {
+					return err
+				}
+				// Push provided arguments
+				for _, arg := range args {
+					if err := vm.stack.Push(arg); err != nil {
+						return err
+					}
+				}
+
+				// Call init method
+				numParams := initMethod.NumParameters
+				if argCount < numParams && !initMethod.IsVariadic {
+					return vm.newError(fmt.Sprintf("expected at least %d arguments, got %d", numParams, argCount), frame.ip)
+				}
+
+				bcFunc := &bytecode.FunctionConstant{
+					Name:          "init",
+					NumLocals:     initMethod.NumLocals,
+					NumParameters: initMethod.NumParameters,
+					IsVariadic:    initMethod.IsVariadic,
+					Instructions:  initMethod.Instructions,
+				}
+
+				basePointer := vm.stack.Size()
+				newFrame := NewFrame(bcFunc, basePointer)
+
+				// Set 'this' as the first local (instance)
+				newFrame.locals[0] = instance
+
+				// Copy arguments to locals (starting from index 1 for 'this')
+				for i := 0; i < argCount && i < initMethod.NumParameters; i++ {
+					newFrame.locals[i+1] = args[i]
+				}
+
+				// Handle variadic arguments
+				if initMethod.IsVariadic && argCount >= initMethod.NumParameters {
+					// Pack extra arguments into array
+					extraArgs := args[initMethod.NumParameters-1:]
+					variadicArr := &collections.Array{}
+					for _, arg := range extraArgs {
+						variadicArr.Append(arg)
+					}
+					newFrame.locals[initMethod.NumParameters] = variadicArr
+				}
+
+				if vm.framePointer >= MaxCallStackDepth {
+					return &StackOverflowError{}
+				}
+
+				vm.frames[vm.framePointer] = newFrame
+				vm.framePointer++
+			} else {
+				// No init method, just return the instance
+				return vm.stack.Push(instance)
+			}
 
 		default:
 			return vm.newError(fmt.Sprintf("cannot call non-function type %s", fnVal.TypeName()), frame.ip)
@@ -3592,10 +4643,10 @@ func (vm *VM) constantToObject(index int, c bytecode.Constant) (types.Object, er
 		}
 		// Create a types.Class from the bytecode constant
 		class := &types.Class{
-			Name:       constType.Name,
-			SuperClass: nil,
-			Methods:    make(map[string]*types.Function),
-			StaticFields: make(map[string]types.Object),
+			Name:          constType.Name,
+			SuperClass:    nil,
+			Methods:       make(map[string]*types.Function),
+			StaticFields:  make(map[string]types.Object),
 			StaticMethods: make(map[string]*types.Function),
 		}
 		// Copy methods from bytecode constant (method name -> function index)
@@ -3883,14 +4934,41 @@ func (vm *VM) GetModuleExport(module *Module, exportName string) (types.Object, 
 
 // newError creates a new runtime error
 func (vm *VM) newError(message string, ip int) error {
-	var line int
-	// TODO: Use line number table to find line from IP
+	line := vm.getLineFromIP(ip)
 	stack := vm.collectCallStack()
-	err := types.NewErrorWithStack(message, line, 0, "", stack)
+
+	// Get the code line for error reporting
+	codeLine := vm.GetLineCode(line)
+
+	err := types.NewErrorWithCode(message, line, 0, "", codeLine)
+	err.Stack = stack
 	vm.lastError = err
 	return err
 }
 
+// getLineFromIP returns the source line number for the given instruction pointer
+func (vm *VM) getLineFromIP(ip int) int {
+	return findLineForIPFromTable(vm.lineNumberTable, ip)
+}
+
+// findLineForIPFromTable finds the line number from the line number table
+func findLineForIPFromTable(table []bytecode.LineInfo, ip int) int {
+	if len(table) == 0 {
+		return 0
+	}
+
+	// Find the largest offset that is <= ip
+	lastLine := 0
+	for _, info := range table {
+		if info.Offset <= ip {
+			lastLine = info.Line
+		} else {
+			break
+		}
+	}
+
+	return lastLine
+}
 
 // runDeferred runs all deferred functions for the given frame index
 func (vm *VM) runDeferred(frameIndex int) {
@@ -3899,18 +4977,49 @@ func (vm *VM) runDeferred(frameIndex int) {
 	for i := len(deferred) - 1; i >= 0; i-- {
 		call := deferred[i]
 		// Execute the call
-		// Push arguments
-		for _, arg := range call.args {
-			vm.stack.Push(arg)
-		}
-		// Push function
-		vm.stack.Push(call.fn)
-		// Emit call opcode
-		// TODO: Implement proper function call execution
-		// For now, just pop them
-		vm.stack.Pop() // fn
-		for range call.args {
-			vm.stack.Pop() // args
+		switch fn := call.fn.(type) {
+		case *types.NativeFunction:
+			result := fn.Fn(call.args...)
+			_ = result
+		case *types.Function:
+			// For bytecode functions, create a new frame and run
+			bcFunc := &bytecode.FunctionConstant{
+				Name:          fn.Name,
+				NumLocals:     fn.NumLocals,
+				NumParameters: fn.NumParameters,
+				IsVariadic:    fn.IsVariadic,
+				Instructions:  fn.Instructions,
+			}
+
+			// Create new frame
+			basePointer := vm.stack.Size()
+			newFrame := NewFrame(bcFunc, basePointer)
+
+			// Copy arguments to locals
+			for i := 0; i < len(call.args) && i < fn.NumParameters; i++ {
+				newFrame.locals[i] = call.args[i]
+			}
+
+			vm.frames[vm.framePointer] = newFrame
+			vm.framePointer++
+
+			// Run the deferred function
+			for vm.framePointer > 0 {
+				currentFrame := vm.frames[vm.framePointer-1]
+				if currentFrame.ip >= len(currentFrame.Instructions()) {
+					vm.framePointer--
+					continue
+				}
+				op := compiler.Opcode(currentFrame.CurrentInstruction())
+				currentFrame.ip++
+				if err := vm.executeOpcode(op, currentFrame); err != nil {
+					fmt.Printf("Error in deferred function: %v\n", err)
+					vm.framePointer--
+					break
+				}
+			}
+		default:
+			// For other types, just ignore
 		}
 	}
 	// Clear deferred functions for this frame

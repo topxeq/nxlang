@@ -127,12 +127,16 @@ func (vm *VM) mulObjects(a, b types.Object) (types.Object, error) {
 }
 
 // divObjects performs division of two objects
-func (vm *VM) divObjects(a, b types.Object) (types.Object, error) {
+func (vm *VM) divObjects(a, b types.Object, ip int) (types.Object, error) {
 	aInt, aIsInt := a.(types.Int)
 	bInt, bIsInt := b.(types.Int)
 	if aIsInt && bIsInt {
 		if bInt == 0 {
-			return nil, vm.newError("division by zero", 0)
+			return nil, vm.newError("division by zero", ip)
+		}
+		// If divisible, return Int; otherwise return Float
+		if aInt%bInt == 0 {
+			return types.Int(aInt / bInt), nil
 		}
 		return types.Float(float64(aInt) / float64(bInt)), nil
 	}
@@ -155,22 +159,22 @@ func (vm *VM) divObjects(a, b types.Object) (types.Object, error) {
 		}
 
 		if bf == 0 {
-			return nil, vm.newError("division by zero", 0)
+			return nil, vm.newError("division by zero", ip)
 		}
 
 		return types.Float(af / bf), nil
 	}
 
-	return nil, vm.newError(fmt.Sprintf("unsupported operation: %s / %s", a.TypeName(), b.TypeName()), 0)
+	return nil, vm.newError(fmt.Sprintf("unsupported operation: %s / %s", a.TypeName(), b.TypeName()), ip)
 }
 
 // modObjects performs modulo operation on two objects
-func (vm *VM) modObjects(a, b types.Object) (types.Object, error) {
+func (vm *VM) modObjects(a, b types.Object, ip int) (types.Object, error) {
 	aInt, aIsInt := a.(types.Int)
 	bInt, bIsInt := b.(types.Int)
 	if aIsInt && bIsInt {
 		if bInt == 0 {
-			return nil, vm.newError("modulo by zero", 0)
+			return nil, vm.newError("modulo by zero", ip)
 		}
 		return aInt % bInt, nil
 	}
@@ -193,34 +197,34 @@ func (vm *VM) modObjects(a, b types.Object) (types.Object, error) {
 		}
 
 		if bf == 0 {
-			return nil, vm.newError("modulo by zero", 0)
+			return nil, vm.newError("modulo by zero", ip)
 		}
 
 		// Use math.Mod for float modulo
 		return types.Float(math.Mod(af, bf)), nil
 	}
 
-	return nil, vm.newError(fmt.Sprintf("unsupported operation: %s %% %s", a.TypeName(), b.TypeName()), 0)
+	return nil, vm.newError(fmt.Sprintf("unsupported operation: %s %% %s", a.TypeName(), b.TypeName()), ip)
 }
 
 // negObject performs negation of an object
-func (vm *VM) negObject(a types.Object) (types.Object, error) {
+func (vm *VM) negObject(a types.Object, ip int) (types.Object, error) {
 	switch val := a.(type) {
 	case types.Int:
 		return -val, nil
 	case types.Float:
 		return -val, nil
 	default:
-		return nil, vm.newError(fmt.Sprintf("unsupported operation: -%s", a.TypeName()), 0)
+		return nil, vm.newError(fmt.Sprintf("unsupported operation: -%s", a.TypeName()), ip)
 	}
 }
 
 // bitNotObject performs bitwise NOT operation on an object
-func (vm *VM) bitNotObject(a types.Object) (types.Object, error) {
+func (vm *VM) bitNotObject(a types.Object, ip int) (types.Object, error) {
 	if val, ok := a.(types.Int); ok {
 		return types.Int(^val), nil
 	}
-	return nil, vm.newError(fmt.Sprintf("unsupported operation: ~%s", a.TypeName()), 0)
+	return nil, vm.newError(fmt.Sprintf("unsupported operation: ~%s", a.TypeName()), ip)
 }
 
 // bitAndObjects performs bitwise AND operation on two objects

@@ -31,43 +31,43 @@ const (
 
 var precedences = map[TokenType]int{
 	// Assignment operators
-	TokenAssign:      PrecedenceAssignment,
-	TokenDefine:      PrecedenceAssignment,
-	TokenPlusAssign:  PrecedenceAssignment,
-	TokenMinusAssign: PrecedenceAssignment,
-	TokenMulAssign:   PrecedenceAssignment,
-	TokenDivAssign:   PrecedenceAssignment,
-	TokenModAssign:   PrecedenceAssignment,
-	TokenAndAssign:   PrecedenceAssignment,
-	TokenOrAssign:    PrecedenceAssignment,
-	TokenXorAssign:   PrecedenceAssignment,
+	TokenAssign:       PrecedenceAssignment,
+	TokenDefine:       PrecedenceAssignment,
+	TokenPlusAssign:   PrecedenceAssignment,
+	TokenMinusAssign:  PrecedenceAssignment,
+	TokenMulAssign:    PrecedenceAssignment,
+	TokenDivAssign:    PrecedenceAssignment,
+	TokenModAssign:    PrecedenceAssignment,
+	TokenAndAssign:    PrecedenceAssignment,
+	TokenOrAssign:     PrecedenceAssignment,
+	TokenXorAssign:    PrecedenceAssignment,
 	TokenLShiftAssign: PrecedenceAssignment,
 	TokenRShiftAssign: PrecedenceAssignment,
 
 	// Other operators
-	TokenOr:         PrecedenceOr,
-	TokenAnd:        PrecedenceAnd,
-	TokenEqual:      PrecedenceEquals,
-	TokenNotEqual:   PrecedenceEquals,
-	TokenLT:         PrecedenceLessGreater,
-	TokenLTE:        PrecedenceLessGreater,
-	TokenGT:         PrecedenceLessGreater,
-	TokenGTE:        PrecedenceLessGreater,
-	TokenPipe:       PrecedenceBitwiseOr,
-	TokenCaret:      PrecedenceBitwiseXor,
-	TokenAmpersand:  PrecedenceBitwiseAnd,
-	TokenLeftShift:  PrecedenceShift,
-	TokenRightShift: PrecedenceShift,
-	TokenPlus:       PrecedenceSum,
-	TokenMinus:      PrecedenceSum,
-	TokenAsterisk:   PrecedenceProduct,
-	TokenSlash:      PrecedenceProduct,
-	TokenPercent:    PrecedenceProduct,
-	TokenLeftParen:  PrecedenceCall,
+	TokenOr:          PrecedenceOr,
+	TokenAnd:         PrecedenceAnd,
+	TokenEqual:       PrecedenceEquals,
+	TokenNotEqual:    PrecedenceEquals,
+	TokenLT:          PrecedenceLessGreater,
+	TokenLTE:         PrecedenceLessGreater,
+	TokenGT:          PrecedenceLessGreater,
+	TokenGTE:         PrecedenceLessGreater,
+	TokenPipe:        PrecedenceBitwiseOr,
+	TokenCaret:       PrecedenceBitwiseXor,
+	TokenAmpersand:   PrecedenceBitwiseAnd,
+	TokenLeftShift:   PrecedenceShift,
+	TokenRightShift:  PrecedenceShift,
+	TokenPlus:        PrecedenceSum,
+	TokenMinus:       PrecedenceSum,
+	TokenAsterisk:    PrecedenceProduct,
+	TokenSlash:       PrecedenceProduct,
+	TokenPercent:     PrecedenceProduct,
+	TokenLeftParen:   PrecedenceCall,
 	TokenLeftBracket: PrecedenceIndex,
-	TokenDot:        PrecedenceMember,
-	TokenInc:        PrecedencePostfix,
-	TokenDec:        PrecedencePostfix,
+	TokenDot:         PrecedenceMember,
+	TokenInc:         PrecedencePostfix,
+	TokenDec:         PrecedencePostfix,
 }
 
 // Parser represents a recursive descent parser
@@ -554,7 +554,7 @@ func (p *Parser) parseIfStatement() *IfStatement {
 		if p.peekTokenIs(TokenIf) {
 			p.nextToken()
 			stmt.Alternative = &BlockStatement{
-				Token: p.curToken,
+				Token:      p.curToken,
 				Statements: []Statement{p.parseIfStatement()},
 			}
 		} else {
@@ -663,7 +663,6 @@ func (p *Parser) parseForStatement() *ForStatement {
 	// curToken is at the first token inside parenthesis (if hasParen) or at init clause
 	// Start parsing 3-part for loop from current position
 
-	
 	// Check if this is a single condition for loop (for cond { ... } or for (cond) { ... })
 	isSingleCondition := false
 
@@ -944,11 +943,28 @@ func (p *Parser) parseCaseStatement() *CaseStatement {
 
 	// expectPeek advanced to ':' token, need to advance past it
 	p.nextToken()
-	// Case body must be a block statement enclosed in {}
-	stmt.Body = p.parseBlockStatement()
 
-	// Advance past the closing brace of the block
-	p.nextToken()
+	// Check if there's a block statement
+	if p.curTokenIs(TokenLeftBrace) {
+		// Block statement: case X: { ... }
+		stmt.Body = p.parseBlockStatement()
+		// Advance past the closing brace
+		p.nextToken()
+	} else {
+		// Single statement or block without braces
+		// Parse until we hit another case, default, or closing brace
+		body := &BlockStatement{Token: p.curToken}
+		body.Statements = []Statement{}
+
+		for !p.curTokenIs(TokenRightBrace) && !p.curTokenIs(TokenCase) && !p.curTokenIs(TokenDefault) && !p.curTokenIs(TokenEOF) {
+			stmt := p.parseStatement()
+			if stmt != nil {
+				body.Statements = append(body.Statements, stmt)
+			}
+			p.nextToken()
+		}
+		stmt.Body = body
+	}
 
 	return stmt
 }
@@ -963,11 +979,27 @@ func (p *Parser) parseDefaultStatement() *DefaultStatement {
 
 	// expectPeek advanced to ':' token, need to advance past it
 	p.nextToken()
-	// Default body must be a block statement enclosed in {}
-	stmt.Body = p.parseBlockStatement()
 
-	// Advance past the closing brace of the block
-	p.nextToken()
+	// Check if there's a block statement
+	if p.curTokenIs(TokenLeftBrace) {
+		// Block statement: default: { ... }
+		stmt.Body = p.parseBlockStatement()
+		// Advance past the closing brace
+		p.nextToken()
+	} else {
+		// Single statement or block without braces
+		body := &BlockStatement{Token: p.curToken}
+		body.Statements = []Statement{}
+
+		for !p.curTokenIs(TokenRightBrace) && !p.curTokenIs(TokenCase) && !p.curTokenIs(TokenDefault) && !p.curTokenIs(TokenEOF) {
+			stmtBody := p.parseStatement()
+			if stmtBody != nil {
+				body.Statements = append(body.Statements, stmtBody)
+			}
+			p.nextToken()
+		}
+		stmt.Body = body
+	}
 
 	return stmt
 }
@@ -1014,9 +1046,18 @@ func (p *Parser) parseFunctionParameters() []*FunctionParameter {
 	for {
 		param := &FunctionParameter{}
 
-		if p.curTokenIs(TokenEllipsis) {
-			param.Variadic = true
-			p.nextToken()
+		// Handle variadic parameter: paramName... (ellipsis after name)
+		// Or ...paramName (ellipsis before name)
+
+		if !p.curTokenIs(TokenIdentifier) {
+			if p.curTokenIs(TokenEllipsis) {
+				// ...paramName syntax
+				param.Variadic = true
+				p.nextToken()
+			} else {
+				p.addError(fmt.Sprintf("expected parameter name, got %s", p.curToken.Type))
+				return nil
+			}
 		}
 
 		if !p.curTokenIs(TokenIdentifier) {
@@ -1025,6 +1066,12 @@ func (p *Parser) parseFunctionParameters() []*FunctionParameter {
 		}
 
 		param.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+		// Check for variadic: paramName... syntax
+		if p.peekTokenIs(TokenEllipsis) {
+			p.nextToken() // consume ...
+			param.Variadic = true
+		}
 
 		// Check for default value
 		if p.peekTokenIs(TokenAssign) {
@@ -1309,9 +1356,19 @@ func (p *Parser) parseDeferStatement() *DeferStatement {
 	stmt := &DeferStatement{Token: p.curToken}
 
 	p.nextToken()
+
+	// Check for block syntax: defer { ... }
+	if p.curTokenIs(TokenLeftBrace) {
+		block := p.parseBlockStatement()
+		stmt.Call = nil
+		stmt.Block = block
+		return stmt
+	}
+
+	// Original function call syntax: defer functionCall()
 	callExpr, ok := p.parseExpression(PrecedenceLowest).(*CallExpression)
 	if !ok {
-		p.addError("defer statement must be followed by a function call")
+		p.addError("defer statement must be followed by a function call or block")
 		return nil
 	}
 
