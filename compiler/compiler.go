@@ -1501,23 +1501,46 @@ func (c *Compiler) Compile(node parser.Node) error {
 			return err
 		}
 
+		// Use fast integer opcodes when both operands are integer literals
+		bothInts := isIntegerLiteral(n.Left) && isIntegerLiteral(n.Right)
+
 		switch n.Operator {
 		case "+":
-			c.emit(OpAdd)
+			if bothInts {
+				c.emit(OpAddInt)
+			} else {
+				c.emit(OpAdd)
+			}
 		case "-":
-			c.emit(OpSub)
+			if bothInts {
+				c.emit(OpSubInt)
+			} else {
+				c.emit(OpSub)
+			}
 		case "*":
-			c.emit(OpMul)
+			if bothInts {
+				c.emit(OpMulInt)
+			} else {
+				c.emit(OpMul)
+			}
 		case "/":
 			c.emit(OpDiv)
 		case "%":
 			c.emit(OpMod)
 		case "==":
-			c.emit(OpEq)
+			if bothInts {
+				c.emit(OpEqInt)
+			} else {
+				c.emit(OpEq)
+			}
 		case "!=":
 			c.emit(OpNotEq)
 		case "<":
-			c.emit(OpLt)
+			if bothInts {
+				c.emit(OpLtInt)
+			} else {
+				c.emit(OpLt)
+			}
 		case "<=":
 			c.emit(OpLte)
 		case ">":
@@ -2217,6 +2240,12 @@ func (c *Compiler) storeSymbol(symbol Symbol) {
 		// Cannot assign to built-in or function scope symbols
 		c.addError(fmt.Sprintf("cannot assign to %s variable %s", symbol.Scope, symbol.Name))
 	}
+}
+
+// isIntegerLiteral checks if an expression is an integer literal
+func isIntegerLiteral(expr parser.Expression) bool {
+	_, ok := expr.(*parser.IntLiteral)
+	return ok
 }
 
 // emit appends an opcode and its operands to the current instructions

@@ -34,6 +34,13 @@ import (
 	"github.com/topxeq/nxlang/types/concurrency"
 )
 
+// Object pools to reduce allocations
+var stringBuilderPool = sync.Pool{
+	New: func() interface{} {
+		return &strings.Builder{}
+	},
+}
+
 // threadWaitGroup tracks all running threads
 var threadWaitGroup sync.WaitGroup
 
@@ -3232,6 +3239,36 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		}
 		return vm.stack.Push(res)
 
+	case compiler.OpAddInt:
+		b := vm.stack.Pop()
+		a := vm.stack.Pop()
+		if aInt, ok := a.(types.Int); ok {
+			if bInt, ok := b.(types.Int); ok {
+				return vm.stack.Push(aInt + bInt)
+			}
+		}
+		return fmt.Errorf("TXERROR: OpAddInt requires both operands to be integers")
+
+	case compiler.OpSubInt:
+		b := vm.stack.Pop()
+		a := vm.stack.Pop()
+		if aInt, ok := a.(types.Int); ok {
+			if bInt, ok := b.(types.Int); ok {
+				return vm.stack.Push(aInt - bInt)
+			}
+		}
+		return fmt.Errorf("TXERROR: OpSubInt requires both operands to be integers")
+
+	case compiler.OpMulInt:
+		b := vm.stack.Pop()
+		a := vm.stack.Pop()
+		if aInt, ok := a.(types.Int); ok {
+			if bInt, ok := b.(types.Int); ok {
+				return vm.stack.Push(aInt * bInt)
+			}
+		}
+		return fmt.Errorf("TXERROR: OpMulInt requires both operands to be integers")
+
 	case compiler.OpDiv:
 		b := vm.stack.Pop()
 		a := vm.stack.Pop()
@@ -3336,6 +3373,26 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 			return err
 		}
 		return vm.stack.Push(res)
+
+	case compiler.OpEqInt:
+		b := vm.stack.Pop()
+		a := vm.stack.Pop()
+		if aInt, ok := a.(types.Int); ok {
+			if bInt, ok := b.(types.Int); ok {
+				return vm.stack.Push(types.Bool(aInt == bInt))
+			}
+		}
+		return fmt.Errorf("TXERROR: OpEqInt requires both operands to be integers")
+
+	case compiler.OpLtInt:
+		b := vm.stack.Pop()
+		a := vm.stack.Pop()
+		if aInt, ok := a.(types.Int); ok {
+			if bInt, ok := b.(types.Int); ok {
+				return vm.stack.Push(types.Bool(aInt < bInt))
+			}
+		}
+		return fmt.Errorf("TXERROR: OpLtInt requires both operands to be integers")
 
 	case compiler.OpLte:
 		b := vm.stack.Pop()
