@@ -111,6 +111,19 @@ func (st *SymbolTable) Resolve(name string) (Symbol, bool) {
 	return symbol, ok
 }
 
+// UpdateType updates the type of an existing symbol
+func (st *SymbolTable) UpdateType(name string, typ types.Object) bool {
+	if symbol, ok := st.store[name]; ok {
+		symbol.Type = typ
+		st.store[name] = symbol
+		return true
+	}
+	if st.Outer != nil {
+		return st.Outer.UpdateType(name, typ)
+	}
+	return false
+}
+
 // Count returns the number of defined symbols in current scope
 func (st *SymbolTable) Count() int {
 	return st.numDefinitions

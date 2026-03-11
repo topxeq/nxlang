@@ -1501,8 +1501,10 @@ func (c *Compiler) Compile(node parser.Node) error {
 			return err
 		}
 
-		// Use fast integer opcodes when both operands are integer literals
-		bothInts := isIntegerLiteral(n.Left) && isIntegerLiteral(n.Right)
+		// Use fast integer opcodes when both operands are integer literals or inferred integers
+		leftIsInt := isIntegerLiteral(n.Left) || isIntegerType(c.inferExpressionType(n.Left))
+		rightIsInt := isIntegerLiteral(n.Right) || isIntegerType(c.inferExpressionType(n.Right))
+		bothInts := leftIsInt && rightIsInt
 
 		switch n.Operator {
 		case "+":
@@ -1635,6 +1637,13 @@ func (c *Compiler) Compile(node parser.Node) error {
 
 			// Store the result
 			c.storeSymbol(symbol)
+
+			// Update symbol type based on right-hand side expression
+			inferredType := c.inferExpressionType(n.Right)
+			if inferredType != nil {
+				c.symbolTable.UpdateType(symbol.Name, inferredType)
+			}
+
 			// Assignment expressions return the assigned value, so push it back to the stack
 			c.loadSymbol(symbol)
 
@@ -2245,6 +2254,54 @@ func (c *Compiler) storeSymbol(symbol Symbol) {
 // isIntegerLiteral checks if an expression is an integer literal
 func isIntegerLiteral(expr parser.Expression) bool {
 	_, ok := expr.(*parser.IntLiteral)
+	return ok
+}
+
+// inferExpressionType infers the type of an expression at compile time
+func (c *Compiler) inferExpressionType(expr parser.Expression) types.Object {
+	switch e := expr.(type) {
+	case *parser.IntLiteral:
+		return e.Value
+	case *parser.FloatLiteral:
+		return e.Value
+	case *parser.StringLiteral:
+		return e.Value
+	case *parser.BoolLiteral:
+		return e.Value
+	case *parser.Identifier:
+		if symbol, ok := c.symbolTable.Resolve(e.Value); ok {
+			return symbol.Type
+		}
+	case *parser.InfixExpression:
+		leftType := c.inferExpressionType(e.Left)
+		rightType := c.inferExpressionType(e.Right)
+		if leftType == nil || rightType == nil {
+			return nil
+		}
+		// Type inference for operations
+		switch e.Operator {
+		case "+", "-", "*", "/", "%":
+			// If both are same numeric type, result is that type
+			if _, ok := leftType.(types.Int); ok {
+				if _, ok := rightType.(types.Int); ok {
+					return leftType
+				}
+			}
+			if _, ok := leftType.(types.Float); ok {
+				if _, ok := rightType.(types.Float); ok {
+					return leftType
+				}
+			}
+		case "==", "!=", "<", "<=", ">", ">=":
+			return types.Bool(true)
+		}
+	}
+	return nil
+}
+
+// isIntegerType checks if an object is an integer type
+func isIntegerType(obj types.Object) bool {
+	_, ok := obj.(types.Int)
 	return ok
 }
 
