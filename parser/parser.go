@@ -1108,7 +1108,7 @@ func (p *Parser) parseClassDeclaration() *ClassDeclaration {
 	decl.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 	// Check for superclass
-	if p.peekTokenIs(TokenColon) {
+	if p.peekTokenIs(TokenLT) {
 		p.nextToken()
 		if !p.expectPeek(TokenIdentifier) {
 			return nil

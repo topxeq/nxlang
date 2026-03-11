@@ -1,0 +1,8 @@
+// HTTP client - fetch data
+let response = httpGet("https://httpbin.org/get")
+if response != null {
+    pln("HTTP GET response:")
+    pln(response)
+} else {
+    pln("HTTP request failed")
+}

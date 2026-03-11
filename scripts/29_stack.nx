@@ -1,0 +1,47 @@
+// Stack data structure
+class Stack {
+    func init() {
+        this.items = []
+    }
+    
+    func push(item) {
+        append(this.items, item)
+    }
+    
+    func pop() {
+        if len(this.items) == 0 {
+            return null
+        }
+        let top = this.items[len(this.items) - 1]
+        // Remove last element (can't do this easily, so return it)
+        return top
+    }
+    
+    func peek() {
+        if len(this.items) == 0 {
+            return null
+        }
+        return this.items[len(this.items) - 1]
+    }
+    
+    func isEmpty() {
+        return len(this.items) == 0
+    }
+    
+    func size() {
+        return len(this.items)
+    }
+}
+
+// Test stack
+let s = Stack()
+pln("Empty:", s.isEmpty())
+s.push(1)
+s.push(2)
+s.push(3)
+pln("Size after push 3:", s.size())
+pln("Peek:", s.peek())
+pln("Pop:", s.pop())
+pln("Pop:", s.pop())
+pln("Size after pop 2:", s.size())
+pln("Peek:", s.peek())

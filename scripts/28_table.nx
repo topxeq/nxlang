@@ -1,0 +1,89 @@
+// Pretty print / table formatting
+func printTable(headers, rows) {
+    // Calculate column widths
+    let widths = []
+    let i = 0
+    while i < len(headers) {
+        append(widths, len(headers[i]))
+        i = i + 1
+    }
+    
+    // Check data
+    let j = 0
+    while j < len(rows) {
+        let row = rows[j]
+        let k = 0
+        while k < len(row) {
+            let valLen = len(string(row[k]))
+            if valLen > widths[k] {
+                widths[k] = valLen
+            }
+            k = k + 1
+        }
+        j = j + 1
+    }
+    
+    // Print separator
+    let sep = "+"
+    let w = 0
+    while w < len(widths) {
+        let dashes = ""
+        let d = 0
+        while d < widths[w] + 2 {
+            dashes = dashes + "-"
+            d = d + 1
+        }
+        sep = sep + dashes + "+"
+        w = w + 1
+    }
+    pln(sep)
+    
+    // Print header
+    let headerLine = "|"
+    let h = 0
+    while h < len(headers) {
+        let pad = ""
+        let p = 0
+        while p < widths[h] - len(headers[h]) + 1 {
+            pad = pad + " "
+            p = p + 1
+        }
+        headerLine = headerLine + " " + headers[h] + pad + "|"
+        h = h + 1
+    }
+    pln(headerLine)
+    pln(sep)
+    
+    // Print rows
+    let r = 0
+    while r < len(rows) {
+        let row = rows[r]
+        let rowLine = "|"
+        let c = 0
+        while c < len(row) {
+            let val = string(row[c])
+            let padLen = widths[c] - len(val) + 1
+            let pad = ""
+            let p = 0
+            while p < padLen {
+                pad = pad + " "
+                p = p + 1
+            }
+            rowLine = rowLine + " " + val + pad + "|"
+            c = c + 1
+        }
+        pln(rowLine)
+        r = r + 1
+    }
+    pln(sep)
+}
+
+// Test
+let headers = ["Name", "Age", "City"]
+let rows = [
+    ["Alice", "30", "NYC"],
+    ["Bob", "25", "LA"],
+    ["Charlie", "35", "Chicago"]
+]
+
+printTable(headers, rows)

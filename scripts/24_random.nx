@@ -1,0 +1,35 @@
+// Generate random numbers
+// Note: Using time as seed
+
+// Simple random number generator
+func randInt(min, max) {
+    let seed = unix()
+    // Simple linear congruential generator
+    let rand = (seed * 1103515245 + 12345) % 2147483648
+    return min + (rand % (max - min + 1))
+}
+
+pln("Random 1-100:", randInt(1, 100))
+pln("Random 1-100:", randInt(1, 100))
+pln("Random 1-100:", randInt(1, 100))
+pln("Random 1-6 (dice):", randInt(1, 6))
+pln("Random 1-6 (dice):", randInt(1, 6))
+pln("Random 1-6 (dice):", randInt(1, 6))
+
+// Shuffle array
+func shuffle(arr) {
+    let n = len(arr)
+    let i = n - 1
+    while i > 0 {
+        let j = randInt(0, i)
+        let temp = arr[i]
+        arr[i] = arr[j]
+        arr[j] = temp
+        i = i - 1
+    }
+    return arr
+}
+
+let nums = [1, 2, 3, 4, 5]
+pln("Original:", nums)
+pln("Shuffled:", shuffle(nums))

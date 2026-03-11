@@ -1,0 +1,26 @@
+// Time operations
+pln("Current timestamp:", now())
+pln("Unix timestamp:", unix())
+pln("Unix milliseconds:", unixMilli())
+
+// Get date components
+let ts = unix()
+pln("Year:", year(ts))
+pln("Month:", month(ts))
+pln("Day:", day(ts))
+pln("Hour:", hour(ts))
+pln("Minute:", minute(ts))
+pln("Second:", second(ts))
+pln("Weekday:", weekday(ts))
+
+// Format time
+let formatted = formatTime(ts, "2006-01-02 15:04:05")
+pln("Formatted:", formatted)
+
+// Parse time
+let parsed = parseTime("2024-01-15 10:30:00", "2006-01-02 15:04:05")
+pln("Parsed timestamp:", parsed)
+
+// Add duration
+let future = addDate(ts, 0, 1, 0)  // Add 1 month
+pln("One month from now:", formatTime(future, "2006-01-02"))

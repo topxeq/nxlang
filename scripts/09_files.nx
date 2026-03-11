@@ -1,0 +1,12 @@
+// File operations
+let filename = "test_file.txt"
+let content = "Hello from Nxlang!\nThis is line 2.\nLine 3."
+
+// Write to file
+writeFile(filename, content)
+pln("File written")
+
+// Read from file
+let readContent = readFile(filename)
+pln("File content:")
+pln(readContent)

@@ -1,0 +1,34 @@
+// Map operations
+let m = {"name": "Alice", "age": 30, "city": "NYC"}
+
+// Access
+pln("name:", m["name"])
+pln("age:", m["age"])
+
+// Modify
+m["age"] = 31
+pln("After age=31:", m)
+
+// Add new key
+m["email"] = "alice@example.com"
+pln("After adding email:", m)
+
+// Keys and values
+pln("keys:", keys(m))
+pln("values:", values(m))
+
+// Delete
+delete(m, "city")
+pln("After delete city:", m)
+
+// Check if key exists
+pln("Has name:", contains(m, "name"))
+pln("Has city:", contains(m, "city"))
+
+// Ordered map
+let om = orderedMap()
+om["first"] = 1
+om["second"] = 2
+om["third"] = 3
+pln("OrderedMap:", om)
+pln("OrderedMap keys:", keys(om))

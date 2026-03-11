@@ -1,0 +1,36 @@
+// Date formatting utilities
+func padZero(n) {
+    if n < 10 {
+        return "0" + string(n)
+    }
+    return string(n)
+}
+
+func formatDate(timestamp) {
+    let y = year(timestamp)
+    let m = month(timestamp)
+    let d = day(timestamp)
+    return string(y) + "-" + padZero(m) + "-" + padZero(d)
+}
+
+func formatTime24(timestamp) {
+    let h = hour(timestamp)
+    let min = minute(timestamp)
+    let s = second(timestamp)
+    return padZero(h) + ":" + padZero(min) + ":" + padZero(s)
+}
+
+let now = unix()
+pln("Date:", formatDate(now))
+pln("Time:", formatTime24(now))
+pln("Full:", formatDate(now) + " " + formatTime24(now))
+
+// Get week number
+func weekNumber(timestamp) {
+    let y = year(timestamp)
+    let startOfYear = parseTime(string(y) + "-01-01 00:00:00", "2006-01-02 15:04:05")
+    let diff = timestamp - startOfYear
+    return int(diff / 604800) + 1
+}
+
+pln("Week number:", weekNumber(now))

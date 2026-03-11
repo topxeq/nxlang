@@ -1,0 +1,45 @@
+// URL parsing utilities
+func parseQueryString(query) {
+    let params = {}
+    if len(query) == 0 {
+        return params
+    }
+    let pairs = split(query, "&")
+    let i = 0
+    while i < len(pairs) {
+        let pair = pairs[i]
+        let kv = split(pair, "=")
+        if len(kv) == 2 {
+            params[kv[0]] = kv[1]
+        }
+        i = i + 1
+    }
+    return params
+}
+
+let url = "name=John&age=30&city=NYC"
+let parsed = parseQueryString(url)
+pln("Parsed URL params:")
+let kkeys = keys(parsed)
+let j = 0
+while j < len(kkeys) {
+    let k = kkeys[j]
+    pln("  ", k, " = ", parsed[k])
+    j = j + 1
+}
+
+// Build query string
+func buildQueryString(params) {
+    let kkeys = keys(params)
+    let parts = []
+    let i = 0
+    while i < len(kkeys) {
+        let k = kkeys[i]
+        append(parts, k + "=" + string(params[k]))
+        i = i + 1
+    }
+    return join(parts, "&")
+}
+
+let newParams = {"foo": "bar", "num": "42"}
+pln("Built query:", buildQueryString(newParams))

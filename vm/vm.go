@@ -3545,8 +3545,9 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 				Properties: make(map[string]types.Object),
 			}
 
-			// If there's an init method, call it
-			if initMethod, ok := fn.Methods["init"]; ok {
+			// If there's an init method, call it (check inheritance chain)
+			initMethod := fn.GetMethod("init")
+			if initMethod != nil {
 				// Push instance as first argument (this)
 				if err := vm.stack.Push(instance); err != nil {
 					return err

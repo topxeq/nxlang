@@ -1,0 +1,28 @@
+// Closure example with different approach
+let globalCounter = 0
+
+func increment() {
+    globalCounter = globalCounter + 1
+    return globalCounter
+}
+
+pln("increment():", increment())
+pln("increment():", increment())
+pln("increment():", increment())
+
+// Using a class for closure-like behavior
+class Counter {
+    func init() {
+        this.count = 0
+    }
+    
+    func next() {
+        this.count = this.count + 1
+        return this.count
+    }
+}
+
+let c = Counter()
+pln("c.next():", c.next())
+pln("c.next():", c.next())
+pln("c.next():", c.next())

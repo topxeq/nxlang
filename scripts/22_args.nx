@@ -1,0 +1,8 @@
+// Command line arguments
+pln("Number of args:", len(args))
+pln("Args:", args)
+
+// Access individual args
+if len(args) > 0 {
+    pln("First arg:", args[0])
+}

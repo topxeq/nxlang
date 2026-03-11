@@ -1,0 +1,46 @@
+// Queue data structure
+class Queue {
+    func init() {
+        this.items = []
+    }
+    
+    func enqueue(item) {
+        append(this.items, item)
+    }
+    
+    func dequeue() {
+        if len(this.items) == 0 {
+            return null
+        }
+        let first = this.items[0]
+        // Note: Can't easily remove first element, so this is not a true queue
+        return first
+    }
+    
+    func front() {
+        if len(this.items) == 0 {
+            return null
+        }
+        return this.items[0]
+    }
+    
+    func isEmpty() {
+        return len(this.items) == 0
+    }
+    
+    func size() {
+        return len(this.items)
+    }
+}
+
+// Test queue
+let q = Queue()
+pln("Empty:", q.isEmpty())
+q.enqueue(1)
+q.enqueue(2)
+q.enqueue(3)
+pln("Size after enqueue 3:", q.size())
+pln("Front:", q.front())
+pln("Dequeue:", q.dequeue())
+pln("Front after dequeue:", q.front())
+pln("Size:", q.size())

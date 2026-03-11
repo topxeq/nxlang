@@ -1,0 +1,30 @@
+// Arrays and maps
+let arr = [1, 2, 3, 4, 5]
+pln("Array:", arr)
+
+// Array operations
+arr[0] = 10
+pln("After arr[0]=10:", arr)
+
+// Sum using for-in (now returns values)
+let sum = 0
+for v in arr {
+    sum = sum + v
+}
+pln("Sum:", sum)
+
+// Using key, value syntax for index access
+let sum2 = 0
+for i, v in arr {
+    sum2 = sum2 + v
+}
+pln("Sum2 (with i,v):", sum2)
+
+// Map
+let m = {"name": "Bob", "age": 30}
+pln("Map:", m)
+pln("m['name'] =", m["name"])
+m["age"] = 31
+pln("After m['age']=31:", m)
+pln("keys(m):", keys(m))
+pln("values(m):", values(m))

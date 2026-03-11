@@ -1,0 +1,28 @@
+// JSON operations
+let data = {
+    "name": "Alice",
+    "age": 30,
+    "skills": ["Go", "Python", "JavaScript"],
+    "active": true
+}
+
+// Convert to JSON
+let jsonStr = toJson(data)
+pln("JSON:", jsonStr)
+
+// Parse JSON back
+let parsed = fromJson(jsonStr)
+pln("Parsed name:", parsed["name"])
+pln("Parsed age:", parsed["age"])
+pln("Parsed skills:", parsed["skills"])
+
+// Pretty print JSON
+let prettyJson = toJson(data, true)
+pln("Pretty JSON:", prettyJson)
+
+// Simple values
+pln("JSON number:", toJson(42))
+pln("JSON string:", toJson("hello"))
+pln("JSON array:", toJson([1, 2, 3]))
+pln("JSON bool:", toJson(true))
+pln("JSON null:", toJson(null))

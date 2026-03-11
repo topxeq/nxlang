@@ -1,0 +1,38 @@
+// Classes
+class Person {
+    func init(name, age) {
+        this.name = name
+        this.age = age
+    }
+    
+    func greet() {
+        return "Hello, I am " + this.name + " and I am " + string(this.age) + " years old"
+    }
+    
+    func birthday() {
+        this.age = this.age + 1
+    }
+}
+
+let p = Person("Alice", 30)
+pln(p.greet())
+p.birthday()
+pln(p.greet())
+pln("Name:", p.name)
+pln("Age:", p.age)
+
+// Class with inheritance
+class Student < Person {
+    func init(name, age, grade) {
+        this.name = name
+        this.age = age
+        this.grade = grade
+    }
+    
+    func greet() {
+        return "Hello, I am " + this.name + ", " + string(this.age) + " years old, in grade " + string(this.grade)
+    }
+}
+
+let s = Student("Bob", 15, 9)
+pln(s.greet())

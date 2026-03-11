@@ -1,0 +1,45 @@
+// Regular expressions
+let text = "The quick brown fox jumps over the lazy dog"
+
+// Match
+let m = match("\\w+", text)
+pln("Matches:", m)
+
+// Find all matches
+let finds = findRegex("\\w+", text)
+pln("Find all:", finds)
+
+// Replace
+let replaced = replaceRegex(text, "fox", "cat")
+pln("Replace fox->cat:", replaced)
+
+// Split
+let parts = splitRegex(text, "\\s+")
+pln("Split by whitespace:", parts)
+
+// Encoding
+let str = "Hello, World!"
+
+// Base64
+let encoded = base64Encode(str)
+pln("Base64 encoded:", encoded)
+let decoded = base64Decode(encoded)
+pln("Base64 decoded:", decoded)
+
+// Hex
+let hexEncoded = hexEncode(str)
+pln("Hex encoded:", hexEncoded)
+let hexDecoded = hexDecode(hexEncoded)
+pln("Hex decoded:", hexDecoded)
+
+// MD5
+let md5Hash = md5(str)
+pln("MD5:", md5Hash)
+
+// SHA1
+let sha1Hash = sha1(str)
+pln("SHA1:", sha1Hash)
+
+// SHA256
+let sha256Hash = sha256(str)
+pln("SHA256:", sha256Hash)

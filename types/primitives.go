@@ -203,18 +203,18 @@ func (s String) Equals(other Object) bool {
 
 // Function represents a compiled function
 type Function struct {
-	Name          string
-	NumLocals     int
-	NumParameters int
-	IsVariadic    bool
-	IsStatic      bool // Whether this is a static method
-	AccessModifier uint8 // 0=public, 1=private, 2=protected
-	IsGetter       bool // Whether this is a getter property
-	IsSetter       bool // Whether this is a setter property
-	OwnerClass    *Class // The class that owns this method (for methods only)
-	DefaultValues []int // Indices of default values in constant pool
-	Instructions  []byte
-	ConstantPool  []bytecode.Constant // Constant pool this function belongs to
+	Name           string
+	NumLocals      int
+	NumParameters  int
+	IsVariadic     bool
+	IsStatic       bool   // Whether this is a static method
+	AccessModifier uint8  // 0=public, 1=private, 2=protected
+	IsGetter       bool   // Whether this is a getter property
+	IsSetter       bool   // Whether this is a setter property
+	OwnerClass     *Class // The class that owns this method (for methods only)
+	DefaultValues  []int  // Indices of default values in constant pool
+	Instructions   []byte
+	ConstantPool   []bytecode.Constant // Constant pool this function belongs to
 }
 
 // TypeCode implements Object interface
@@ -241,23 +241,33 @@ type NativeFunction struct {
 }
 
 func (nf *NativeFunction) TypeCode() uint8          { return TypeNativeFunc }
-func (nf *NativeFunction) TypeName() string          { return "nativeFunc" }
-func (nf *NativeFunction) ToStr() string             { return "[native function]" }
+func (nf *NativeFunction) TypeName() string         { return "nativeFunc" }
+func (nf *NativeFunction) ToStr() string            { return "[native function]" }
 func (nf *NativeFunction) Equals(other Object) bool { return nf == other }
 
 // Class represents a compiled class definition
 type Class struct {
-	Name       string
-	SuperClass *Class
-	Methods    map[string]*Function // Map of method name to function
-	StaticFields map[string]Object // Static properties of the class
+	Name          string
+	SuperClass    *Class
+	Methods       map[string]*Function // Map of method name to function
+	StaticFields  map[string]Object    // Static properties of the class
 	StaticMethods map[string]*Function // Map of static method name to function
 }
 
 func (c *Class) TypeCode() uint8          { return TypeClass }
-func (c *Class) TypeName() string          { return "class" }
-func (c *Class) ToStr() string             { return fmt.Sprintf("[class %s]", c.Name) }
+func (c *Class) TypeName() string         { return "class" }
+func (c *Class) ToStr() string            { return fmt.Sprintf("[class %s]", c.Name) }
 func (c *Class) Equals(other Object) bool { return c == other }
+
+// GetMethod looks up a method by name, traversing the inheritance chain
+func (c *Class) GetMethod(name string) *Function {
+	for class := c; class != nil; class = class.SuperClass {
+		if method, ok := class.Methods[name]; ok {
+			return method
+		}
+	}
+	return nil
+}
 
 // Instance represents an instance of a class
 type Instance struct {
@@ -266,8 +276,8 @@ type Instance struct {
 }
 
 func (i *Instance) TypeCode() uint8          { return TypeObject }
-func (i *Instance) TypeName() string          { return i.Class.Name }
-func (i *Instance) ToStr() string             { return fmt.Sprintf("[object %s]", i.Class.Name) }
+func (i *Instance) TypeName() string         { return i.Class.Name }
+func (i *Instance) ToStr() string            { return fmt.Sprintf("[object %s]", i.Class.Name) }
 func (i *Instance) Equals(other Object) bool { return i == other }
 
 // Interface represents a Nxlang interface type
@@ -277,8 +287,8 @@ type Interface struct {
 }
 
 func (iface *Interface) TypeCode() uint8          { return TypeInterface }
-func (iface *Interface) TypeName() string          { return "interface" }
-func (iface *Interface) ToStr() string             { return fmt.Sprintf("[interface %s]", iface.Name) }
+func (iface *Interface) TypeName() string         { return "interface" }
+func (iface *Interface) ToStr() string            { return fmt.Sprintf("[interface %s]", iface.Name) }
 func (iface *Interface) Equals(other Object) bool { return iface == other }
 
 // BoundMethod represents a method bound to a specific instance
@@ -287,9 +297,11 @@ type BoundMethod struct {
 	Method   *Function // The actual function to call
 }
 
-func (bm *BoundMethod) TypeCode() uint8          { return TypeBoundMethod }
-func (bm *BoundMethod) TypeName() string          { return "bound_method" }
-func (bm *BoundMethod) ToStr() string             { return fmt.Sprintf("[bound method %s.%s]", bm.Instance.Class.Name, bm.Method.Name) }
+func (bm *BoundMethod) TypeCode() uint8  { return TypeBoundMethod }
+func (bm *BoundMethod) TypeName() string { return "bound_method" }
+func (bm *BoundMethod) ToStr() string {
+	return fmt.Sprintf("[bound method %s.%s]", bm.Instance.Class.Name, bm.Method.Name)
+}
 func (bm *BoundMethod) Equals(other Object) bool {
 	otherBM, ok := other.(*BoundMethod)
 	return ok && bm.Instance == otherBM.Instance && bm.Method == otherBM.Method
@@ -301,9 +313,11 @@ type SuperReference struct {
 	Super    *Class    // The superclass
 }
 
-func (sr *SuperReference) TypeCode() uint8          { return TypeSuperReference }
-func (sr *SuperReference) TypeName() string          { return "super_reference" }
-func (sr *SuperReference) ToStr() string             { return fmt.Sprintf("[super reference for %s]", sr.Instance.Class.Name) }
+func (sr *SuperReference) TypeCode() uint8  { return TypeSuperReference }
+func (sr *SuperReference) TypeName() string { return "super_reference" }
+func (sr *SuperReference) ToStr() string {
+	return fmt.Sprintf("[super reference for %s]", sr.Instance.Class.Name)
+}
 func (sr *SuperReference) Equals(other Object) bool {
 	otherSR, ok := other.(*SuperReference)
 	return ok && sr.Instance == otherSR.Instance && sr.Super == otherSR.Super
@@ -311,12 +325,12 @@ func (sr *SuperReference) Equals(other Object) bool {
 
 // Ref represents a reference to any Nxlang object, allowing indirect modification
 type Ref struct {
-	Value Object  // The value held by this reference (exported for VM access)
+	Value Object // The value held by this reference (exported for VM access)
 }
 
-func (r *Ref) TypeCode() uint8          { return TypeRef }
-func (r *Ref) TypeName() string          { return "ref" }
-func (r *Ref) ToStr() string             { return fmt.Sprintf("[ref to %v]", r.Value) }
+func (r *Ref) TypeCode() uint8  { return TypeRef }
+func (r *Ref) TypeName() string { return "ref" }
+func (r *Ref) ToStr() string    { return fmt.Sprintf("[ref to %v]", r.Value) }
 func (r *Ref) Equals(other Object) bool {
 	otherRef, ok := other.(*Ref)
 	if !ok {
@@ -338,14 +352,14 @@ func (r *Ref) Set(val Object) {
 // TypeWrapper represents a type with static methods (e.g., int, float, string)
 // It can be called as a function (for type conversion) and have static methods accessed
 type TypeWrapper struct {
-	Name          string                            // Type name (e.g., "int", "float")
-	ConvertFn     func(args ...Object) Object       // Conversion function when called as type(x)
-	StaticMethods map[string]*NativeFunction        // Static methods accessible via type.method()
+	Name          string                      // Type name (e.g., "int", "float")
+	ConvertFn     func(args ...Object) Object // Conversion function when called as type(x)
+	StaticMethods map[string]*NativeFunction  // Static methods accessible via type.method()
 }
 
 func (t *TypeWrapper) TypeCode() uint8          { return TypeObjectType }
-func (t *TypeWrapper) TypeName() string          { return "typeObject" }
-func (t *TypeWrapper) ToStr() string             { return fmt.Sprintf("[type %s]", t.Name) }
+func (t *TypeWrapper) TypeName() string         { return "typeObject" }
+func (t *TypeWrapper) ToStr() string            { return fmt.Sprintf("[type %s]", t.Name) }
 func (t *TypeWrapper) Equals(other Object) bool { return t == other }
 
 // Call invokes the type conversion function

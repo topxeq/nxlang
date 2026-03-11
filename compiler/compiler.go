@@ -609,14 +609,18 @@ func (c *Compiler) Compile(node parser.Node) error {
 			// Store value if requested
 			if n.Value != nil {
 				c.storeSymbol(*valSym)
+			} else {
+				// If no Value variable (e.g., "for i in arr"), store value to key
+				c.storeSymbol(keySym)
 			}
 
 			// Store key (index for array/string)
 			c.loadSymbol(idxSym)
-			c.storeSymbol(keySym)
-
-			// Pop unused value if only key is needed
-			if n.Value == nil {
+			// Only store index to key if we also have a value variable
+			if n.Value != nil {
+				c.storeSymbol(keySym)
+			} else {
+				// Pop the index since we don't need it when there's no value var
 				c.emit(OpPop)
 			}
 
@@ -1052,6 +1056,65 @@ func (c *Compiler) Compile(node parser.Node) error {
 		// Store function as global
 		c.emit(OpLoadConst, funcIdx)
 		c.emit(OpStoreGlobal, c.addConstant(&bytecode.StringConstant{Value: n.Name.Value}))
+		return nil
+
+	case *parser.FunctionLiteral:
+		// Anonymous function literal - compile and push to stack
+		// Enter new scope for function
+		c.enterScope()
+
+		// Define parameters (no function name for anonymous functions)
+		scope := c.currentScope()
+		scope.defaultValues = make([]int, len(n.Parameters))
+		for i, param := range n.Parameters {
+			c.symbolTable.Define(param.Name.Value)
+			scope.defaultValues[i] = -1
+			if param.Variadic {
+				scope.isVariadic = true
+			}
+			if param.DefaultValue != nil {
+				if err := c.Compile(param.DefaultValue); err != nil {
+					return err
+				}
+				c.emit(OpPop)
+				scope.defaultValues[i] = len(c.constants) - 1
+			}
+		}
+		c.currentScope().numParameters = len(n.Parameters)
+
+		// Compile function body
+		if err := c.Compile(n.Body); err != nil {
+			return err
+		}
+
+		// Ensure we have a return
+		if lastOpcode(c.currentInstructions()) != OpReturn && lastOpcode(c.currentInstructions()) != OpReturnVoid {
+			c.emit(OpReturnVoid)
+		}
+
+		// Update number of locals
+		c.currentScope().numLocals = c.symbolTable.Count()
+
+		// Create function constant (use empty name for anonymous)
+		funcName := n.Name
+		if funcName == "" {
+			funcName = "__anonymous__"
+		}
+		funcConst := &bytecode.FunctionConstant{
+			Name:          funcName,
+			Instructions:  c.currentInstructions(),
+			NumLocals:     c.currentScope().numLocals,
+			NumParameters: c.currentScope().numParameters,
+			IsVariadic:    c.currentScope().isVariadic,
+			DefaultValues: c.currentScope().defaultValues,
+		}
+		funcIdx := c.addConstant(funcConst)
+
+		// Exit scope
+		c.leaveScope()
+
+		// Push function constant to stack
+		c.emit(OpLoadConst, funcIdx)
 		return nil
 
 	case *parser.ClassDeclaration:

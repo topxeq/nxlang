@@ -1,0 +1,17 @@
+// Type conversion
+let n = 42
+let s = "123"
+let f = 3.14
+
+pln("int('123'):", int("123"))
+pln("float('3.14'):", float("3.14"))
+pln("string(42):", string(42))
+pln("bool(1):", bool(1))
+pln("bool(0):", bool(0))
+
+// Type checking
+pln("typeOf(42):", typeOf(42))
+pln("typeOf('hello'):", typeOf("hello"))
+pln("typeOf(true):", typeOf(true))
+pln("typeOf([]):", typeOf([]))
+pln("typeOf({}):", typeOf({}))

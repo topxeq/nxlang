@@ -1,0 +1,55 @@
+// Common algorithms
+
+// Bubble sort
+func bubbleSort(arr) {
+    let n = len(arr)
+    for i in range(n) {
+        for j in range(n - i - 1) {
+            if arr[j] > arr[j + 1] {
+                let temp = arr[j]
+                arr[j] = arr[j + 1]
+                arr[j + 1] = temp
+            }
+        }
+    }
+    return arr
+}
+
+let arr = [64, 34, 25, 12, 22, 11, 90]
+pln("Original array:", arr)
+let sorted = bubbleSort(arr)
+pln("Sorted array:", sorted)
+
+// Linear search
+func linearSearch(arr, target) {
+    for i in range(len(arr)) {
+        if arr[i] == target {
+            return i
+        }
+    }
+    return -1
+}
+
+pln("Search 25:", linearSearch(sorted, 25))
+pln("Search 100:", linearSearch(sorted, 100))
+
+// Binary search (on sorted array)
+func binarySearch(arr, target) {
+    let left = 0
+    let right = len(arr) - 1
+    
+    while left <= right {
+        let mid = int((left + right) / 2)
+        if arr[mid] == target {
+            return mid
+        } else if arr[mid] < target {
+            left = mid + 1
+        } else {
+            right = mid - 1
+        }
+    }
+    return -1
+}
+
+pln("Binary search 25:", binarySearch(sorted, 25))
+pln("Binary search 100:", binarySearch(sorted, 100))

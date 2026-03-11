@@ -1,0 +1,31 @@
+// Validation utilities - simplified
+func isEmail(email) {
+    let hasAt = contains(email, "@")
+    let hasDot = contains(email, ".")
+    return hasAt && hasDot
+}
+
+func isURL(url) {
+    return startsWith(url, "http://") || startsWith(url, "https://")
+}
+
+func isNumeric(str) {
+    let n = int(str)
+    return !isErr(n)
+}
+
+// Test validations
+pln("Email tests:")
+pln("  test@example.com:", isEmail("test@example.com"))
+pln("  invalid:", isEmail("invalid"))
+pln("  @domain.com:", isEmail("@domain.com"))
+
+pln("\nURL tests:")
+pln("  http://google.com:", isURL("http://google.com"))
+pln("  https://example.com:", isURL("https://example.com"))
+pln("  not-a-url:", isURL("not-a-url"))
+
+pln("\nNumeric tests:")
+pln("  123:", isNumeric("123"))
+pln("  3.14:", isNumeric("3.14"))
+pln("  abc:", isNumeric("abc"))

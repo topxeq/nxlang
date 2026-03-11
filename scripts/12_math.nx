@@ -1,0 +1,12 @@
+// Math operations
+pln("pi:", piC)
+pln("e:", eC)
+
+pln("abs(-5):", abs(-5))
+pln("sqrt(16):", sqrt(16))
+pln("pow(2, 8):", pow(2, 8))
+pln("sin(0):", sin(0))
+pln("cos(0):", cos(0))
+pln("floor(3.7):", floor(3.7))
+pln("ceil(3.2):", ceil(3.2))
+pln("round(3.5):", round(3.5))

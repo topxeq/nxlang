@@ -1,0 +1,22 @@
+// Variables and basic operations
+let name = "Alice"
+var age = 25
+age = 26
+
+pln("Name:", name)
+pln("Age:", age)
+
+// Arithmetic
+let a = 10
+let b = 3
+pln("a + b =", a + b)
+pln("a - b =", a - b)
+pln("a * b =", a * b)
+pln("a / b =", a / b)
+pln("a % b =", a % b)
+
+// String operations
+let s1 = "Hello"
+let s2 = "World"
+pln("s1 + s2 =", s1 + " " + s2)
+pln("len(s1) =", len(s1))

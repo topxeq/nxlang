@@ -1,0 +1,44 @@
+// Working with CSV data - work around for loop bug
+func parseCSV(data) {
+    let lines = split(data, "\n")
+    let result = []
+    let headers = split(lines[0], ",")
+    let numLines = len(lines)
+    
+    // Use while loop instead of for-in
+    let i = 1
+    while i < numLines {
+        let line = lines[i]
+        if len(line) > 0 {
+            let values = split(line, ",")
+            let row = {}
+            let j = 0
+            while j < len(headers) && j < len(values) {
+                row[headers[j]] = values[j]
+                j = j + 1
+            }
+            append(result, row)
+        }
+        i = i + 1
+    }
+    return result
+}
+
+let csvData = "name,age,city\nAlice,30,NYC\nBob,25,LA"
+let parsed = parseCSV(csvData)
+pln("Parsed CSV:")
+for idx in range(len(parsed)) {
+    pln("  ", parsed[idx])
+}
+
+// Calculate average age
+let totalAge = 0
+let count = 0
+let j = 0
+while j < len(parsed) {
+    let age = parsed[j]["age"]
+    totalAge = totalAge + int(age)
+    count = count + 1
+    j = j + 1
+}
+pln("Average age:", totalAge / count)

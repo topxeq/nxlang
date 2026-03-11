@@ -1,0 +1,36 @@
+// Control flow
+let x = 10
+
+// If-else
+if x > 5 {
+    pln("x is greater than 5")
+} else if x > 3 {
+    pln("x is greater than 3")
+} else {
+    pln("x is small")
+}
+
+// For loop
+pln("For loop:")
+for i in range(5) {
+    pln("  i =", i)
+}
+
+// While loop
+pln("While loop:")
+let j = 0
+while j < 5 {
+    pln("  j =", j)
+    j = j + 1
+}
+
+// Switch
+let day = 3
+switch day {
+    case 1: pln("Monday")
+    case 2: pln("Tuesday")
+    case 3: pln("Wednesday")
+    case 4: pln("Thursday")
+    case 5: pln("Friday")
+    default: pln("Weekend")
+}

@@ -1,0 +1,22 @@
+// String operations
+let s = "Hello, World!"
+
+pln("Original:", s)
+pln("toUpper:", toUpper(s))
+pln("toLower:", toLower(s))
+pln("len:", len(s))
+pln("contains 'World':", contains(s, "World"))
+pln("contains 'Foo':", contains(s, "Foo"))
+pln("startsWith 'Hello':", startsWith(s, "Hello"))
+pln("endsWith '!':", endsWith(s, "!"))
+
+pln("split:',", split(s, ","))
+pln("replace 'World' -> 'Nxlang':", replace(s, "World", "Nxlang"))
+
+let joined = join(["a", "b", "c"], "-")
+pln("join with '-':", joined)
+
+let trimmed = trim("  hello  ")
+pln("trim '  hello  ':", trimmed)
+
+pln("substr 0,5:", substr(s, 0, 5))

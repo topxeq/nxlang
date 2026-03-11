@@ -1,0 +1,39 @@
+// Functions
+func add(a, b) {
+    return a + b
+}
+
+func greet(name) {
+    return "Hello, " + name + "!"
+}
+
+func factorial(n) {
+    if n <= 1 {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+
+func fib(n) {
+    if n <= 1 {
+        return n
+    }
+    return fib(n - 1) + fib(n - 2)
+}
+
+pln("add(3, 5) =", add(3, 5))
+pln("greet('World') =", greet("World"))
+pln("factorial(5) =", factorial(5))
+pln("fib(10) =", fib(10))
+
+// Default parameters - test without default
+func power2(base, exp) {
+    let result = 1
+    for i in range(exp) {
+        result = result * base
+    }
+    return result
+}
+
+pln("power2(3, 2) =", power2(3, 2))
+pln("power2(3, 3) =", power2(3, 3))

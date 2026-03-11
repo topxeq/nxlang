@@ -1,0 +1,18 @@
+// Simple class
+class Point {
+    func init(x, y) {
+        this.x = x
+        this.y = y
+    }
+    
+    func getX() {
+        return this.x
+    }
+    
+    func getY() {
+        return this.y
+    }
+}
+
+let p = Point(3, 4)
+pln("Point:", p.getX(), p.getY())
