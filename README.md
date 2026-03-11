@@ -59,32 +59,79 @@ func factorial(n) {
 
 pln("Factorial of 10:", factorial(10))
 
-// Module import
-import { sqrt, random } from "math"
-pln("sqrt(25) =", sqrt(25))
-pln("Random number:", random())
-
-// Built-in data structures
-var fruits = array("Apple", "Banana", "Cherry")
-var person = map("name", "Bob", "age", 28, "city", "Shanghai")
-
-// Static methods on types
-let num = int.parse("123")
-let pi = float.parse("3.14159")
-
-// Self-growing sequence
-var seq1 = seq(1, 2, 3)
-seq1[5] = 100  // Auto-grows sequence
-
-// Object reference
-var x = 100
-var r = ref(x)
-setref(r, 200)
-
-// Control flow
-for (var i = 0; i < 5; i++) {
-    pln("Count:", i)
+// Classes and inheritance
+class Animal {
+    func init(name) {
+        this.name = name
+    }
+    func speak() {
+        return "..."
+    }
 }
+
+class Dog < Animal {
+    func speak() {
+        return this.name + " says woof!"
+    }
+}
+
+let dog = Dog("Rex")
+pln(dog.speak())  // "Rex says woof!"
+
+// Anonymous functions
+let add = func(a, b) { return a + b }
+pln("add(3, 4) =", add(3, 4))
+
+// HTTP request
+let response = httpGet("https://httpbin.org/get")
+pln(response)
+
+// for-in loop (now returns values!)
+let nums = [1, 2, 3, 4, 5]
+for v in nums {
+    pln("value:", v)
+}
+```
+
+## 📚 Example Scripts
+
+The `scripts/` directory contains 30 example scripts covering common programming scenarios:
+
+| Script | Description |
+|--------|-------------|
+| `01_hello.nx` | Hello World |
+| `02_variables.nx` | Variables, constants, arithmetic |
+| `03_arrays_maps.nx` | Arrays, maps, iteration |
+| `04_functions.nx` | Functions, recursion, default parameters |
+| `05_control_flow.nx` | if/else, for, while, switch |
+| `06_classes.nx` | Classes, inheritance |
+| `07_strings.nx` | String operations |
+| `08_json.nx` | JSON serialization |
+| `09_files.nx` | File I/O |
+| `10_time.nx` | Time/date functions |
+| `11_regex_encoding.nx` | Regex, base64, MD5, SHA |
+| `12_math.nx` | Math functions |
+| `13_threads.nx` | Concurrency |
+| `15_types.nx` | Type conversion |
+| `16_algorithms.nx` | Sorting, search |
+| `17_closures.nx` | Closure patterns |
+| `18_maps.nx` | Map operations |
+| `19_functional.nx` | Array operations |
+| `20_oop_patterns.nx` | OOP design patterns |
+| `21_http.nx` | HTTP client |
+| `22_args.nx` | Command line arguments |
+| `23_csv.nx` | CSV parsing |
+| `24_random.nx` | Random numbers |
+| `25_date_utils.nx` | Date formatting |
+| `26_url_utils.nx` | URL parsing |
+| `27_validation.nx` | Email/URL validation |
+| `28_table.nx` | Pretty table printing |
+| `29_stack.nx` | Stack data structure |
+| `30_queue.nx` | Queue data structure |
+
+Run any script:
+```bash
+./nx scripts/06_classes.nx
 ```
 
 ## 📦 Standard Library
@@ -192,12 +239,12 @@ nxlang/
 ├── plugin/          # Plugin system
 ├── graphics/        # Graphics/canvas support
 ├── data/            # Data processing (CSV, etc.)
+├── stdlib/          # Standard library
+├── scripts/         # Example scripts (30 common scenarios)
 ├── tests/           # Test suites
-│   ├── builtin/     # Built-in function tests
-│   ├── features/    # Feature tests (OOP, refs, etc.)
-│   ├── stdlib/      # Standard library tests
-│   └── integration/ # Integration tests
-└── examples/        # Example scripts
+│   └── comprehensive_test.nx  # Comprehensive test
+├── examples/        # Example scripts
+└── docs/           # Documentation
 ```
 
 ## 🔗 Links
@@ -206,6 +253,7 @@ nxlang/
 - [Issue Tracker](https://github.com/topxeq/nxlang/issues)
 - [Documentation](docs/)
 - [Examples](examples/)
+- [Example Scripts](scripts/)
 
 ## 📄 License
 MIT License - see [LICENSE](LICENSE) for details.
