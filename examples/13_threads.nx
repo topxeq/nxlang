@@ -13,7 +13,7 @@ func increment(n) {
 let t1 = thread(increment, 100, "shared")
 let t2 = thread(increment, 100, "shared")
 
-// Wait for threads to complete
-sleep(0.5)
+// Wait longer for threads to complete (1 second)
+sleep(1)
 
 pln("Counter (should be 200):", counter)
