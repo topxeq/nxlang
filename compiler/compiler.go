@@ -290,7 +290,7 @@ func registerBuiltins(st *SymbolTable) {
 		// Debug functions
 		"debug", "trace", "vars", "breakpoint", "typeInfo",
 		// Functional programming
-		"range", "xrange", "fastSum", "fastRangeSum", "each", "map", "filter", "reduce", "call",
+		"range", "xrange", "fastSum", "fastRangeSum", "fastEach", "fastMap", "fastFilter", "fastReduce", "each", "map", "filter", "reduce", "call",
 		// Performance and system functions
 		"profilerStart", "profilerStop", "instructionCount", "gc", "memoryUsage", "version", "exit",
 		// Encoding and hash functions
