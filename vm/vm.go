@@ -414,7 +414,7 @@ func (vm *VM) registerBuiltins() {
 
 	vm.globals["version"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
-			return types.String("Nxlang v1.0.0")
+			return types.String("Nxlang v1.1.0")
 		},
 	}
 
