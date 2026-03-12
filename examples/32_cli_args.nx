@@ -1,0 +1,29 @@
+// Command Line Arguments
+pln("=== Command Line Args ===")
+
+// Get args from global (if available)
+pln("Script execution started")
+
+// Parse command line flags manually
+func parseFlags(args) {
+    let flags = {}
+    let i = 0
+    while i < len(args) {
+        let arg = args[i]
+        if startsWith(arg, "-") {
+            let nextArg = ""
+            if i + 1 < len(args) && !startsWith(args[i + 1], "-") {
+                nextArg = args[i + 1]
+                i = i + 1
+            }
+            flags[substr(arg, 1)] = nextArg
+        }
+        i = i + 1
+    }
+    return flags
+}
+
+// Simulated args (in real usage, would come from command line)
+let testArgs = ["script.nx", "-name", "Alice", "-age", "30", "-debug"]
+let flags = parseFlags(testArgs)
+pln("Parsed flags:", flags)

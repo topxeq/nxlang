@@ -1,0 +1,57 @@
+// Deep Copy and Object Manipulation
+pln("=== Deep Copy")
+
+// Simple array copy
+let original = [1, 2, [3, 4]]
+let copied = original
+copied[0] = 100
+pln("Original after modifying copy:", original)
+pln("They share the same reference!")
+
+// Manual deep copy
+func deepCopy(obj) {
+    let objType = typeOf(obj)
+    
+    if objType == "array" {
+        let newArr = []
+        for i in range(len(obj)) {
+            newArr = append(newArr, deepCopy(obj[i]))
+        }
+        return newArr
+    }
+    
+    if objType == "map" {
+        let newMap = {}
+        let k = keys(obj)
+        for i in range(len(k)) {
+            let key = k[i]
+            newMap[key] = deepCopy(obj[key])
+        }
+        return newMap
+    }
+    
+    return obj
+}
+
+let orig = [1, 2, [3, 4]]
+let dup = deepCopy(orig)
+dup[0] = 100
+dup[2][0] = 999
+
+pln("Original:", orig)
+pln("Deep copy:", dup)
+
+// Merge maps
+func mergeMaps(base, override) {
+    let result = deepCopy(base)
+    let k = keys(override)
+    for i in range(len(k)) {
+        result[k[i]] = override[k[i]]
+    }
+    return result
+}
+
+let m1 = {"a": 1, "b": 2}
+let m2 = {"b": 3, "c": 4}
+let merged = mergeMaps(m1, m2)
+pln("Merged map:", merged)

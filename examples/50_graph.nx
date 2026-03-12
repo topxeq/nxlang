@@ -1,0 +1,135 @@
+// Graph Algorithms - BFS and DFS
+pln("=== Graph Algorithms ===")
+
+// Graph using map
+var graph = map()
+
+// Add vertex
+func addVertex(g, v) {
+    if !contains(keys(g), v) {
+        g[v] = []
+    }
+}
+
+// Add edge
+func addEdge(g, v1, v2) {
+    addVertex(g, v1)
+    addVertex(g, v2)
+    g[v1] = append(g[v1], v2)
+    g[v2] = append(g[v2], v1)
+}
+
+// Get neighbors
+func getNeighbors(g, v) {
+    if contains(keys(g), v) {
+        return g[v]
+    }
+    return []
+}
+
+// DFS
+func dfs(g, start, visited) {
+    if visited == nil {
+        visited = map()
+    }
+    
+    visited[start] = true
+    pln("DFS visit:", start)
+    
+    let neighbors = getNeighbors(g, start)
+    for n in neighbors {
+        if !visited[n] {
+            dfs(g, n, visited)
+        }
+    }
+}
+
+// BFS
+func bfs(g, start) {
+    let visited = map()
+    let queue = [start]
+    visited[start] = true
+    
+    while len(queue) > 0 {
+        let v = queue[0]
+        
+        // Remove first element
+        let newQueue = []
+        let i = 1
+        while i < len(queue) {
+            newQueue = append(newQueue, queue[i])
+            i = i + 1
+        }
+        queue = newQueue
+        
+        pln("BFS visit:", v)
+        
+        let neighbors = getNeighbors(g, v)
+        for n in neighbors {
+            if !visited[n] {
+                visited[n] = true
+                queue = append(queue, n)
+            }
+        }
+    }
+}
+
+// Find path
+func findPath(g, start, target) {
+    if start == target {
+        return [start]
+    }
+    
+    let visited = map()
+    let queue = [[start]]
+    visited[start] = true
+    
+    while len(queue) > 0 {
+        let path = queue[0]
+        
+        // Remove first element
+        let newQueue = []
+        let i = 1
+        while i < len(queue) {
+            newQueue = append(newQueue, queue[i])
+            i = i + 1
+        }
+        queue = newQueue
+        
+        let v = path[len(path) - 1]
+        
+        let neighbors = getNeighbors(g, v)
+        for n in neighbors {
+            if n == target {
+                return append(path, n)
+            }
+            
+            if !visited[n] {
+                visited[n] = true
+                queue = append(queue, append(path, n))
+            }
+        }
+    }
+    
+    return nil
+}
+
+// Create graph
+addEdge(graph, "A", "B")
+addEdge(graph, "A", "C")
+addEdge(graph, "B", "D")
+addEdge(graph, "B", "E")
+addEdge(graph, "C", "F")
+addEdge(graph, "E", "F")
+
+pln("=== DFS ===")
+dfs(graph, "A", map())
+
+pln("")
+pln("=== BFS ===")
+bfs(graph, "A")
+
+pln("")
+pln("=== Find Path ===")
+pln("Path A to F:", findPath(graph, "A", "F"))
+pln("Path A to D:", findPath(graph, "A", "D"))

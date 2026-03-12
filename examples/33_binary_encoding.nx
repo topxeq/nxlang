@@ -1,0 +1,38 @@
+// Binary Data and Encoding
+pln("=== Binary Data ===")
+
+// Working with bytes
+let str = "Hello"
+let bytes = chars(str)
+pln("String to chars:", bytes)
+pln("Char codes:", chars("ABC"))
+
+// Base64 encoding
+let original = "Hello, World!"
+let encoded = base64Encode(original)
+let decoded = base64Decode(encoded)
+
+pln("Original:", original)
+pln("Base64:", encoded)
+pln("Decoded:", decoded)
+
+// Hex encoding
+let hex = hexEncode(original)
+let hexDecoded = hexDecode(hex)
+pln("Hex:", hex)
+pln("Hex decoded:", hexDecoded)
+
+// MD5 hash
+let md5hash = md5(original)
+pln("MD5:", md5hash)
+
+// SHA256 hash
+let sha256hash = sha256(original)
+pln("SHA256:", sha256hash)
+
+// Binary to hex
+let binaryData = [72, 101, 108, 108, 111]  // "Hello" in ASCII
+pln("Binary data:", binaryData)
+
+// Convert number to hex
+pln("255 in hex:", hexEncode(255))

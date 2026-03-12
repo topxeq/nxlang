@@ -1,0 +1,46 @@
+// Working with UUID and Unique IDs
+pln("=== UUID and Unique IDs ===")
+
+// Generate unique IDs using timestamp and random
+func generateId() {
+    let ts = unixMilli()
+    let rand = int(random() * 1000000)
+    return string(ts) + "-" + string(rand)
+}
+
+pln("Generated IDs:")
+pln("  ID 1:", generateId())
+pln("  ID 2:", generateId())
+pln("  ID 3:", generateId())
+
+// Generate UUID-like string
+func generateUUID() {
+    let hex = "0123456789abcdef"
+    let uuid = ""
+    let parts = [8, 4, 4, 4, 12]
+    
+    for i in range(len(parts)) {
+        let partLen = parts[i]
+        for j in range(partLen) {
+            let idx = int(random() * 16)
+            uuid = uuid + substr(hex, idx, 1)
+        }
+        if i < 4 {
+            uuid = uuid + "-"
+        }
+    }
+    return uuid
+}
+
+pln("UUID-like:", generateUUID())
+
+// Simple counter-based ID
+let counter = 0
+func nextId() {
+    counter = counter + 1
+    return counter
+}
+
+pln("Next ID:", nextId())
+pln("Next ID:", nextId())
+pln("Next ID:", nextId())

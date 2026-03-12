@@ -1,0 +1,34 @@
+// Error Handling
+pln("=== Error Handling ===")
+
+// Error in function
+func divide(a, b) {
+    if b == 0 {
+        return "Error: division by zero"
+    }
+    return a / b
+}
+
+pln("10 / 2 =", divide(10, 2))
+pln("10 / 0 =", divide(10, 0))
+
+// Check for errors
+let result = divide(10, 0)
+if isErr(result) {
+    pln("Caught error:", result)
+}
+
+// Validate input
+func validateAge(age) {
+    if age < 0 {
+        return "Error: age cannot be negative"
+    }
+    if age > 150 {
+        return "Error: age is unrealistic"
+    }
+    return "OK"
+}
+
+pln("validateAge(-5):", validateAge(-5))
+pln("validateAge(25):", validateAge(25))
+pln("validateAge(200):", validateAge(200))
