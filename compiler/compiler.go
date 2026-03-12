@@ -313,7 +313,15 @@ func registerBuiltins(st *SymbolTable) {
 		// String functions
 		"repeat", "padLeft", "padRight", "camelCase", "snakeCase", "kebabCase",
 		// Array functions
-		"unique", "flatten", "chunk",
+		"unique", "flatten", "chunk", "shuffle", "sample", "reverse", "sort", "join",
+		// String functions
+		"wordCount", "truncate",
+		// Time functions
+		"formatDuration", "parseDuration", "sleepMs", "timestampMs",
+		// Math functions
+		"randomFloat", "clamp", "lerp",
+		// Encoding functions
+		"base64URLEncode", "base64URLDecode",
 		// Regex functions
 		"match", "replaceRegex", "splitRegex", "findRegex",
 		// String conversion

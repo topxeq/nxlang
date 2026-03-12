@@ -906,6 +906,232 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["shuffle"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("shuffle() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("shuffle() expects an array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			indices := rand.Perm(arr.Len())
+			for _, i := range indices {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["sample"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("sample() expects at least 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("sample() expects first argument to be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return types.UndefinedValue
+			}
+			count := 1
+			if len(args) > 1 {
+				c, ok := args[1].(types.Int)
+				if ok {
+					count = int(c)
+				}
+			}
+			if count > arr.Len() {
+				count = arr.Len()
+			}
+			indices := rand.Perm(arr.Len())[:count]
+			result := collections.NewArray()
+			for _, i := range indices {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["sort"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sort() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("sort() expects an array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				result.Append(arr.Get(i))
+			}
+			for i := 0; i < result.Len()-1; i++ {
+				for j := i + 1; j < result.Len(); j++ {
+					v1 := result.Get(i)
+					v2 := result.Get(j)
+					if v1.ToStr() > v2.ToStr() {
+						result.Set(i, v2)
+						result.Set(j, v1)
+					}
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["wordCount"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("wordCount() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			words := strings.Fields(s)
+			return types.Int(len(words))
+		},
+	}
+
+	vm.globals["truncate"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("truncate() expects 2 arguments (str, length)", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			length, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("truncate() expects (string, integer)", 0, 0, "")
+			}
+			if len(s) <= int(length) {
+				return types.String(s)
+			}
+			suffix := ""
+			if len(args) > 2 {
+				suffix = string(types.ToString(args[2]))
+			}
+			return types.String(s[:int(length)] + suffix)
+		},
+	}
+
+	vm.globals["formatDuration"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("formatDuration() expects 1 argument", 0, 0, "")
+			}
+			var duration time.Duration
+			if d, ok := args[0].(types.Int); ok {
+				duration = time.Duration(d) * time.Nanosecond
+			} else if f, ok := args[0].(types.Float); ok {
+				duration = time.Duration(f * 1e9)
+			} else {
+				return types.NewError("formatDuration() expects a number", 0, 0, "")
+			}
+			return types.String(duration.String())
+		},
+	}
+
+	vm.globals["parseDuration"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("parseDuration() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			d, err := time.ParseDuration(s)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("parseDuration error: %v", err), 0, 0, "")
+			}
+			return types.Int(d.Nanoseconds())
+		},
+	}
+
+	vm.globals["sleepMs"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sleepMs() expects 1 argument", 0, 0, "")
+			}
+			ms, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("sleepMs() expects an integer", 0, 0, "")
+			}
+			time.Sleep(time.Duration(ms) * time.Millisecond)
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["timestampMs"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().UnixMilli())
+		},
+	}
+
+	vm.globals["randomFloat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Float(rand.Float64())
+		},
+	}
+
+	vm.globals["clamp"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("clamp() expects 3 arguments (value, min, max)", 0, 0, "")
+			}
+			var val float64
+			if v, ok := args[0].(types.Float); ok {
+				val = float64(v)
+			} else if v, ok := args[0].(types.Int); ok {
+				val = float64(v)
+			} else {
+				return types.NewError("clamp() expects a number", 0, 0, "")
+			}
+			min, _ := types.ToFloat(args[1])
+			max, _ := types.ToFloat(args[2])
+			if val < float64(min) {
+				return min
+			}
+			if val > float64(max) {
+				return max
+			}
+			return types.Float(val)
+		},
+	}
+
+	vm.globals["lerp"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("lerp() expects 3 arguments (a, b, t)", 0, 0, "")
+			}
+			a, _ := types.ToFloat(args[0])
+			b, _ := types.ToFloat(args[1])
+			t, _ := types.ToFloat(args[2])
+			return types.Float(a + (b-a)*t)
+		},
+	}
+
+	vm.globals["base64URLEncode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("base64URLEncode() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			return types.String(base64.URLEncoding.EncodeToString([]byte(s)))
+		},
+	}
+
+	vm.globals["base64URLDecode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("base64URLDecode() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			decoded, err := base64.URLEncoding.DecodeString(s)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("base64URLDecode error: %v", err), 0, 0, "")
+			}
+			return types.String(string(decoded))
+		},
+	}
+
 	vm.globals["base64Encode"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) == 0 {
@@ -1644,17 +1870,23 @@ func (vm *VM) registerBuiltins() {
 	vm.globals["reverse"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 1 {
-				return types.NewError("reverse(arr) expects 1 argument", 0, 0, "")
+				return types.NewError("reverse() expects 1 argument", 0, 0, "")
 			}
-			arr, ok := args[0].(*collections.Array)
-			if !ok {
-				return types.NewError("reverse: argument must be array", 0, 0, "")
+			if arr, ok := args[0].(*collections.Array); ok {
+				result := collections.NewArray()
+				for i := arr.Len() - 1; i >= 0; i-- {
+					result.Append(arr.Get(i))
+				}
+				return result
 			}
-			result := collections.NewArray()
-			for i := arr.Len() - 1; i >= 0; i-- {
-				result.Append(arr.Get(i))
+			if s, ok := args[0].(types.String); ok {
+				runes := []rune(s)
+				for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+					runes[i], runes[j] = runes[j], runes[i]
+				}
+				return types.String(runes)
 			}
-			return result
+			return types.NewError("reverse: argument must be array or string", 0, 0, "")
 		},
 	}
 
