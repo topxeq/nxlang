@@ -220,6 +220,13 @@ type VM struct {
 	functionCache map[int]*types.Function // Maps constant index to function instance
 	classCache    map[int]*types.Class    // Maps constant index to class instance
 
+	// Inline cache for method lookups (1-slot monomorphic cache)
+	methodCache struct {
+		valid   bool
+		objType uint8        // Type code of cached object
+		method  types.Object // Cached method/bound method
+	}
+
 	// Exception handling
 	tryStack   []*TryFrame       // Stack of active try blocks
 	deferStack [][]*DeferredCall // Stack of deferred function calls (per frame)
@@ -4486,39 +4493,68 @@ func (vm *VM) executeOpcode(op compiler.Opcode, frame *Frame) error {
 		methodName := nameConst.Value
 
 		obj := vm.stack.Pop()
+		objTypeCode := obj.TypeCode()
+
+		// Check inline cache first (1-slot monomorphic cache)
+		if vm.methodCache.valid && vm.methodCache.objType == objTypeCode {
+			// Cache hit - use cached method
+			// For instances, we need to check if it's the same class
+			if instance, ok := obj.(*types.Instance); ok {
+				if boundMethod, ok := vm.methodCache.method.(*types.BoundMethod); ok {
+					if boundMethod.Instance.Class == instance.Class {
+						return vm.stack.Push(vm.methodCache.method)
+					}
+				}
+			} else {
+				return vm.stack.Push(vm.methodCache.method)
+			}
+		}
+
+		// Cache miss - do the lookup
+		var method types.Object
 		switch o := obj.(type) {
 		case *types.Class:
 			// Check class methods
-			if method, ok := o.Methods[methodName]; ok {
-				return vm.stack.Push(method)
+			if m, ok := o.Methods[methodName]; ok {
+				method = m
+			} else if m, ok := o.StaticMethods[methodName]; ok {
+				method = m
+			} else {
+				return vm.newError(fmt.Sprintf("method '%s' not found on class %s", methodName, o.Name), frame.ip)
 			}
-			// Check static methods
-			if method, ok := o.StaticMethods[methodName]; ok {
-				return vm.stack.Push(method)
-			}
-			return vm.newError(fmt.Sprintf("method '%s' not found on class %s", methodName, o.Name), frame.ip)
 		case *types.Instance:
 			// Get method from instance's class (with inheritance)
 			class := o.Class
+			found := false
 			for class != nil {
-				if method, ok := class.Methods[methodName]; ok {
-					boundMethod := &types.BoundMethod{
+				if m, ok := class.Methods[methodName]; ok {
+					method = &types.BoundMethod{
 						Instance: o,
-						Method:   method,
+						Method:   m,
 					}
-					return vm.stack.Push(boundMethod)
+					found = true
+					break
 				}
-				// Check static methods too (for class-level access)
-				if method, ok := class.StaticMethods[methodName]; ok {
-					return vm.stack.Push(method)
+				if m, ok := class.StaticMethods[methodName]; ok {
+					method = m
+					found = true
+					break
 				}
-				// Traverse up the inheritance chain
 				class = class.SuperClass
 			}
-			return vm.newError(fmt.Sprintf("method '%s' not found on instance of %s", methodName, o.Class.Name), frame.ip)
+			if !found {
+				return vm.newError(fmt.Sprintf("method '%s' not found on instance of %s", methodName, o.Class.Name), frame.ip)
+			}
 		default:
 			return vm.newError(fmt.Sprintf("cannot get method from %s type", obj.TypeName()), frame.ip)
 		}
+
+		// Update inline cache
+		vm.methodCache.valid = true
+		vm.methodCache.objType = objTypeCode
+		vm.methodCache.method = method
+
+		return vm.stack.Push(method)
 
 	case compiler.OpSetMethod:
 		// Set method in class
