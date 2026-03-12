@@ -1117,6 +1117,106 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	// Array functions
+	vm.globals["includes"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("includes(arr, val) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("includes: first argument must be array", 0, 0, "")
+			}
+			target := args[1]
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					return types.Bool(true)
+				}
+			}
+			return types.Bool(false)
+		},
+	}
+
+	vm.globals["find"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("find(arr, val) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("find: first argument must be array", 0, 0, "")
+			}
+			target := args[1]
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					return types.Int(i)
+				}
+			}
+			return types.Int(-1)
+		},
+	}
+
+	vm.globals["slice"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("slice(arr) expects at least 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("slice: first argument must be array", 0, 0, "")
+			}
+			start := 0
+			end := arr.Len()
+			if len(args) >= 2 {
+				start = int(args[1].(types.Int))
+			}
+			if len(args) >= 3 {
+				end = int(args[2].(types.Int))
+			}
+			result := collections.NewArray()
+			for i := start; i < end && i < arr.Len(); i++ {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["concat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("concat(arr1, arr2, ...) expects at least 2 arguments", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for _, arg := range args {
+				arr, ok := arg.(*collections.Array)
+				if !ok {
+					return types.NewError("concat: all arguments must be arrays", 0, 0, "")
+				}
+				for i := 0; i < arr.Len(); i++ {
+					result.Append(arr.Get(i))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["reverse"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("reverse(arr) expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("reverse: argument must be array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for i := arr.Len() - 1; i >= 0; i-- {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
 	vm.globals["sum"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 1 {
@@ -1485,6 +1585,74 @@ func (vm *VM) registerBuiltins() {
 			s := types.ToString(args[0])
 			suffix := types.ToString(args[1])
 			return types.Bool(strings.HasSuffix(string(s), string(suffix)))
+		},
+	}
+
+	// Trim left
+	vm.globals["trimLeft"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("trimLeft(s) expects 1 argument", 0, 0, "")
+			}
+			s := types.ToString(args[0])
+			return types.String(strings.TrimLeft(string(s), " \t\n\r"))
+		},
+	}
+
+	// Trim right
+	vm.globals["trimRight"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("trimRight(s) expects 1 argument", 0, 0, "")
+			}
+			s := types.ToString(args[0])
+			return types.String(strings.TrimRight(string(s), " \t\n\r"))
+		},
+	}
+
+	// Replace all
+	vm.globals["replaceAll"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("replaceAll(s, old, new) expects 3 arguments", 0, 0, "")
+			}
+			s := types.ToString(args[0])
+			old := types.ToString(args[1])
+			new := types.ToString(args[2])
+			result := strings.ReplaceAll(string(s), string(old), string(new))
+			return types.String(result)
+		},
+	}
+
+	// Index of
+	vm.globals["indexOf"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("indexOf(s, sub) expects 2 arguments", 0, 0, "")
+			}
+			s := types.ToString(args[0])
+			sub := types.ToString(args[1])
+			idx := strings.Index(string(s), string(sub))
+			if idx < 0 {
+				return types.Int(-1)
+			}
+			return types.Int(idx)
+		},
+	}
+
+	// Last index of
+	vm.globals["lastIndexOf"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("lastIndexOf(s, sub) expects 2 arguments", 0, 0, "")
+			}
+			s := types.ToString(args[0])
+			sub := types.ToString(args[1])
+			idx := strings.LastIndex(string(s), string(sub))
+			if idx < 0 {
+				return types.Int(-1)
+			}
+			return types.Int(idx)
 		},
 	}
 
@@ -2058,6 +2226,71 @@ func (vm *VM) registerBuiltins() {
 				return types.String("undefined")
 			}
 			return types.String(args[0].TypeName())
+		},
+	}
+
+	// Type check functions
+	vm.globals["isArray"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.Bool(false)
+			}
+			_, ok := args[0].(*collections.Array)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isMap"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.Bool(false)
+			}
+			_, ok := args[0].(*collections.Map)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isNumber"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.Bool(false)
+			}
+			_, ok := args[0].(types.Int)
+			if ok {
+				return types.Bool(true)
+			}
+			_, ok = args[0].(types.Float)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isString"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.Bool(false)
+			}
+			_, ok := args[0].(types.String)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isBool"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.Bool(false)
+			}
+			_, ok := args[0].(types.Bool)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isFunction"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.Bool(false)
+			}
+			_, ok := args[0].(*types.Function)
+			return types.Bool(ok)
 		},
 	}
 

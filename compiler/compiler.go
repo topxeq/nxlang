@@ -293,6 +293,12 @@ func registerBuiltins(st *SymbolTable) {
 		"range", "xrange", "fastSum", "fastRangeSum", "fastEach", "fastMap", "fastFilter", "fastReduce", "each", "map", "filter", "reduce", "call",
 		// Utility functions
 		"repeat", "clamp", "min", "max", "abs", "sum", "avg",
+		// Array functions
+		"includes", "find", "slice", "concat", "reverse",
+		// String functions
+		"trimLeft", "trimRight", "replaceAll", "indexOf", "lastIndexOf",
+		// Type check functions
+		"isArray", "isMap", "isNumber", "isString", "isBool", "isFunction",
 		// Performance and system functions
 		"profilerStart", "profilerStop", "instructionCount", "gc", "memoryUsage", "version", "exit",
 		// Encoding and hash functions
