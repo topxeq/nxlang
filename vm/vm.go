@@ -13,6 +13,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -1656,6 +1657,32 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	// URL encode
+	vm.globals["urlEncode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("urlEncode(s) expects 1 argument", 0, 0, "")
+			}
+			s := types.ToString(args[0])
+			return types.String(url.QueryEscape(string(s)))
+		},
+	}
+
+	// URL decode
+	vm.globals["urlDecode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("urlDecode(s) expects 1 argument", 0, 0, "")
+			}
+			s := types.ToString(args[0])
+			decoded, err := url.QueryUnescape(string(s))
+			if err != nil {
+				return types.NewError(fmt.Sprintf("urlDecode error: %v", err), 0, 0, "")
+			}
+			return types.String(decoded)
+		},
+	}
+
 	// 按分隔符分割字符串为数组
 	vm.globals["split"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
@@ -2219,6 +2246,8 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["parseJson"] = vm.globals["fromJson"]
+
 	// typeOf - returns the type name of a value
 	vm.globals["typeOf"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
@@ -2291,6 +2320,262 @@ func (vm *VM) registerBuiltins() {
 			}
 			_, ok := args[0].(*types.Function)
 			return types.Bool(ok)
+		},
+	}
+
+	// More utility functions
+	vm.globals["zip"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("zip(arr1, arr2) expects at least 2 arguments", 0, 0, "")
+			}
+			result := collections.NewArray()
+			minLen := args[0].(*collections.Array).Len()
+			for i := 1; i < len(args); i++ {
+				arr, ok := args[i].(*collections.Array)
+				if !ok {
+					return types.NewError("zip: all arguments must be arrays", 0, 0, "")
+				}
+				if arr.Len() < minLen {
+					minLen = arr.Len()
+				}
+			}
+			for i := 0; i < minLen; i++ {
+				item := collections.NewArray()
+				for j := 0; j < len(args); j++ {
+					item.Append(args[j].(*collections.Array).Get(i))
+				}
+				result.Append(item)
+			}
+			return result
+		},
+	}
+
+	vm.globals["zipToMap"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("zipToMap(keys, values) expects 2 arguments", 0, 0, "")
+			}
+			keys, ok1 := args[0].(*collections.Array)
+			values, ok2 := args[1].(*collections.Array)
+			if !ok1 || !ok2 {
+				return types.NewError("zipToMap: both arguments must be arrays", 0, 0, "")
+			}
+			result := collections.NewMap()
+			minLen := keys.Len()
+			if values.Len() < minLen {
+				minLen = values.Len()
+			}
+			for i := 0; i < minLen; i++ {
+				key := keys.Get(i).ToStr()
+				result.Set(key, values.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["flatten"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("flatten(arr) expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("flatten: argument must be array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			var flat func(a *collections.Array)
+			flat = func(a *collections.Array) {
+				for i := 0; i < a.Len(); i++ {
+					if nested, ok := a.Get(i).(*collections.Array); ok {
+						flat(nested)
+					} else {
+						result.Append(a.Get(i))
+					}
+				}
+			}
+			flat(arr)
+			return result
+		},
+	}
+
+	vm.globals["unique"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("unique(arr) expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("unique: argument must be array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				item := arr.Get(i)
+				found := false
+				for j := 0; j < result.Len(); j++ {
+					if result.Get(j).Equals(item) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					result.Append(item)
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["rangeOf"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("rangeOf(start, end, step) expects 1-3 arguments", 0, 0, "")
+			}
+			start := int64(0)
+			end := int64(0)
+			step := int64(1)
+			if len(args) >= 1 {
+				start = int64(args[0].(types.Int))
+			}
+			if len(args) >= 2 {
+				end = int64(args[1].(types.Int))
+			} else {
+				end = start
+				start = 0
+			}
+			if len(args) >= 3 {
+				step = int64(args[2].(types.Int))
+			}
+			result := collections.NewArray()
+			if step > 0 {
+				for i := start; i < end; i += step {
+					result.Append(types.Int(i))
+				}
+			} else {
+				for i := start; i > end; i += step {
+					result.Append(types.Int(i))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["chunk"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("chunk(arr, size) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("chunk: first argument must be array", 0, 0, "")
+			}
+			size, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("chunk: second argument must be integer", 0, 0, "")
+			}
+			result := collections.NewArray()
+			current := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				current.Append(arr.Get(i))
+				if current.Len() == int(size) {
+					result.Append(current)
+					current = collections.NewArray()
+				}
+			}
+			if current.Len() > 0 {
+				result.Append(current)
+			}
+			return result
+		},
+	}
+
+	vm.globals["groupBy"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("groupBy(arr, keyFn) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("groupBy: first argument must be array", 0, 0, "")
+			}
+			_ = args[1]
+			result := collections.NewMap()
+			for i := 0; i < arr.Len(); i++ {
+				item := arr.Get(i)
+				key := "group"
+				if str, ok := item.(types.String); ok {
+					key = string(str)
+				} else {
+					key = item.ToStr()
+				}
+				if !result.Has(key) {
+					result.Set(key, collections.NewArray())
+				}
+				result.Get(key).(*collections.Array).Append(item)
+			}
+			return result
+		},
+	}
+
+	vm.globals["count"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("count(arr, val) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("count: first argument must be array", 0, 0, "")
+			}
+			target := args[1]
+			cnt := 0
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					cnt++
+				}
+			}
+			return types.Int(cnt)
+		},
+	}
+
+	vm.globals["any"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("any(arr) expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("any: argument must be array", 0, 0, "")
+			}
+			for i := 0; i < arr.Len(); i++ {
+				if b, ok := arr.Get(i).(types.Bool); ok {
+					if b == true {
+						return types.Bool(true)
+					}
+				}
+			}
+			return types.Bool(false)
+		},
+	}
+
+	vm.globals["all"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("all(arr) expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("all: argument must be array", 0, 0, "")
+			}
+			for i := 0; i < arr.Len(); i++ {
+				if b, ok := arr.Get(i).(types.Bool); ok {
+					if b != true {
+						return types.Bool(false)
+					}
+				} else {
+					return types.Bool(false)
+				}
+			}
+			return types.Bool(true)
 		},
 	}
 

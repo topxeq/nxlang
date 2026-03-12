@@ -282,7 +282,7 @@ func registerBuiltins(st *SymbolTable) {
 		"abs", "sqrt", "sin", "cos", "tan", "floor", "ceil", "round", "pow", "random",
 		"toUpper", "toLower", "trim", "split", "join", "contains", "replace", "substr", "startsWith", "endsWith",
 		"now", "unix", "unixMilli", "unixNano", "timestamp", "formatTime", "parseTime", "addDate", "addDuration", "year", "month", "day", "hour", "minute", "second", "weekday", "isAfter", "isBefore", "dateDiff", "sleep", "thread", "mutex", "rwMutex", "waitForThreads",
-		"toJson", "fromJson",
+		"toJson", "fromJson", "parseJson",
 		"compile", "runByteCode", "runCode", "addMethod", "addMember",
 		"ref", "deref", "setref",
 		// File operations
@@ -298,7 +298,7 @@ func registerBuiltins(st *SymbolTable) {
 		// New array functions
 		"zip", "zipToMap", "flatten", "unique", "rangeOf", "chunk", "groupBy", "count", "any", "all",
 		// String functions
-		"trimLeft", "trimRight", "replaceAll", "indexOf", "lastIndexOf",
+		"trimLeft", "trimRight", "replaceAll", "indexOf", "lastIndexOf", "urlEncode", "urlDecode",
 		// Type check functions
 		"isArray", "isMap", "isNumber", "isString", "isBool", "isFunction",
 		// Performance and system functions

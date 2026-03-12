@@ -91,6 +91,9 @@
 | `contains(s, sub)` | Check substring | `contains("hello", "ell")` |
 | `replace(s, old, new)` | Replace substring | `replace("hi", "i", "ey")` |
 | `substr(s, start, len)` | Substring | `substr("hello", 0, 3)` |
+| `urlEncode(s)` | URL encode | `urlEncode("hello world")` → "hello+world" |
+| `urlDecode(s)` | URL decode | `urlDecode("hello%20world")` → "hello world" |
+| `parseJson(s)` | Parse JSON | `parseJson("{\"a\":1}")` → {"a":1} |
 
 ### Math Functions
 | Function | Description | Example |
