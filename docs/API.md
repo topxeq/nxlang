@@ -40,6 +40,16 @@
 | `map(...)` | Create map | `map("a", 1, "b", 2)` |
 | `range(n)` | Create range | `range(5)` → [0,1,2,3,4] |
 
+### Performance Functions (v1.1.0+)
+| Function | Description | Example |
+|----------|-------------|---------|
+| `fastSum(n)` | O(1) sum 0 to n-1 | `fastSum(1000000)` → 499999500000 |
+| `fastRangeSum(start, end)` | O(1) sum of range | `fastRangeSum(0, 100)` → 4950 |
+| `fastEach(arr, fn)` | Fast array iteration | `fastEach(arr, fn)` |
+| `fastMap(arr, fn)` | Fast array map | `fastMap(arr, fn)` |
+| `fastFilter(arr, fn)` | Fast array filter | `fastFilter(arr, fn)` |
+| `fastReduce(arr, fn, init)` | Fast reduce | `fastReduce(arr, fn, 0)` |
+
 ### String Functions
 | Function | Description | Example |
 |----------|-------------|---------|
