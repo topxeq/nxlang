@@ -304,7 +304,10 @@ func registerBuiltins(st *SymbolTable) {
 		// Performance and system functions
 		"profilerStart", "profilerStop", "instructionCount", "gc", "memoryUsage", "version", "exit",
 		// Encoding and hash functions
-		"md5", "sha1", "sha256", "base64Encode", "base64Decode", "hexEncode", "hexDecode",
+		"md5", "sha1", "sha256", "sha512", "base64Encode", "base64Decode", "hexEncode", "hexDecode",
+		"uuid", "uuidv4", "htmlEncode", "htmlDecode",
+		// Utility functions
+		"randInt", "envGet", "envSet",
 		// Regex functions
 		"match", "replaceRegex", "splitRegex", "findRegex",
 		// String conversion

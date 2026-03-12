@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -463,6 +464,115 @@ func (vm *VM) registerBuiltins() {
 			s := string(types.ToString(args[0]))
 			h := sha256.Sum256([]byte(s))
 			return types.String(hex.EncodeToString(h[:]))
+		},
+	}
+
+	vm.globals["sha512"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sha512() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			h := sha512.Sum512([]byte(s))
+			return types.String(hex.EncodeToString(h[:]))
+		},
+	}
+
+	vm.globals["uuid"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			b := make([]byte, 16)
+			for i := range b {
+				b[i] = byte(rand.Intn(256))
+			}
+			b[6] = (b[6] & 0x0f) | 0x40
+			b[8] = (b[8] & 0x3f) | 0x80
+			uuid := fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+			return types.String(uuid)
+		},
+	}
+
+	vm.globals["uuidv4"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			b := make([]byte, 16)
+			for i := range b {
+				b[i] = byte(rand.Intn(256))
+			}
+			b[6] = (b[6] & 0x0f) | 0x40
+			b[8] = (b[8] & 0x3f) | 0x80
+			uuid := fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+			return types.String(uuid)
+		},
+	}
+
+	vm.globals["htmlEncode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("htmlEncode() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			result := s
+			result = strings.ReplaceAll(result, "&", "&amp;")
+			result = strings.ReplaceAll(result, "<", "&lt;")
+			result = strings.ReplaceAll(result, ">", "&gt;")
+			result = strings.ReplaceAll(result, `"`, "&quot;")
+			result = strings.ReplaceAll(result, "'", "&#39;")
+			return types.String(result)
+		},
+	}
+
+	vm.globals["htmlDecode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("htmlDecode() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			result := s
+			result = strings.ReplaceAll(result, "&lt;", "<")
+			result = strings.ReplaceAll(result, "&gt;", ">")
+			result = strings.ReplaceAll(result, "&quot;", `"`)
+			result = strings.ReplaceAll(result, "&#39;", "'")
+			result = strings.ReplaceAll(result, "&amp;", "&")
+			return types.String(result)
+		},
+	}
+
+	vm.globals["randInt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("randInt() expects 2 arguments (min, max)", 0, 0, "")
+			}
+			minVal, ok1 := args[0].(types.Int)
+			maxVal, ok2 := args[1].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("randInt() expects 2 integer arguments", 0, 0, "")
+			}
+			min, max := int(minVal), int(maxVal)
+			if min > max {
+				return types.NewError("randInt(): min must be less than or equal to max", 0, 0, "")
+			}
+			return types.Int(rand.Intn(max-min+1) + min)
+		},
+	}
+
+	vm.globals["envGet"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("envGet() expects 1 argument (key)", 0, 0, "")
+			}
+			key := string(types.ToString(args[0]))
+			return types.String(os.Getenv(key))
+		},
+	}
+
+	vm.globals["envSet"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("envSet() expects 2 arguments (key, value)", 0, 0, "")
+			}
+			key := string(types.ToString(args[0]))
+			value := string(types.ToString(args[1]))
+			os.Setenv(key, value)
+			return types.UndefinedValue
 		},
 	}
 
