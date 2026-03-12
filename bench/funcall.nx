@@ -1,0 +1,17 @@
+// Benchmark: Function calls
+let iterations = 500000
+
+func add(a, b) {
+    return a + b
+}
+
+let start = now()
+let result = 0
+for i in range(iterations) {
+    result = add(i, i + 1)
+}
+let end = now()
+
+pln("Iterations:", iterations)
+pln("Result:", result)
+pln("Time (ms):", (end - start) * 1000)

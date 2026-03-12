@@ -1,0 +1,23 @@
+// Benchmark: Better precision timing
+// Use instructionCount if available
+
+let iterations = 1000000
+
+// Enable profiler to get instruction count
+profilerStart()
+
+let sum = 0
+for i in range(iterations) {
+    sum = sum + i
+}
+
+profilerStop()
+
+let count = instructionCount()
+pln("Loop iterations:", iterations)
+pln("Sum:", sum)
+pln("Instructions:", count)
+
+// Also show memory
+let mem = memoryUsage()
+pln("Memory (bytes):", mem)

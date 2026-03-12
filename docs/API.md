@@ -39,6 +39,7 @@
 | `array(...)` | Create array | `array(1, 2, 3)` |
 | `map(...)` | Create map | `map("a", 1, "b", 2)` |
 | `range(n)` | Create range | `range(5)` → [0,1,2,3,4] |
+| `repeat(s, n)` | Repeat string n times | `repeat("ab", 3)` → "ababab" |
 
 ### Performance Functions (v1.1.0+)
 | Function | Description | Example |
@@ -49,6 +50,16 @@
 | `fastMap(arr, fn)` | Fast array map | `fastMap(arr, fn)` |
 | `fastFilter(arr, fn)` | Fast array filter | `fastFilter(arr, fn)` |
 | `fastReduce(arr, fn, init)` | Fast reduce | `fastReduce(arr, fn, 0)` |
+| `sum(arr)` | Sum of array elements | `sum([1,2,3])` → 6 |
+| `avg(arr)` | Average of array | `avg([1,2,3])` → 2 |
+
+### Math Functions
+| Function | Description | Example |
+|----------|-------------|---------|
+| `abs(x)` | Absolute value | `abs(-5)` |
+| `min(a, b)` | Minimum of two | `min(3, 7)` → 3 |
+| `max(a, b)` | Maximum of two | `max(3, 7)` → 7 |
+| `clamp(val, min, max)` | Clamp value | `clamp(5, 0, 10)` → 5 |
 
 ### String Functions
 | Function | Description | Example |

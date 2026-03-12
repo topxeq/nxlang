@@ -1012,6 +1012,152 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	// String utilities
+	vm.globals["repeat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("repeat(str, n) expects 2 arguments", 0, 0, "")
+			}
+			str := args[0].ToStr()
+			n, err := types.ToInt(args[1])
+			if err != nil {
+				return err
+			}
+			result := ""
+			i := 0
+			for i < int(n) {
+				result = result + str
+				i = i + 1
+			}
+			return types.String(result)
+		},
+	}
+
+	// Math utilities
+	vm.globals["clamp"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("clamp(val, min, max) expects 3 arguments", 0, 0, "")
+			}
+			val, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			minVal, err := types.ToInt(args[1])
+			if err != nil {
+				return err
+			}
+			maxVal, err := types.ToInt(args[2])
+			if err != nil {
+				return err
+			}
+			if val < minVal {
+				return minVal
+			}
+			if val > maxVal {
+				return maxVal
+			}
+			return val
+		},
+	}
+
+	vm.globals["min"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("min(a, b) expects 2 arguments", 0, 0, "")
+			}
+			a, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			b, err := types.ToInt(args[1])
+			if err != nil {
+				return err
+			}
+			if a < b {
+				return a
+			}
+			return b
+		},
+	}
+
+	vm.globals["max"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("max(a, b) expects 2 arguments", 0, 0, "")
+			}
+			a, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			b, err := types.ToInt(args[1])
+			if err != nil {
+				return err
+			}
+			if a > b {
+				return a
+			}
+			return b
+		},
+	}
+
+	vm.globals["abs"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("abs(n) expects 1 argument", 0, 0, "")
+			}
+			n, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			if n < 0 {
+				return -n
+			}
+			return n
+		},
+	}
+
+	vm.globals["sum"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("sum(arr) expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("sum: argument must be an array", 0, 0, "")
+			}
+			total := int64(0)
+			for i := 0; i < arr.Len(); i++ {
+				if n, ok := arr.Get(i).(types.Int); ok {
+					total = total + int64(n)
+				}
+			}
+			return types.Int(total)
+		},
+	}
+
+	vm.globals["avg"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("avg(arr) expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("avg: argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return types.Int(0)
+			}
+			total := int64(0)
+			for i := 0; i < arr.Len(); i++ {
+				if n, ok := arr.Get(i).(types.Int); ok {
+					total = total + int64(n)
+				}
+			}
+			return types.Int(total / int64(arr.Len()))
+		},
+	}
+
 	vm.globals["each"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {

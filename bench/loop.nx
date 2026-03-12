@@ -1,0 +1,13 @@
+// Benchmark: Loop operations
+let iterations = 1000000
+
+let start = now()
+let sum = 0
+for i in range(iterations) {
+    sum = sum + i
+}
+let end = now()
+
+pln("Loop sum:", sum)
+pln("Iterations:", iterations)
+pln("Time (ms):", (end - start) * 1000)

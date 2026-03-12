@@ -1,0 +1,72 @@
+// Comprehensive benchmark suite for Nxlang
+// Run with: ./nx bench_all.nx
+
+pln("=== Nxlang Benchmark Suite ===")
+pln("")
+
+// Test 1: Fibonacci (recursive)
+func fib(n) {
+    if n <= 1 { return n }
+    return fib(n - 1) + fib(n - 2)
+}
+
+profilerStart()
+let r1 = fib(25)
+profilerStop()
+let ic1 = instructionCount()
+pln("1. Fibonacci(25):", r1)
+pln("   Instructions:", ic1)
+
+// Test 2: Loop
+let iterations = 100000
+profilerStart()
+let sum = 0
+for i in range(iterations) {
+    sum = sum + i
+}
+profilerStop()
+let ic2 = instructionCount()
+pln("2. Loop (100k): sum =", sum)
+pln("   Instructions:", ic2)
+
+// Test 3: Array operations
+let size = 5000
+profilerStart()
+let arr = []
+for i in range(size) { append(arr, i) }
+let arrSum = 0
+for v in arr { arrSum = arrSum + v }
+profilerStop()
+let ic3 = instructionCount()
+pln("3. Array (5k): sum =", arrSum)
+pln("   Instructions:", ic3)
+
+// Test 4: Map operations  
+let mapSize = 5000
+profilerStart()
+let m = {}
+for i in range(mapSize) { m[string(i)] = i * 2 }
+let mapSum = 0
+let k = keys(m)
+for v in m { mapSum = mapSum + v }
+profilerStop()
+let ic4 = instructionCount()
+pln("4. Map (5k): sum =", mapSum)
+pln("   Instructions:", ic4)
+
+// Test 5: Function calls
+func add(a, b) { return a + b }
+iterations = 50000
+profilerStart()
+let result = 0
+for i in range(iterations) {
+    result = add(i, i + 1)
+}
+profilerStop()
+let ic5 = instructionCount()
+pln("5. Function calls (50k): result =", result)
+pln("   Instructions:", ic5)
+
+pln("")
+pln("=== Summary ===")
+pln("Total instructions:", ic1 + ic2 + ic3 + ic4 + ic5)

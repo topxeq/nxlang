@@ -1,0 +1,40 @@
+// Benchmark: Array operations
+let size = 10000
+
+let start = now()
+
+// Create array
+let arr = []
+for i in range(size) {
+    append(arr, i)
+}
+
+// Sum array
+let sum = 0
+for v in arr {
+    sum = sum + v
+}
+
+// Sort (bubble sort)
+let sorted = []
+for v in arr {
+    append(sorted, v)
+}
+// Simple bubble sort
+let n = len(sorted)
+for i in range(n) {
+    for j in range(n - i - 1) {
+        if sorted[j] > sorted[j + 1] {
+            let temp = sorted[j]
+            sorted[j] = sorted[j + 1]
+            sorted[j + 1] = temp
+        }
+    }
+}
+
+let end = now()
+
+pln("Array size:", size)
+pln("Sum:", sum)
+pln("Sorted[0], Sorted[last]:", sorted[0], sorted[len(sorted) - 1])
+pln("Time (ms):", (end - start) * 1000)

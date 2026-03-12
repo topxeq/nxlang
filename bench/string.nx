@@ -1,0 +1,22 @@
+// Benchmark: String operations
+let iterations = 50000
+
+let start = now()
+
+let s = ""
+for i in range(iterations) {
+    s = s + "a"
+}
+
+let count = 0
+for i in range(len(s)) {
+    if s[i] == "a" {
+        count = count + 1
+    }
+}
+
+let end = now()
+
+pln("String length:", len(s))
+pln("Char 'a' count:", count)
+pln("Time (ms):", (end - start) * 1000)

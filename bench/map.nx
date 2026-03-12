@@ -1,0 +1,23 @@
+// Benchmark: Map operations
+let size = 10000
+
+let start = now()
+
+// Create map
+let m = {}
+for i in range(size) {
+    m[string(i)] = i * 2
+}
+
+// Access all values
+let sum = 0
+let keys = keys(m)
+for k in keys {
+    sum = sum + m[k]
+}
+
+let end = now()
+
+pln("Map size:", size)
+pln("Sum:", sum)
+pln("Time (ms):", (end - start) * 1000)
