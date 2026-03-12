@@ -439,7 +439,102 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return nil
 			}
 
-			// Compile the iterate expression
+			// Check for optimized range loop
+			if n.Iterate != nil {
+				if call, ok := n.Iterate.(*parser.CallExpression); ok {
+					if ident, ok := call.Function.(*parser.Identifier); ok && ident.Value == "range" {
+						// Check if it's range(n) with known integer
+						var count int = -1
+						if len(call.Arguments) == 1 {
+							if lit, ok := call.Arguments[0].(*parser.IntLiteral); ok {
+								count = int(lit.Value)
+							} else if identArg, ok := call.Arguments[0].(*parser.Identifier); ok {
+								// Check if we have type inference for this variable
+								if sym, ok := c.symbolTable.Resolve(identArg.Value); ok {
+									if sym.Type != nil {
+										if intVal, ok := sym.Type.(types.Int); ok {
+											count = int(intVal)
+										}
+									}
+								}
+							}
+						}
+						// If count is small, unroll it
+						if count > 0 && count <= 16 {
+							keySym := c.symbolTable.Define(n.Key.Value)
+							var valSym *Symbol
+							if n.Value != nil {
+								vs := c.symbolTable.Define(n.Value.Value)
+								valSym = &vs
+							}
+							for i := 0; i < count; i++ {
+								c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: int64(i)}))
+								c.storeSymbol(keySym)
+								if valSym != nil {
+									c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: int64(i)}))
+									c.storeSymbol(*valSym)
+								}
+								if err := c.Compile(n.Body); err != nil {
+									return err
+								}
+							}
+							return nil
+						}
+						// For larger counts, generate optimized loop without array creation
+						if count > 16 {
+							keySym := c.symbolTable.Define(n.Key.Value)
+							var valSym *Symbol
+							if n.Value != nil {
+								vs := c.symbolTable.Define(n.Value.Value)
+								valSym = &vs
+							}
+							// Create counter variable
+							counterSym := c.symbolTable.Define("__counter__")
+							// Initialize counter to 0
+							c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 0}))
+							c.storeSymbol(counterSym)
+							// Create end variable
+							var endVal int64 = int64(count)
+							if len(call.Arguments) >= 1 {
+								if lit, ok := call.Arguments[0].(*parser.IntLiteral); ok {
+									endVal = int64(lit.Value)
+								}
+							}
+							endSym := c.symbolTable.Define("__end__")
+							c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: endVal}))
+							c.storeSymbol(endSym)
+							// Loop body position
+							loopBodyPos := len(c.currentInstructions())
+							// Load counter
+							c.loadSymbol(counterSym)
+							// Store to key
+							c.storeSymbol(keySym)
+							if valSym != nil {
+								c.loadSymbol(counterSym)
+								c.storeSymbol(*valSym)
+							}
+							// Compile loop body
+							if err := c.Compile(n.Body); err != nil {
+								return err
+							}
+							// Increment counter
+							c.loadSymbol(counterSym)
+							c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: 1}))
+							c.emit(OpAddInt)
+							c.storeSymbol(counterSym)
+							// Check condition: counter < end
+							c.loadSymbol(counterSym)
+							c.loadSymbol(endSym)
+							c.emit(OpLtInt)
+							// Jump back if true
+							c.emit(OpJmpIfTrue, loopBodyPos)
+							return nil
+						}
+					}
+				}
+			}
+
+			// Compile the iterate expression (original array-based approach)
 			if err := c.Compile(n.Iterate); err != nil {
 				return err
 			}
@@ -826,6 +921,12 @@ func (c *Compiler) Compile(node parser.Node) error {
 
 		// Define the symbol
 		symbol := c.symbolTable.Define(name.Value)
+
+		// Update symbol type based on value expression
+		inferredType := c.inferExpressionType(value)
+		if inferredType != nil {
+			c.symbolTable.UpdateType(symbol.Name, inferredType)
+		}
 
 		// Store the value
 		if symbol.Scope == ScopeGlobal {
