@@ -1,0 +1,69 @@
+// Simple REST API Mock
+pln("=== REST API Mock ===")
+
+// Mock database
+var users = [
+    {"id": 1, "name": "Alice", "email": "alice@example.com"},
+    {"id": 2, "name": "Bob", "email": "bob@example.com"},
+    {"id": 3, "name": "Charlie", "email": "charlie@example.com"}
+]
+
+// GET /users
+func getUsers() {
+    return users
+}
+
+// GET /users/:id
+func getUser(id) {
+    for u in users {
+        if u["id"] == id {
+            return u
+        }
+    }
+    return nil
+}
+
+// POST /users
+func createUser(data) {
+    let newId = 0
+    for u in users {
+        if u["id"] > newId {
+            newId = u["id"]
+        }
+    }
+    let newUser = {"id": newId + 1, "name": data["name"], "email": data["email"]}
+    users = append(users, newUser)
+    return newUser
+}
+
+// DELETE /users/:id
+func deleteUser(id) {
+    let newUsers = []
+    for u in users {
+        if u["id"] != id {
+            newUsers = append(newUsers, u)
+        }
+    }
+    users = newUsers
+    return true
+}
+
+// Simulate API calls
+pln("=== GET /users ===")
+pln(getUsers())
+
+pln("=== GET /users/2 ===")
+pln(getUser(2))
+
+pln("=== POST /users ===")
+let newUser = createUser({"name": "David", "email": "david@example.com"})
+pln("Created:", newUser)
+
+pln("=== GET /users ===")
+pln(getUsers())
+
+pln("=== DELETE /users/2 ===")
+deleteUser(2)
+
+pln("=== GET /users ===")
+pln(getUsers())

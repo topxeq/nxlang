@@ -1,0 +1,93 @@
+// Array Utilities
+pln("=== Array Utilities ===")
+
+// Unique elements
+func unique(arr) {
+    let result = []
+    for item in arr {
+        let found = false
+        for r in result {
+            if r == item {
+                found = true
+            }
+        }
+        if !found {
+            result = append(result, item)
+        }
+    }
+    return result
+}
+
+// Flatten
+func flatten(arr) {
+    let result = []
+    for item in arr {
+        if typeOf(item) == "array" {
+            let flat = flatten(item)
+            for f in flat {
+                result = append(result, f)
+            }
+        } else {
+            result = append(result, item)
+        }
+    }
+    return result
+}
+
+// Chunk
+func chunk(arr, size) {
+    let result = []
+    let current = []
+    
+    let i = 0
+    while i < len(arr) {
+        current = append(current, arr[i])
+        if len(current) == size {
+            result = append(result, current)
+            current = []
+        }
+        i = i + 1
+    }
+    
+    if len(current) > 0 {
+        result = append(result, current)
+    }
+    
+    return result
+}
+
+// Shuffle (simple)
+func shuffle(arr) {
+    let result = []
+    let temp = arr
+    
+    while len(temp) > 0 {
+        let idx = int(random() * len(temp))
+        result = append(result, temp[idx])
+        
+        // Remove element
+        let newTemp = []
+        let i = 0
+        while i < len(temp) {
+            if i != idx {
+                newTemp = append(newTemp, temp[i])
+            }
+            i = i + 1
+        }
+        temp = newTemp
+    }
+    
+    return result
+}
+
+// Tests
+let arr = [1, 2, 2, 3, 3, 3, 4]
+pln("unique([1,2,2,3,3,3,4]):", unique(arr))
+
+let nested = [[1, 2], [3, 4], [5]]
+pln("flatten:", flatten(nested))
+
+pln("chunk([1,2,3,4,5,6,7], 3):", chunk([1,2,3,4,5,6,7], 3))
+
+let toShuffle = [1, 2, 3, 4, 5]
+pln("shuffle([1,2,3,4,5]):", shuffle(toShuffle))

@@ -1,0 +1,19 @@
+// File Operations
+pln("=== File Operations ===")
+
+// Write to file
+let content = "Hello from Nxlang!\nSecond line.\nThird line."
+writeFile("test_output.txt", content)
+pln("File written")
+
+// Read file
+let readContent = readFile("test_output.txt")
+pln("File content:")
+pln(readContent)
+
+// Check if file exists
+let exists = len(readFile("test_output.txt")) > 0
+pln("File exists:", exists)
+
+// File info
+pln("Done")

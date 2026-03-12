@@ -1,0 +1,77 @@
+// Number Utilities
+pln("=== Number Utilities ===")
+
+// Check if prime
+func isPrime(n) {
+    if n <= 1 {
+        return false
+    }
+    if n <= 3 {
+        return true
+    }
+    if n % 2 == 0 || n % 3 == 0 {
+        return false
+    }
+    
+    let i = 5
+    while i * i <= n {
+        if n % i == 0 || n % (i + 2) == 0 {
+            return false
+        }
+        i = i + 6
+    }
+    return true
+}
+
+// Find primes up to n
+func primesUpTo(n) {
+    let result = []
+    let i = 2
+    while i <= n {
+        if isPrime(i) {
+            result = append(result, i)
+        }
+        i = i + 1
+    }
+    return result
+}
+
+// GCD
+func gcd(a, b) {
+    while b != 0 {
+        let temp = b
+        b = a % b
+        a = temp
+    }
+    return a
+}
+
+// LCM
+func lcm(a, b) {
+    return (a * b) / gcd(a, b)
+}
+
+// Fibonacci
+func fib(n) {
+    if n <= 1 {
+        return n
+    }
+    return fib(n - 1) + fib(n - 2)
+}
+
+// Factorial
+func factorial(n) {
+    if n <= 1 {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+
+// Tests
+pln("isPrime(7):", isPrime(7))
+pln("isPrime(8):", isPrime(8))
+pln("primesUpTo(20):", primesUpTo(20))
+pln("gcd(48, 18):", gcd(48, 18))
+pln("lcm(4, 6):", lcm(4, 6))
+pln("fib(10):", fib(10))
+pln("factorial(5):", factorial(5))

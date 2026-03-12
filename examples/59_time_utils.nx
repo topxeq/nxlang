@@ -1,0 +1,41 @@
+// Time Utilities
+pln("=== Time Utilities ===")
+
+// Format duration
+func formatDuration(ms) {
+    if ms < 1000 {
+        return string(ms) + "ms"
+    }
+    let s = ms / 1000
+    if s < 60 {
+        return string(s) + "s"
+    }
+    let m = s / 60
+    if m < 60 {
+        return string(m) + "m"
+    }
+    let h = m / 60
+    return string(h) + "h"
+}
+
+// Benchmark
+func benchmark(fn, iterations) {
+    let start = now()
+    let i = 0
+    while i < iterations {
+        fn()
+        i = i + 1
+    }
+    let elapsed = now() - start
+    return {"total": elapsed, "avg": elapsed / iterations}
+}
+
+// Tests
+pln("formatDuration(500):", formatDuration(500))
+pln("formatDuration(5000):", formatDuration(5000))
+pln("formatDuration(50000):", formatDuration(50000))
+
+let bench = benchmark(func() {
+    let x = 1 + 2
+}, 1000)
+pln("Benchmark 1000 iterations:", bench)

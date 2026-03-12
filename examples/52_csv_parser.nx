@@ -1,0 +1,49 @@
+// CSV Parser
+pln("=== CSV Parser ===")
+
+// Simple CSV parser
+func parseCSV(text) {
+    let rows = []
+    let current = ""
+    let row = []
+    let i = 0
+    
+    while i < len(text) {
+        let ch = substr(text, i, 1)
+        
+        if ch == "," {
+            row = append(row, current)
+            current = ""
+        } else if ch == "\n" {
+            if len(current) > 0 {
+                row = append(row, current)
+                rows = append(rows, row)
+                row = []
+                current = ""
+            }
+        } else {
+            current = current + ch
+        }
+        
+        i = i + 1
+    }
+    
+    if len(current) > 0 {
+        row = append(row, current)
+        rows = append(rows, row)
+    }
+    
+    return rows
+}
+
+// Test CSV data
+let csvData = "name,age,city
+Alice,30,NYC
+Bob,25,LA"
+
+let parsed = parseCSV(csvData)
+
+pln("Rows:", len(parsed))
+for row in parsed {
+    pln(row)
+}

@@ -1,0 +1,58 @@
+// String Utilities
+pln("=== String Utilities ===")
+
+// Reverse string
+func reverse(s) {
+    let result = ""
+    let i = len(s) - 1
+    while i >= 0 {
+        result = result + substr(s, i, 1)
+        i = i - 1
+    }
+    return result
+}
+
+// Check palindrome
+func isPalindrome(s) {
+    return s == reverse(s)
+}
+
+// Count words
+func countWords(s) {
+    let words = split(s, " ")
+    return len(words)
+}
+
+// Capitalize
+func capitalize(s) {
+    if len(s) == 0 {
+        return s
+    }
+    let first = toUpper(substr(s, 0, 1))
+    let rest = toLower(substr(s, 1, len(s) - 1))
+    return first + rest
+}
+
+// Pad string
+func padLeft(s, width, char) {
+    while len(s) < width {
+        s = char + s
+    }
+    return s
+}
+
+func padRight(s, width, char) {
+    while len(s) < width {
+        s = s + char
+    }
+    return s
+}
+
+// Tests
+pln("reverse('hello'):", reverse("hello"))
+pln("isPalindrome('radar'):", isPalindrome("radar"))
+pln("isPalindrome('hello'):", isPalindrome("hello"))
+pln("countWords('hello world'):", countWords("hello world"))
+pln("capitalize('hello'):", capitalize("hello"))
+pln("padLeft('5', 3, '0'):", padLeft("5", 3, "0"))
+pln("padRight('hi', 5, '.'):", padRight("hi", 5, "."))

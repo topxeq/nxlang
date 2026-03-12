@@ -1,0 +1,78 @@
+// Quick Math Calculations
+pln("=== Quick Math ===")
+
+// Sum of array
+func sum(arr) {
+    let total = 0
+    for n in arr {
+        total = total + n
+    }
+    return total
+}
+
+// Average
+func average(arr) {
+    if len(arr) == 0 {
+        return 0
+    }
+    return sum(arr) / len(arr)
+}
+
+// Min
+func min(arr) {
+    if len(arr) == 0 {
+        return 0
+    }
+    let m = arr[0]
+    for n in arr {
+        if n < m {
+            m = n
+        }
+    }
+    return m
+}
+
+// Max
+func max(arr) {
+    if len(arr) == 0 {
+        return 0
+    }
+    let m = arr[0]
+    for n in arr {
+        if n > m {
+            m = n
+        }
+    }
+    return m
+}
+
+// Standard deviation
+func stdDev(arr) {
+    let avg = average(arr)
+    let sumSq = 0
+    for n in arr {
+        let diff = n - avg
+        sumSq = sumSq + diff * diff
+    }
+    return sqrt(sumSq / len(arr))
+}
+
+// Power
+func powInt(base, exp) {
+    let result = 1
+    let i = 0
+    while i < exp {
+        result = result * base
+        i = i + 1
+    }
+    return result
+}
+
+// Tests
+let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+pln("sum:", sum(nums))
+pln("average:", average(nums))
+pln("min:", min(nums))
+pln("max:", max(nums))
+pln("stdDev:", stdDev(nums))
+pln("powInt(2, 10):", powInt(2, 10))
