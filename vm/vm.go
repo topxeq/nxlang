@@ -811,6 +811,102 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["xrange"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			var start, end, step int
+
+			if len(args) == 1 {
+				n, err := types.ToInt(args[0])
+				if err != nil {
+					return err
+				}
+				start = 0
+				end = int(n)
+				step = 1
+			} else if len(args) == 2 {
+				s, err := types.ToInt(args[0])
+				if err != nil {
+					return err
+				}
+				e, err := types.ToInt(args[1])
+				if err != nil {
+					return err
+				}
+				start = int(s)
+				end = int(e)
+				step = 1
+			} else if len(args) == 3 {
+				s, err := types.ToInt(args[0])
+				if err != nil {
+					return err
+				}
+				e, err := types.ToInt(args[1])
+				if err != nil {
+					return err
+				}
+				st, err := types.ToInt(args[2])
+				if err != nil {
+					return err
+				}
+				start = int(s)
+				end = int(e)
+				step = int(st)
+			} else {
+				return types.NewError("xrange() expects 1-3 arguments", 0, 0, "")
+			}
+
+			return collections.NewRangeIterator(start, end, step)
+		},
+	}
+
+	vm.globals["fastSum"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("fastSum(n) expects 1 argument", 0, 0, "")
+			}
+			n, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			// Fast sum: n * (n-1) / 2
+			nn := int64(n)
+			return types.Int(nn * (nn - 1) / 2)
+		},
+	}
+
+	vm.globals["fastRangeSum"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			var start, end int64
+			if len(args) == 1 {
+				n, err := types.ToInt(args[0])
+				if err != nil {
+					return err
+				}
+				start = 0
+				end = int64(n)
+			} else if len(args) == 2 {
+				s, err := types.ToInt(args[0])
+				if err != nil {
+					return err
+				}
+				e, err := types.ToInt(args[1])
+				if err != nil {
+					return err
+				}
+				start = int64(s)
+				end = int64(e)
+			} else {
+				return types.NewError("fastRangeSum(start?, end) expects 1-2 arguments", 0, 0, "")
+			}
+			// Fast sum: (start + end) * (end - start) / 2
+			n := end - start
+			if n <= 0 {
+				return types.Int(0)
+			}
+			return types.Int((start + end) * n / 2)
+		},
+	}
+
 	vm.globals["each"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {
