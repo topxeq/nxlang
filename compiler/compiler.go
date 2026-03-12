@@ -307,7 +307,13 @@ func registerBuiltins(st *SymbolTable) {
 		"md5", "sha1", "sha256", "sha512", "base64Encode", "base64Decode", "hexEncode", "hexDecode",
 		"uuid", "uuidv4", "htmlEncode", "htmlDecode",
 		// Utility functions
-		"randInt", "envGet", "envSet",
+		"randInt", "envGet", "envSet", "fileExists", "mkdir", "removeFile", "readDir",
+		// Math functions
+		"round", "floor", "ceil", "isEven", "isOdd",
+		// String functions
+		"repeat", "padLeft", "padRight", "camelCase", "snakeCase", "kebabCase",
+		// Array functions
+		"unique", "flatten", "chunk",
 		// Regex functions
 		"match", "replaceRegex", "splitRegex", "findRegex",
 		// String conversion
