@@ -411,6 +411,34 @@ func (c *Compiler) Compile(node parser.Node) error {
 	case *parser.ForStatement:
 		// Handle for...in loop
 		if n.IsForIn {
+			// Check for small range unrolling optimization
+			if count := getSmallRangeCount(n.Iterate); count > 0 {
+				// Unroll small loops
+				keySym := c.symbolTable.Define(n.Key.Value)
+				var valSym *Symbol
+				if n.Value != nil {
+					vs := c.symbolTable.Define(n.Value.Value)
+					valSym = &vs
+				}
+
+				// Generate unrolled loop body
+				for i := 0; i < count; i++ {
+					// Set iteration variable
+					c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: int64(i)}))
+					c.storeSymbol(keySym)
+					if valSym != nil {
+						c.emit(OpPush, c.addConstant(&bytecode.IntConstant{Value: int64(i)}))
+						c.storeSymbol(*valSym)
+					}
+
+					// Compile loop body
+					if err := c.Compile(n.Body); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+
 			// Compile the iterate expression
 			if err := c.Compile(n.Iterate); err != nil {
 				return err
@@ -2303,6 +2331,29 @@ func (c *Compiler) inferExpressionType(expr parser.Expression) types.Object {
 func isIntegerType(obj types.Object) bool {
 	_, ok := obj.(types.Int)
 	return ok
+}
+
+// getSmallRangeCount checks if expr is range(n) with small n, returns count or -1
+func getSmallRangeCount(expr parser.Expression) int {
+	call, ok := expr.(*parser.CallExpression)
+	if !ok {
+		return -1
+	}
+	// Check if function is "range"
+	if ident, ok := call.Function.(*parser.Identifier); !ok || ident.Value != "range" {
+		return -1
+	}
+	// Check arguments - range(n) where n is an integer literal
+	if len(call.Arguments) != 1 {
+		return -1
+	}
+	if lit, ok := call.Arguments[0].(*parser.IntLiteral); ok {
+		count := int(lit.Value)
+		if count > 0 && count <= 16 { // Unroll small loops up to 16 iterations
+			return count
+		}
+	}
+	return -1
 }
 
 // emit appends an opcode and its operands to the current instructions
