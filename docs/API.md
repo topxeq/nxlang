@@ -41,6 +41,25 @@
 | `range(n)` | Create range | `range(5)` → [0,1,2,3,4] |
 | `repeat(s, n)` | Repeat string n times | `repeat("ab", 3)` → "ababab" |
 
+### Array Functions (v1.1.1+)
+| Function | Description | Example |
+|----------|-------------|---------|
+| `includes(arr, val)` | Check if array contains value | `includes([1,2,3], 2)` |
+| `find(arr, val)` | Find index of value | `find([1,2,3], 2)` → 1 |
+| `slice(arr, start, end)` | Slice array | `slice([1,2,3,4], 1, 3)` → [2,3] |
+| `concat(arr1, arr2)` | Concatenate arrays | `concat([1], [2,3])` → [1,2,3] |
+| `reverse(arr)` | Reverse array | `reverse([1,2,3])` → [3,2,1] |
+| `zip(arr1, arr2)` | Zip two arrays | `zip([1,2], ["a","b"])` → [[1,"a"], [2,"b"]] |
+| `zipToMap(keys, values)` | Zip to map | `zipToMap(["a","b"], [1,2])` → {"a":1,"b":2} |
+| `flatten(arr)` | Flatten nested array | `flatten([[1,2],[3,4]])` → [1,2,3,4] |
+| `unique(arr)` | Unique elements | `unique([1,2,2,3])` → [1,2,3] |
+| `rangeOf(start, end, step)` | Range with step | `rangeOf(0, 6, 2)` → [0,2,4] |
+| `chunk(arr, size)` | Chunk array | `chunk([1,2,3,4,5], 2)` → [[1,2],[3,4],[5]] |
+| `groupBy(arr, keyFn)` | Group by key | `groupBy(arr, fn(x){x.type})` |
+| `count(arr, val)` | Count occurrences | `count([1,2,2,3], 2)` → 2 |
+| `any(arr)` | Any truthy | `any([false, true, false])` → true |
+| `all(arr)` | All truthy | `all([true, true, true])` → true |
+
 ### Performance Functions (v1.1.0+)
 | Function | Description | Example |
 |----------|-------------|---------|

@@ -295,6 +295,8 @@ func registerBuiltins(st *SymbolTable) {
 		"repeat", "clamp", "min", "max", "abs", "sum", "avg",
 		// Array functions
 		"includes", "find", "slice", "concat", "reverse",
+		// New array functions
+		"zip", "zipToMap", "flatten", "unique", "rangeOf", "chunk", "groupBy", "count", "any", "all",
 		// String functions
 		"trimLeft", "trimRight", "replaceAll", "indexOf", "lastIndexOf",
 		// Type check functions
