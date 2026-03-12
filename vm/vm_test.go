@@ -1300,3 +1300,209 @@ func TestUnaryMinus(t *testing.T) {
 		}
 	}
 }
+
+func TestClassBasic(t *testing.T) {
+	source := `
+class Person {
+    func init(name) {
+        this.name = name
+    }
+    
+    func greet() {
+        return "Hello, " + this.name
+    }
+}
+
+let p = Person("John")
+p.greet()
+`
+	result := runSource(t, source)
+	if !result.Equals(types.String("Hello, John")) {
+		t.Errorf("Expected 'Hello, John', got %v", result)
+	}
+}
+
+func TestClassWithProperties(t *testing.T) {
+	source := `
+class Counter {
+    func init() {
+        this.count = 0
+    }
+    
+    func increment() {
+        this.count = this.count + 1
+        return this.count
+    }
+}
+
+let c = Counter()
+c.increment()
+c.increment()
+c.count
+`
+	result := runSource(t, source)
+	if !result.Equals(types.Int(2)) {
+		t.Errorf("Expected 2, got %v", result)
+	}
+}
+
+func TestClassInheritance(t *testing.T) {
+	source := `
+class Animal {
+    func speak() {
+        return "..."
+    }
+}
+
+class Dog < Animal {
+    func speak() {
+        return "Woof"
+    }
+}
+
+let d = Dog()
+d.speak()
+`
+	result := runSource(t, source)
+	if !result.Equals(types.String("Woof")) {
+		t.Errorf("Expected 'Woof', got %v", result)
+	}
+}
+
+func TestClassStaticMethod(t *testing.T) {
+	source := `
+class Math {
+    static func add(a, b) {
+        return a + b
+    }
+}
+
+Math.add(1, 2)
+`
+	result := runSource(t, source)
+	if !result.Equals(types.Int(3)) {
+		t.Errorf("Expected 3, got %v", result)
+	}
+}
+
+func TestClassNew(t *testing.T) {
+	source := `
+class Point {
+    func init(x, y) {
+        this.x = x
+        this.y = y
+    }
+    
+    func sum() {
+        return this.x + this.y
+    }
+}
+
+let p = Point(3, 4)
+p.sum()
+`
+	result := runSource(t, source)
+	if !result.Equals(types.Int(7)) {
+		t.Errorf("Expected 7, got %v", result)
+	}
+}
+
+func TestMethodChaining(t *testing.T) {
+	source := `
+class Builder {
+    func init() {
+        this.value = ""
+    }
+    
+    func add(s) {
+        this.value = this.value + s
+        return this
+    }
+    
+    func build() {
+        return this.value
+    }
+}
+
+let b = Builder()
+b.add("Hello").add(" ").add("World").build()
+`
+	result := runSource(t, source)
+	if !result.Equals(types.String("Hello World")) {
+		t.Errorf("Expected 'Hello World', got %v", result)
+	}
+}
+
+func TestMoreStringFunctions(t *testing.T) {
+	tests := []struct {
+		source   string
+		expected types.Object
+	}{
+		{"substr(\"hello\", 1, 3)", types.String("ell")},
+		{"trimLeft(\"  hello\")", types.String("hello")},
+		{"trimRight(\"hello  \")", types.String("hello")},
+		{"urlEncode(\"hello world\")", types.String("hello+world")},
+		{"urlDecode(\"hello+world\")", types.String("hello world")},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !result.Equals(tt.expected) {
+			t.Errorf("Source: %s, Expected: %v, Got: %v", tt.source, tt.expected, result)
+		}
+	}
+}
+
+func TestTimeFunctions(t *testing.T) {
+	tests := []struct {
+		source  string
+		checkFn func(types.Object) bool
+	}{
+		{"unix()", func(r types.Object) bool { _, ok := r.(types.Int); return ok }},
+		{"unixMilli()", func(r types.Object) bool { _, ok := r.(types.Int); return ok }},
+		{"unixNano()", func(r types.Object) bool { _, ok := r.(types.Int); return ok }},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !tt.checkFn(result) {
+			t.Errorf("Source: %s, Unexpected result: %v", tt.source, result)
+		}
+	}
+}
+
+func TestHashFunctions(t *testing.T) {
+	tests := []struct {
+		source   string
+		expected types.Object
+	}{
+		{"md5(\"hello\")", types.String("5d41402abc4b2a76b9719d911017c592")},
+		{"sha1(\"hello\")", types.String("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d")},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !result.Equals(tt.expected) {
+			t.Errorf("Source: %s, Expected: %v, Got: %v", tt.source, tt.expected, result)
+		}
+	}
+}
+
+func TestArrayBuiltinFunctions(t *testing.T) {
+	tests := []struct {
+		source   string
+		expected types.Object
+	}{
+		{"sum([1, 2, 3, 4, 5])", types.Int(15)},
+		{"avg([1, 2, 3])", types.Int(2)},
+		{"includes([1, 2, 3], 2)", types.Bool(true)},
+		{"includes([1, 2, 3], 5)", types.Bool(false)},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !result.Equals(tt.expected) {
+			t.Errorf("Source: %s, Expected: %v, Got: %v", tt.source, tt.expected, result)
+		}
+	}
+}
