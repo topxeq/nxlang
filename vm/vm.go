@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/topxeq/nxlang/bytecode"
 	"github.com/topxeq/nxlang/compiler"
@@ -5108,6 +5109,215 @@ func (vm *VM) registerBuiltins() {
 				return types.NewError(fmt.Sprintf("urlDecode error: %v", err), 0, 0, "")
 			}
 			return types.String(decoded)
+		},
+	}
+
+	vm.globals["isAlpha"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isAlpha() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			if len(str) == 0 {
+				return types.Bool(false)
+			}
+			for _, r := range str {
+				if !unicode.IsLetter(r) {
+					return types.Bool(false)
+				}
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["isDigit"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isDigit() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			if len(str) == 0 {
+				return types.Bool(false)
+			}
+			for _, r := range str {
+				if !unicode.IsDigit(r) {
+					return types.Bool(false)
+				}
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["isAlnum"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isAlnum() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			if len(str) == 0 {
+				return types.Bool(false)
+			}
+			for _, r := range str {
+				if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+					return types.Bool(false)
+				}
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["hasSpace"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("hasSpace() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			return types.Bool(strings.Contains(str, " "))
+		},
+	}
+
+	vm.globals["left"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("left() expects 2 arguments", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			n, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("left() expects string and integer", 0, 0, "")
+			}
+			if n >= types.Int(len(str)) {
+				return types.String(str)
+			}
+			return types.String(str[:n])
+		},
+	}
+
+	vm.globals["right"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("right() expects 2 arguments", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			n, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("right() expects string and integer", 0, 0, "")
+			}
+			if n >= types.Int(len(str)) {
+				return types.String(str)
+			}
+			return types.String(str[len(str)-int(n):])
+		},
+	}
+
+	vm.globals["substring"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("substring() expects at least 2 arguments", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			start, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("substring() expects string and integers", 0, 0, "")
+			}
+			if start < 0 || start > types.Int(len(str)) {
+				return types.NewError("substring() start index out of bounds", 0, 0, "")
+			}
+			if len(args) >= 3 {
+				end, ok := args[2].(types.Int)
+				if !ok {
+					return types.NewError("substring() expects string and integers", 0, 0, "")
+				}
+				if end < start || end > types.Int(len(str)) {
+					return types.NewError("substring() end index out of bounds", 0, 0, "")
+				}
+				return types.String(str[start:end])
+			}
+			return types.String(str[start:])
+		},
+	}
+
+	vm.globals["md5"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("md5() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			hash := md5.Sum([]byte(str))
+			return types.String(fmt.Sprintf("%x", hash))
+		},
+	}
+
+	vm.globals["sha1"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sha1() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			hash := sha1.Sum([]byte(str))
+			return types.String(fmt.Sprintf("%x", hash))
+		},
+	}
+
+	vm.globals["sha256"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sha256() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			hash := sha256.Sum256([]byte(str))
+			return types.String(fmt.Sprintf("%x", hash))
+		},
+	}
+
+	vm.globals["sha512"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sha512() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			hash := sha512.Sum512([]byte(str))
+			return types.String(fmt.Sprintf("%x", hash))
+		},
+	}
+
+	vm.globals["exit"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			code := 0
+			if len(args) > 0 {
+				val, _ := types.ToInt(args[0])
+				code = int(val)
+			}
+			os.Exit(code)
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["env"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				result := collections.NewMap()
+				env := os.Environ()
+				for _, e := range env {
+					parts := strings.SplitN(e, "=", 2)
+					if len(parts) == 2 {
+						result.Set(parts[0], types.String(parts[1]))
+					}
+				}
+				return result
+			}
+			key := string(types.ToString(args[0]))
+			return types.String(os.Getenv(key))
+		},
+	}
+
+	vm.globals["args"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			result := collections.NewArray()
+			for _, arg := range os.Args {
+				result.Append(types.String(arg))
+			}
+			return result
 		},
 	}
 
