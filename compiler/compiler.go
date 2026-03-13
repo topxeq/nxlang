@@ -421,6 +421,8 @@ func registerBuiltins(st *SymbolTable) {
 		"rangeStep", "times", "tap", "pipe", "compose", "once", "memoize", "curry", "flip", "identity", "constant", "partial", "sleepAsync", "async", "defer", "noop", "always", "juxt", "apply", "spread", "call", "bind",
 		// Object path functions
 		"getPath", "setPath", "pickPaths", "omitPaths", "deepGet", "deepSet", "cloneDeep", "mergeDeep",
+		// Array operations with index support
+		"rangeN", "timesN", "forEachN", "mapN", "filterN", "reduceN", "findN", "findIndexN", "everyN", "someN", "sortByN", "groupByN", "countByN", "partitionN", "keyByN", "sortedIndexN", "toSortedN", "toReversedN", "with", "findLastN", "findLastIndexN", "addIndexN",
 		// Array operations
 		"chunkArr", "unzip", "zipObj", "fromEntries", "toEntries", "headArr", "tailArr", "initArr", "lastArr", "uniqueArr", "flattenDeep", "differenceArr", "intersectionArr", "unionArr", "sortedIndex", "sortedLastIndex", "addIndex", "filterIndex", "findLastIndex", "findLast", "countBy", "groupByKey", "keyBy", "partition", "sortByKey", "sortByOrder", "isSorted", "sortedUNIQ",
 		// Math and bitwise
