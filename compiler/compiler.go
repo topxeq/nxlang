@@ -334,6 +334,11 @@ func registerBuiltins(st *SymbolTable) {
 		"toInt", "toFloat", "toString", "toBool", "toArray", "toMap",
 		// Time functions
 		"sleep", "timestamp", "unix", "unixMilli", "unixNano", "now", "formatTime",
+		"nowUnix", "nowUnixMs", "timestampToTime",
+		"timeYear", "timeMonth", "timeDay", "timeHour", "timeMinute", "timeSecond", "timeWeekday",
+		"addDays", "addMonths", "addYears",
+		// Array functions
+		"take", "drop", "takeLast", "dropLast", "first", "last", "head", "tail", "init",
 		// Map functions
 		"mapValues", "mapKeys", "groupBy", "zip", "unzip",
 		// Encoding functions

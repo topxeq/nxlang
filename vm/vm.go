@@ -829,6 +829,379 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["nowUnix"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().Unix())
+		},
+	}
+
+	vm.globals["nowUnixMs"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().UnixMilli())
+		},
+	}
+
+	vm.globals["timestampToTime"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("timestampToTime() expects 1 argument", 0, 0, "")
+			}
+			ts, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("timestampToTime() expects an integer", 0, 0, "")
+			}
+			t := time.Unix(int64(ts), 0)
+			return types.String(t.Format("2006-01-02 15:04:05"))
+		},
+	}
+
+	vm.globals["timeYear"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("timeYear() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				t, _ = time.Parse("2006-01-02", s)
+			}
+			return types.Int(t.Year())
+		},
+	}
+
+	vm.globals["timeMonth"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("timeMonth() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				t, _ = time.Parse("2006-01-02", s)
+			}
+			return types.Int(t.Month())
+		},
+	}
+
+	vm.globals["timeDay"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("timeDay() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				t, _ = time.Parse("2006-01-02", s)
+			}
+			return types.Int(t.Day())
+		},
+	}
+
+	vm.globals["timeHour"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("timeHour() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				return types.NewError("timeHour() expects time in format 2006-01-02 15:04:05", 0, 0, "")
+			}
+			return types.Int(t.Hour())
+		},
+	}
+
+	vm.globals["timeMinute"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("timeMinute() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				return types.NewError("timeMinute() expects time in format 2006-01-02 15:04:05", 0, 0, "")
+			}
+			return types.Int(t.Minute())
+		},
+	}
+
+	vm.globals["timeSecond"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("timeSecond() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				return types.NewError("timeSecond() expects time in format 2006-01-02 15:04:05", 0, 0, "")
+			}
+			return types.Int(t.Second())
+		},
+	}
+
+	vm.globals["timeWeekday"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("timeWeekday() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				t, _ = time.Parse("2006-01-02", s)
+			}
+			return types.Int(int(t.Weekday()))
+		},
+	}
+
+	vm.globals["addDays"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("addDays() expects 2 arguments", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			days, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("addDays() expects (string, integer)", 0, 0, "")
+			}
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				t, _ = time.Parse("2006-01-02", s)
+			}
+			t = t.AddDate(0, 0, int(days))
+			return types.String(t.Format("2006-01-02 15:04:05"))
+		},
+	}
+
+	vm.globals["addMonths"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("addMonths() expects 2 arguments", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			months, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("addMonths() expects (string, integer)", 0, 0, "")
+			}
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				t, _ = time.Parse("2006-01-02", s)
+			}
+			t = t.AddDate(0, int(months), 0)
+			return types.String(t.Format("2006-01-02 15:04:05"))
+		},
+	}
+
+	vm.globals["addYears"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("addYears() expects 2 arguments", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			years, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("addYears() expects (string, integer)", 0, 0, "")
+			}
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				t, _ = time.Parse("2006-01-02", s)
+			}
+			t = t.AddDate(int(years), 0, 0)
+			return types.String(t.Format("2006-01-02 15:04:05"))
+		},
+	}
+
+	vm.globals["take"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("take() expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("take() first argument must be an array", 0, 0, "")
+			}
+			n, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("take() second argument must be an integer", 0, 0, "")
+			}
+			if int(n) >= arr.Len() {
+				result := collections.NewArray()
+				for i := 0; i < arr.Len(); i++ {
+					result.Append(arr.Get(i))
+				}
+				return result
+			}
+			result := collections.NewArray()
+			for i := 0; i < int(n); i++ {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["drop"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("drop() expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("drop() first argument must be an array", 0, 0, "")
+			}
+			n, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("drop() second argument must be an integer", 0, 0, "")
+			}
+			if int(n) >= arr.Len() {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			for i := int(n); i < arr.Len(); i++ {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["takeLast"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("takeLast() expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("takeLast() first argument must be an array", 0, 0, "")
+			}
+			n, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("takeLast() second argument must be an integer", 0, 0, "")
+			}
+			if int(n) >= arr.Len() {
+				result := collections.NewArray()
+				for i := 0; i < arr.Len(); i++ {
+					result.Append(arr.Get(i))
+				}
+				return result
+			}
+			result := collections.NewArray()
+			for i := arr.Len() - int(n); i < arr.Len(); i++ {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["dropLast"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("dropLast() expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("dropLast() first argument must be an array", 0, 0, "")
+			}
+			n, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("dropLast() second argument must be an integer", 0, 0, "")
+			}
+			if int(n) >= arr.Len() {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr.Len()-int(n); i++ {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["first"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("first() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("first() argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return types.UndefinedValue
+			}
+			return arr.Get(0)
+		},
+	}
+
+	vm.globals["last"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("last() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("last() argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return types.UndefinedValue
+			}
+			return arr.Get(arr.Len() - 1)
+		},
+	}
+
+	vm.globals["head"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("head() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("head() argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return types.UndefinedValue
+			}
+			return arr.Get(0)
+		},
+	}
+
+	vm.globals["tail"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("tail() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("tail() argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			for i := 1; i < arr.Len(); i++ {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["init"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("init() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("init() argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr.Len()-1; i++ {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
 	vm.globals["round"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) == 0 {
