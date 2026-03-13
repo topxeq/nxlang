@@ -1132,6 +1132,344 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["pow"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("pow() expects 2 arguments (base, exp)", 0, 0, "")
+			}
+			base, _ := types.ToFloat(args[0])
+			exp, _ := types.ToFloat(args[1])
+			return types.Float(math.Pow(float64(base), float64(exp)))
+		},
+	}
+
+	vm.globals["sqrt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sqrt() expects 1 argument", 0, 0, "")
+			}
+			f, _ := types.ToFloat(args[0])
+			return types.Float(math.Sqrt(float64(f)))
+		},
+	}
+
+	vm.globals["abs"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("abs() expects 1 argument", 0, 0, "")
+			}
+			if i, ok := args[0].(types.Int); ok {
+				if i < 0 {
+					return types.Int(-i)
+				}
+				return i
+			}
+			f, _ := types.ToFloat(args[0])
+			return types.Float(math.Abs(float64(f)))
+		},
+	}
+
+	vm.globals["log"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("log() expects 1 argument", 0, 0, "")
+			}
+			f, _ := types.ToFloat(args[0])
+			return types.Float(math.Log(float64(f)))
+		},
+	}
+
+	vm.globals["log10"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("log10() expects 1 argument", 0, 0, "")
+			}
+			f, _ := types.ToFloat(args[0])
+			return types.Float(math.Log10(float64(f)))
+		},
+	}
+
+	vm.globals["sin"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sin() expects 1 argument", 0, 0, "")
+			}
+			f, _ := types.ToFloat(args[0])
+			return types.Float(math.Sin(float64(f)))
+		},
+	}
+
+	vm.globals["cos"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("cos() expects 1 argument", 0, 0, "")
+			}
+			f, _ := types.ToFloat(args[0])
+			return types.Float(math.Cos(float64(f)))
+		},
+	}
+
+	vm.globals["tan"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("tan() expects 1 argument", 0, 0, "")
+			}
+			f, _ := types.ToFloat(args[0])
+			return types.Float(math.Tan(float64(f)))
+		},
+	}
+
+	vm.globals["capitalize"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("capitalize() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			if len(s) == 0 {
+				return types.String(s)
+			}
+			return types.String(strings.ToUpper(s[:1]) + s[1:])
+		},
+	}
+
+	vm.globals["titleCase"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("titleCase() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			words := strings.Fields(s)
+			for i, word := range words {
+				if len(word) > 0 {
+					words[i] = strings.ToUpper(word[:1]) + word[1:]
+				}
+			}
+			return types.String(strings.Join(words, " "))
+		},
+	}
+
+	vm.globals["quote"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("quote() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			return types.String(strconv.Quote(s))
+		},
+	}
+
+	vm.globals["unquote"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("unquote() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			result, err := strconv.Unquote(s)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("unquote error: %v", err), 0, 0, "")
+			}
+			return types.String(result)
+		},
+	}
+
+	vm.globals["isEmpty"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isEmpty() expects 1 argument", 0, 0, "")
+			}
+			obj := args[0]
+			switch v := obj.(type) {
+			case types.String:
+				return types.Bool(len(v) == 0)
+			case *collections.Array:
+				return types.Bool(v.Len() == 0)
+			case *collections.Map:
+				return types.Bool(v.Len() == 0)
+			case *collections.OrderedMap:
+				return types.Bool(v.Len() == 0)
+			default:
+				return types.NewError("isEmpty() not supported for this type", 0, 0, "")
+			}
+		},
+	}
+
+	vm.globals["isInt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isInt() expects 1 argument", 0, 0, "")
+			}
+			_, ok := args[0].(types.Int)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isFloat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isFloat() expects 1 argument", 0, 0, "")
+			}
+			_, ok := args[0].(types.Float)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isNumber"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isNumber() expects 1 argument", 0, 0, "")
+			}
+			switch args[0].(type) {
+			case types.Int, types.Float:
+				return types.Bool(true)
+			default:
+				return types.Bool(false)
+			}
+		},
+	}
+
+	vm.globals["mapValues"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("mapValues() expects 1 argument", 0, 0, "")
+			}
+			m, ok := args[0].(*collections.Map)
+			if !ok {
+				om, ok := args[0].(*collections.OrderedMap)
+				if !ok {
+					return types.NewError("mapValues() expects a map", 0, 0, "")
+				}
+				arr := collections.NewArray()
+				keys := om.Keys()
+				for i := 0; i < keys.Len(); i++ {
+					k := keys.Get(i).(types.String)
+					arr.Append(om.Get(string(k)))
+				}
+				return arr
+			}
+			arr := collections.NewArray()
+			for _, v := range m.Entries {
+				arr.Append(v)
+			}
+			return arr
+		},
+	}
+
+	vm.globals["mapKeys"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("mapKeys() expects 1 argument", 0, 0, "")
+			}
+			m, ok := args[0].(*collections.Map)
+			if !ok {
+				om, ok := args[0].(*collections.OrderedMap)
+				if !ok {
+					return types.NewError("mapKeys() expects a map", 0, 0, "")
+				}
+				arr := collections.NewArray()
+				keys := om.Keys()
+				for i := 0; i < keys.Len(); i++ {
+					arr.Append(keys.Get(i))
+				}
+				return arr
+			}
+			arr := collections.NewArray()
+			for k := range m.Entries {
+				arr.Append(types.String(k))
+			}
+			return arr
+		},
+	}
+
+	vm.globals["groupBy"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("groupBy() expects 2 arguments (array, key)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("groupBy() first argument must be an array", 0, 0, "")
+			}
+			key := string(types.ToString(args[1]))
+			result := collections.NewMap()
+			for i := 0; i < arr.Len(); i++ {
+				val := arr.Get(i)
+				var groupKey string
+				switch v := val.(type) {
+				case *collections.Map:
+					groupKey = v.Get(key).ToStr()
+				default:
+					groupKey = val.ToStr()
+				}
+				group := result.Get(groupKey)
+				if group == types.UndefinedValue {
+					group = collections.NewArray()
+					result.Set(groupKey, group)
+				}
+				group.(*collections.Array).Append(val)
+			}
+			return result
+		},
+	}
+
+	vm.globals["zip"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("zip() expects at least 2 arguments", 0, 0, "")
+			}
+			minLen := -1
+			arrays := make([]*collections.Array, len(args))
+			for i, arg := range args {
+				arr, ok := arg.(*collections.Array)
+				if !ok {
+					return types.NewError("zip() all arguments must be arrays", 0, 0, "")
+				}
+				arrays[i] = arr
+				if minLen == -1 || arr.Len() < minLen {
+					minLen = arr.Len()
+				}
+			}
+			if minLen == 0 {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			for i := 0; i < minLen; i++ {
+				item := collections.NewArray()
+				for j := range arrays {
+					item.Append(arrays[j].Get(i))
+				}
+				result.Append(item)
+			}
+			return result
+		},
+	}
+
+	vm.globals["unzip"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("unzip() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("unzip() expects an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			first, _ := arr.Get(0).(*collections.Array)
+			numCols := first.Len()
+			for i := 0; i < numCols; i++ {
+				col := collections.NewArray()
+				for j := 0; j < arr.Len(); j++ {
+					item, _ := arr.Get(j).(*collections.Array)
+					col.Append(item.Get(i))
+				}
+				result.Append(col)
+			}
+			return result
+		},
+	}
+
 	vm.globals["base64Encode"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) == 0 {
