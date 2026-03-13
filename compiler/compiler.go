@@ -437,6 +437,16 @@ func registerBuiltins(st *SymbolTable) {
 		"gcd", "lcm", "factorial", "fibonacci", "isPrime", "primeFactors", "divmod", "bitcount", "bitlen", "bits", "fromBits",
 		// Bitwise operations
 		"xor", "and", "or", "not", "shl", "shr",
+		// Random functions
+		"randInt", "randRange", "randFloat", "randBool", "randChoice", "shuffleArr", "sampleArr", "seed",
+		// String functions
+		"repeatStr", "padEnd", "trimSpace", "hasPrefix", "hasSuffix", "replaceAllStr", "explode", "implode", "reverseStr", "indexStr", "lastIndexStr", "lines", "words", "byteSlice", "fromByteSlice", "match", "replaceRegexp",
+		// File system
+		"fileExists", "isDir", "isFile", "fileSize", "absPath", "dirName", "baseName", "extName", "joinPath", "listDir",
+		// Environment
+		"envVar", "envVars", "osName", "arch", "cpuCount", "numGoroutine",
+		// JSON
+		"toJSON", "fromJSON", "typeName", "lenArr",
 		// Array operations
 		"chunkArr", "unzip", "zipObj", "fromEntries", "toEntries", "headArr", "tailArr", "initArr", "lastArr", "uniqueArr", "flattenDeep", "differenceArr", "intersectionArr", "unionArr", "sortedIndex", "sortedLastIndex", "addIndex", "filterIndex", "findLastIndex", "findLast", "countBy", "groupByKey", "keyBy", "partition", "sortByKey", "sortByOrder", "isSorted", "sortedUNIQ",
 		// Math and bitwise
