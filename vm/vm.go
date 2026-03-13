@@ -4160,6 +4160,92 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["compare"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("compare() expects 2 arguments", 0, 0, "")
+			}
+			a := args[0].ToStr()
+			b := args[1].ToStr()
+			if a < b {
+				return types.Int(-1)
+			} else if a > b {
+				return types.Int(1)
+			}
+			return types.Int(0)
+		},
+	}
+
+	vm.globals["ternary"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("ternary() expects 3 arguments", 0, 0, "")
+			}
+			cond, ok := args[0].(types.Bool)
+			if !ok {
+				return types.NewError("ternary() first argument must be boolean", 0, 0, "")
+			}
+			if cond {
+				return args[1]
+			}
+			return args[2]
+		},
+	}
+
+	vm.globals["coalesce"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			for _, arg := range args {
+				if arg != types.UndefinedValue && arg != types.NullValue {
+					return arg
+				}
+			}
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["defaultTo"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("defaultTo() expects 2 arguments", 0, 0, "")
+			}
+			val := args[0]
+			if val == types.UndefinedValue || val == types.NullValue {
+				return args[1]
+			}
+			return val
+		},
+	}
+
+	vm.globals["memoize"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return args[0]
+		},
+	}
+
+	vm.globals["once"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return args[0]
+		},
+	}
+
+	vm.globals["negate"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("negate() expects 1 argument", 0, 0, "")
+			}
+			if b, ok := args[0].(types.Bool); ok {
+				return types.Bool(!b)
+			}
+			if n, ok := args[0].(types.Int); ok {
+				return types.Int(-n)
+			}
+			if f, ok := args[0].(types.Float); ok {
+				return types.Float(-f)
+			}
+			return types.NewError("negate() expects boolean or number", 0, 0, "")
+		},
+	}
+
 	vm.globals["strconv"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {
