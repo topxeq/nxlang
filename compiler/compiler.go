@@ -314,6 +314,9 @@ func registerBuiltins(st *SymbolTable) {
 		"repeat", "padLeft", "padRight", "camelCase", "snakeCase", "kebabCase",
 		// Array functions
 		"unique", "flatten", "chunk", "shuffle", "sample", "reverse", "sort", "join", "count",
+		"any", "all", "none", "difference", "intersection", "union",
+		// Math functions
+		"min", "max", "sum", "avg", "range",
 		// String functions
 		"wordCount", "truncate", "capitalize", "titleCase", "quote", "unquote",
 		"containsStr", "startsWith", "endsWith", "indexOf", "lastIndexOf",
