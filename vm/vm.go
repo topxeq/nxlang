@@ -10296,6 +10296,209 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["uuid"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			b := make([]byte, 16)
+			rand.Read(b)
+			b[6] = (b[6] & 0x0f) | 0x40
+			b[8] = (b[8] & 0x3f) | 0x80
+			return types.String(fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]))
+		},
+	}
+
+	vm.globals["powInt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("powInt() expects 2 arguments", 0, 0, "")
+			}
+			x, ok1 := args[0].(types.Int)
+			y, ok2 := args[1].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("powInt() expects integers", 0, 0, "")
+			}
+			if y < 0 {
+				return types.NewError("powInt() expects non-negative exponent", 0, 0, "")
+			}
+			result := types.Int(1)
+			for i := types.Int(0); i < y; i++ {
+				result *= x
+			}
+			return result
+		},
+	}
+
+	vm.globals["factorial"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("factorial() expects 1 argument", 0, 0, "")
+			}
+			n, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("factorial() expects an integer", 0, 0, "")
+			}
+			if n < 0 {
+				return types.NewError("factorial() expects non-negative integer", 0, 0, "")
+			}
+			result := types.Int(1)
+			for i := types.Int(1); i <= n; i++ {
+				result *= i
+			}
+			return result
+		},
+	}
+
+	vm.globals["fibonacci"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("fibonacci() expects 1 argument", 0, 0, "")
+			}
+			n, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("fibonacci() expects an integer", 0, 0, "")
+			}
+			if n < 0 {
+				return types.NewError("fibonacci() expects non-negative integer", 0, 0, "")
+			}
+			if n == 0 {
+				return types.Int(0)
+			}
+			if n == 1 {
+				return types.Int(1)
+			}
+			a, b := types.Int(0), types.Int(1)
+			for i := types.Int(2); i <= n; i++ {
+				a, b = b, a+b
+			}
+			return b
+		},
+	}
+
+	vm.globals["isPrimeNum"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isPrimeNum() expects 1 argument", 0, 0, "")
+			}
+			n, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("isPrimeNum() expects an integer", 0, 0, "")
+			}
+			if n < 2 {
+				return types.Bool(false)
+			}
+			if n == 2 {
+				return types.Bool(true)
+			}
+			if n%2 == 0 {
+				return types.Bool(false)
+			}
+			for i := types.Int(3); i*i <= n; i += 2 {
+				if n%i == 0 {
+					return types.Bool(false)
+				}
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["primeFactors"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("primeFactors() expects 1 argument", 0, 0, "")
+			}
+			n, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("primeFactors() expects an integer", 0, 0, "")
+			}
+			if n < 2 {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			d := types.Int(2)
+			for d*d <= n {
+				for n%d == 0 {
+					result.Append(d)
+					n /= d
+				}
+				d++
+			}
+			if n > 1 {
+				result.Append(n)
+			}
+			return result
+		},
+	}
+
+	vm.globals["divmod"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("divmod() expects 2 arguments", 0, 0, "")
+			}
+			a, ok1 := args[0].(types.Int)
+			b, ok2 := args[1].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("divmod() expects integers", 0, 0, "")
+			}
+			if b == 0 {
+				return types.NewError("divmod() division by zero", 0, 0, "")
+			}
+			result := collections.NewArray()
+			result.Append(a / b)
+			result.Append(a % b)
+			return result
+		},
+	}
+
+	vm.globals["percent"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("percent() expects 2 arguments", 0, 0, "")
+			}
+			part, _ := types.ToFloat(args[0])
+			total, _ := types.ToFloat(args[1])
+			if total == 0 {
+				return types.Float(0)
+			}
+			return types.Float((part / total) * 100)
+		},
+	}
+
+	vm.globals["degToRad"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("degToRad() expects 1 argument", 0, 0, "")
+			}
+			deg, _ := types.ToFloat(args[0])
+			return types.Float(deg * math.Pi / 180)
+		},
+	}
+
+	vm.globals["radToDeg"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("radToDeg() expects 1 argument", 0, 0, "")
+			}
+			rad, _ := types.ToFloat(args[0])
+			return types.Float(rad * 180 / math.Pi)
+		},
+	}
+
+	vm.globals["trunc"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("trunc() expects 1 argument", 0, 0, "")
+			}
+			f, ok := args[0].(types.Float)
+			if !ok {
+				i, ok := args[0].(types.Int)
+				if !ok {
+					return types.NewError("trunc() expects a number", 0, 0, "")
+				}
+				return i
+			}
+			return types.Int(math.Trunc(float64(f)))
+		},
+	}
+
 	// Debug functions
 	vm.globals["debug"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {

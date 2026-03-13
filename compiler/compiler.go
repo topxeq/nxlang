@@ -431,6 +431,8 @@ func registerBuiltins(st *SymbolTable) {
 		"hexEncode", "hexDecode", "rot13",
 		// String operations
 		"reverse", "repeatStr", "replaceStr", "replaceAllStr", "strStr", "lastStr", "strContains", "hasPrefixStr", "hasSuffixStr", "strEqual", "strEqualFold", "strCompare", "trimStr", "trimLeftStr", "trimRightStr", "strFields", "strSplit", "strJoin", "strToUpper", "strToLower", "strTitle", "strLen", "strRuneLen", "strHasPrefix", "strHasSuffix", "strContainsAny", "strContainsRune", "strIndex", "strLastIndex", "strIndexAny", "strCount", "strReplace", "strMap", "strFilter", "strFold", "strRepeat", "strPad", "strPadEnd",
+		// Math functions
+		"uuid", "powInt", "factorial", "fibonacci", "isPrimeNum", "primeFactors", "divmod", "percent", "degToRad", "radToDeg", "trunc",
 		// Graphics/Canvas functions
 		"canvas", "clear", "drawPoint", "drawLine", "drawRectangle", "fillRectangle", "drawCircle", "fillCircle", "savePNG", "loadPNG", "getPixel", "canvasWidth", "canvasHeight",
 		// Data/CSV functions
