@@ -3397,6 +3397,85 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["strip"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("strip() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			return types.String(strings.TrimSpace(s))
+		},
+	}
+
+	vm.globals["countStr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("countStr() expects 2 arguments (string, substring)", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			substr := string(types.ToString(args[1]))
+			return types.Int(strings.Count(s, substr))
+		},
+	}
+
+	vm.globals["splitLines"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("splitLines() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			lines := strings.Split(s, "\n")
+			arr := collections.NewArray()
+			for _, line := range lines {
+				arr.Append(types.String(line))
+			}
+			return arr
+		},
+	}
+
+	vm.globals["levenshtein"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("levenshtein() expects 2 arguments (string1, string2)", 0, 0, "")
+			}
+			s1 := string(types.ToString(args[0]))
+			s2 := string(types.ToString(args[1]))
+			if len(s1) == 0 {
+				return types.Int(len(s2))
+			}
+			if len(s2) == 0 {
+				return types.Int(len(s1))
+			}
+			// Create matrix
+			rows := len(s1) + 1
+			cols := len(s2) + 1
+			matrix := make([][]int, rows)
+			for i := range matrix {
+				matrix[i] = make([]int, cols)
+			}
+			for i := 0; i < rows; i++ {
+				matrix[i][0] = i
+			}
+			for j := 0; j < cols; j++ {
+				matrix[0][j] = j
+			}
+			for i := 1; i < rows; i++ {
+				for j := 1; j < cols; j++ {
+					cost := 1
+					if s1[i-1] == s2[j-1] {
+						cost = 0
+					}
+					matrix[i][j] = min(
+						matrix[i-1][j]+1,    // deletion
+						matrix[i][j-1]+1,    // insertion
+						matrix[i-1][j-1]+cost, // substitution
+					)
+				}
+			}
+			return types.Int(matrix[rows-1][cols-1])
+		},
+	}
+
 	vm.globals["range"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			start := 0
@@ -7690,6 +7769,84 @@ func (vm *VM) registerBuiltins() {
 				result.Append(types.String(word))
 			}
 			return result
+		},
+	}
+
+	vm.globals["strip"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("strip() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			return types.String(strings.TrimSpace(s))
+		},
+	}
+
+	vm.globals["countStr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("countStr() expects 2 arguments (string, substring)", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			substr := string(types.ToString(args[1]))
+			return types.Int(strings.Count(s, substr))
+		},
+	}
+
+	vm.globals["splitLines"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("splitLines() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			lines := strings.Split(s, "\n")
+			arr := collections.NewArray()
+			for _, line := range lines {
+				arr.Append(types.String(line))
+			}
+			return arr
+		},
+	}
+
+	vm.globals["levenshtein"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("levenshtein() expects 2 arguments (string1, string2)", 0, 0, "")
+			}
+			s1 := string(types.ToString(args[0]))
+			s2 := string(types.ToString(args[1]))
+			if len(s1) == 0 {
+				return types.Int(len(s2))
+			}
+			if len(s2) == 0 {
+				return types.Int(len(s1))
+			}
+			rows := len(s1) + 1
+			cols := len(s2) + 1
+			matrix := make([][]int, rows)
+			for i := range matrix {
+				matrix[i] = make([]int, cols)
+			}
+			for i := 0; i < rows; i++ {
+				matrix[i][0] = i
+			}
+			for j := 0; j < cols; j++ {
+				matrix[0][j] = j
+			}
+			for i := 1; i < rows; i++ {
+				for j := 1; j < cols; j++ {
+					cost := 1
+					if s1[i-1] == s2[j-1] {
+						cost = 0
+					}
+					matrix[i][j] = min(
+						matrix[i-1][j]+1,
+						matrix[i][j-1]+1,
+						matrix[i-1][j-1]+cost,
+					)
+				}
+			}
+			return types.Int(matrix[rows-1][cols-1])
 		},
 	}
 
@@ -13089,6 +13246,84 @@ func (vm *VM) registerBuiltins() {
 				result.Append(types.String(f))
 			}
 			return result
+		},
+	}
+
+	vm.globals["strip"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("strip() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			return types.String(strings.TrimSpace(s))
+		},
+	}
+
+	vm.globals["countStr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("countStr() expects 2 arguments (string, substring)", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			substr := string(types.ToString(args[1]))
+			return types.Int(strings.Count(s, substr))
+		},
+	}
+
+	vm.globals["splitLines"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("splitLines() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			lines := strings.Split(s, "\n")
+			arr := collections.NewArray()
+			for _, line := range lines {
+				arr.Append(types.String(line))
+			}
+			return arr
+		},
+	}
+
+	vm.globals["levenshtein"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("levenshtein() expects 2 arguments (string1, string2)", 0, 0, "")
+			}
+			s1 := string(types.ToString(args[0]))
+			s2 := string(types.ToString(args[1]))
+			if len(s1) == 0 {
+				return types.Int(len(s2))
+			}
+			if len(s2) == 0 {
+				return types.Int(len(s1))
+			}
+			rows := len(s1) + 1
+			cols := len(s2) + 1
+			matrix := make([][]int, rows)
+			for i := range matrix {
+				matrix[i] = make([]int, cols)
+			}
+			for i := 0; i < rows; i++ {
+				matrix[i][0] = i
+			}
+			for j := 0; j < cols; j++ {
+				matrix[0][j] = j
+			}
+			for i := 1; i < rows; i++ {
+				for j := 1; j < cols; j++ {
+					cost := 1
+					if s1[i-1] == s2[j-1] {
+						cost = 0
+					}
+					matrix[i][j] = min(
+						matrix[i-1][j]+1,
+						matrix[i][j-1]+1,
+						matrix[i-1][j-1]+cost,
+					)
+				}
+			}
+			return types.Int(matrix[rows-1][cols-1])
 		},
 	}
 
