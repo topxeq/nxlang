@@ -339,6 +339,10 @@ func registerBuiltins(st *SymbolTable) {
 		"addDays", "addMonths", "addYears",
 		// Array functions
 		"take", "drop", "takeLast", "dropLast", "first", "last", "head", "tail", "init",
+		"product", "factorial", "gcd", "lcm", "isPrime", "fibonacci",
+		// String functions
+		"isBlank", "removeSpaces", "removeExtraSpaces", "reverseStr", "countStr",
+		"hasPrefix", "hasSuffix",
 		// Map functions
 		"mapValues", "mapKeys", "groupBy", "zip", "unzip",
 		// Encoding functions

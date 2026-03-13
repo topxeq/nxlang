@@ -1202,20 +1202,214 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
-	vm.globals["round"] = &types.NativeFunction{
+	vm.globals["product"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) == 0 {
-				return types.NewError("round() expects 1 argument", 0, 0, "")
+				return types.NewError("product() expects at least 1 argument", 0, 0, "")
 			}
-			f, ok := args[0].(types.Float)
+			arr, ok := args[0].(*collections.Array)
 			if !ok {
-				i, ok := args[0].(types.Int)
-				if ok {
-					return i
-				}
-				return types.NewError("round() expects a number", 0, 0, "")
+				return types.NewError("product() expects an array", 0, 0, "")
 			}
-			return types.Int(math.Round(float64(f)))
+			if arr.Len() == 0 {
+				return types.Int(1)
+			}
+			result := 1
+			for i := 0; i < arr.Len(); i++ {
+				val := arr.Get(i)
+				if f, ok := val.(types.Float); ok {
+					result = int(float64(result) * float64(f))
+				} else if n, ok := val.(types.Int); ok {
+					result = result * int(n)
+				}
+			}
+			return types.Int(result)
+		},
+	}
+
+	vm.globals["factorial"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("factorial() expects 1 argument", 0, 0, "")
+			}
+			n, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("factorial() expects an integer", 0, 0, "")
+			}
+			if n < 0 {
+				return types.NewError("factorial() expects non-negative integer", 0, 0, "")
+			}
+			result := 1
+			for i := 2; i <= int(n); i++ {
+				result *= i
+			}
+			return types.Int(result)
+		},
+	}
+
+	vm.globals["gcd"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("gcd() expects 2 arguments", 0, 0, "")
+			}
+			a, ok1 := args[0].(types.Int)
+			b, ok2 := args[1].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("gcd() expects 2 integers", 0, 0, "")
+			}
+			aVal, bVal := int(a), int(b)
+			for bVal != 0 {
+				aVal, bVal = bVal, aVal%bVal
+			}
+			return types.Int(aVal)
+		},
+	}
+
+	vm.globals["lcm"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("lcm() expects 2 arguments", 0, 0, "")
+			}
+			a, ok1 := args[0].(types.Int)
+			b, ok2 := args[1].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("lcm() expects 2 integers", 0, 0, "")
+			}
+			aVal, bVal := int(a), int(b)
+			gcd := aVal
+			tmp := bVal
+			for tmp != 0 {
+				gcd, tmp = tmp, gcd%tmp
+			}
+			return types.Int(aVal * bVal / gcd)
+		},
+	}
+
+	vm.globals["isPrime"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isPrime() expects 1 argument", 0, 0, "")
+			}
+			n, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("isPrime() expects an integer", 0, 0, "")
+			}
+			if n < 2 {
+				return types.Bool(false)
+			}
+			for i := types.Int(2); i*i <= n; i++ {
+				if n%i == 0 {
+					return types.Bool(false)
+				}
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["fibonacci"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("fibonacci() expects 1 argument", 0, 0, "")
+			}
+			n, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("fibonacci() expects an integer", 0, 0, "")
+			}
+			if n < 0 {
+				return types.NewError("fibonacci() expects non-negative integer", 0, 0, "")
+			}
+			if n == 0 {
+				return types.Int(0)
+			}
+			if n == 1 {
+				return types.Int(1)
+			}
+			a, b := 0, 1
+			for i := 2; i <= int(n); i++ {
+				a, b = b, a+b
+			}
+			return types.Int(b)
+		},
+	}
+
+	vm.globals["isBlank"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isBlank() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			return types.Bool(len(strings.TrimSpace(s)) == 0)
+		},
+	}
+
+	vm.globals["removeSpaces"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("removeSpaces() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			result := strings.ReplaceAll(s, " ", "")
+			return types.String(result)
+		},
+	}
+
+	vm.globals["removeExtraSpaces"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("removeExtraSpaces() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			space := regexp.MustCompile(`\s+`)
+			result := space.ReplaceAllString(strings.TrimSpace(s), " ")
+			return types.String(result)
+		},
+	}
+
+	vm.globals["reverseStr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("reverseStr() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			runes := []rune(s)
+			for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+				runes[i], runes[j] = runes[j], runes[i]
+			}
+			return types.String(runes)
+		},
+	}
+
+	vm.globals["countStr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("countStr() expects 2 arguments", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			sub := string(types.ToString(args[1]))
+			count := strings.Count(s, sub)
+			return types.Int(count)
+		},
+	}
+
+	vm.globals["hasPrefix"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("hasPrefix() expects 2 arguments", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			prefix := string(types.ToString(args[1]))
+			return types.Bool(strings.HasPrefix(s, prefix))
+		},
+	}
+
+	vm.globals["hasSuffix"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("hasSuffix() expects 2 arguments", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			suffix := string(types.ToString(args[1]))
+			return types.Bool(strings.HasSuffix(s, suffix))
 		},
 	}
 
