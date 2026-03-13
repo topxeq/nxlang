@@ -368,6 +368,11 @@ func registerBuiltins(st *SymbolTable) {
 		// Type check functions
 		"int", "float", "bool", "string", "byte", "uint", "char", "bytes", "chars",
 		"isUndefined", "isNull", "isNil", "isTruthy", "isEmptyStr", "byteSize", "runeSize",
+		"isPositive", "isNegative", "isZero",
+		// Math conversion
+		"bin", "oct", "hex", "bin2int", "oct2int", "hex2int",
+		// Random functions
+		"randomChoice", "randomBool", "uuid4", "sleepRandom",
 		// Graphics/Canvas functions
 		"canvas", "clear", "drawPoint", "drawLine", "drawRectangle", "fillRectangle", "drawCircle", "fillCircle", "savePNG", "loadPNG", "getPixel", "canvasWidth", "canvasHeight",
 		// Data/CSV functions

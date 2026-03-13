@@ -4608,6 +4608,188 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["bin"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("bin() expects 1 argument", 0, 0, "")
+			}
+			n, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("bin() expects an integer", 0, 0, "")
+			}
+			return types.String(fmt.Sprintf("%b", n))
+		},
+	}
+
+	vm.globals["oct"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("oct() expects 1 argument", 0, 0, "")
+			}
+			n, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("oct() expects an integer", 0, 0, "")
+			}
+			return types.String(fmt.Sprintf("%o", n))
+		},
+	}
+
+	vm.globals["hex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("hex() expects 1 argument", 0, 0, "")
+			}
+			n, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("hex() expects an integer", 0, 0, "")
+			}
+			return types.String(fmt.Sprintf("%x", n))
+		},
+	}
+
+	vm.globals["bin2int"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("bin2int() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			n, err := strconv.ParseInt(s, 2, 64)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("bin2int error: %v", err), 0, 0, "")
+			}
+			return types.Int(n)
+		},
+	}
+
+	vm.globals["oct2int"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("oct2int() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			n, err := strconv.ParseInt(s, 8, 64)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("oct2int error: %v", err), 0, 0, "")
+			}
+			return types.Int(n)
+		},
+	}
+
+	vm.globals["hex2int"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("hex2int() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			n, err := strconv.ParseInt(s, 16, 64)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("hex2int error: %v", err), 0, 0, "")
+			}
+			return types.Int(n)
+		},
+	}
+
+	vm.globals["isEven"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isEven() expects 1 argument", 0, 0, "")
+			}
+			n, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("isEven() expects an integer", 0, 0, "")
+			}
+			return types.Bool(n%2 == 0)
+		},
+	}
+
+	vm.globals["isOdd"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isOdd() expects 1 argument", 0, 0, "")
+			}
+			n, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("isOdd() expects an integer", 0, 0, "")
+			}
+			return types.Bool(n%2 != 0)
+		},
+	}
+
+	vm.globals["isPositive"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isPositive() expects 1 argument", 0, 0, "")
+			}
+			f, _ := types.ToFloat(args[0])
+			return types.Bool(f > 0)
+		},
+	}
+
+	vm.globals["isNegative"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isNegative() expects 1 argument", 0, 0, "")
+			}
+			f, _ := types.ToFloat(args[0])
+			return types.Bool(f < 0)
+		},
+	}
+
+	vm.globals["isZero"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isZero() expects 1 argument", 0, 0, "")
+			}
+			f, _ := types.ToFloat(args[0])
+			return types.Bool(f == 0)
+		},
+	}
+
+	vm.globals["randomChoice"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("randomChoice() expects at least 1 argument", 0, 0, "")
+			}
+			idx := rand.Intn(len(args))
+			return args[idx]
+		},
+	}
+
+	vm.globals["randomBool"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Bool(rand.Float64() >= 0.5)
+		},
+	}
+
+	vm.globals["uuid4"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			b := make([]byte, 16)
+			for i := range b {
+				b[i] = byte(rand.Intn(256))
+			}
+			b[6] = (b[6] & 0x0f) | 0x40
+			b[8] = (b[8] & 0x3f) | 0x80
+			uuid := fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+			return types.String(uuid)
+		},
+	}
+
+	vm.globals["sleepRandom"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("sleepRandom() expects 2 arguments", 0, 0, "")
+			}
+			min, ok1 := args[0].(types.Int)
+			max, ok2 := args[1].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("sleepRandom() expects 2 integers", 0, 0, "")
+			}
+			delay := rand.Intn(int(max-min+1)) + int(min)
+			time.Sleep(time.Duration(delay) * time.Millisecond)
+			return types.UndefinedValue
+		},
+	}
+
 	// Debug functions
 	vm.globals["debug"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
