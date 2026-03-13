@@ -6870,6 +6870,77 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["compact"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("compact() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("compact() first argument must be an array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				val := arr.Get(i)
+				// Skip nil, false, 0, "", null
+				if val == types.NullValue || val == types.UndefinedValue {
+					continue
+				}
+				if b, ok := val.(types.Bool); ok && !bool(b) {
+					continue
+				}
+				if s, ok := val.(types.String); ok && s == "" {
+					continue
+				}
+				if n, ok := val.(types.Int); ok && n == 0 {
+					continue
+				}
+				if f, ok := val.(types.Float); ok && f == 0 {
+					continue
+				}
+				result.Append(val)
+			}
+			return result
+		},
+	}
+
+	vm.globals["rotate"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("rotate() expects at least 2 arguments (array, count)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("rotate() first argument must be an array", 0, 0, "")
+			}
+			count, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("rotate() second argument must be an integer", 0, 0, "")
+			}
+			n := arr.Len()
+			if n == 0 {
+				return collections.NewArray()
+			}
+			// Normalize count
+			c := int(count) % n
+			if c < 0 {
+				c += n
+			}
+			if c == 0 {
+				return arr
+			}
+			result := collections.NewArray()
+			// Start from the rotated position
+			for i := n - c; i < n; i++ {
+				result.Append(arr.Get(i))
+			}
+			for i := 0; i < n-c; i++ {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
 	vm.globals["hasKey"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {
@@ -15979,6 +16050,74 @@ func (vm *VM) registerBuiltins() {
 				strParts[i] = arr.Get(i).ToStr()
 			}
 			return types.String(strings.Join(strParts, string(sep)))
+		},
+	}
+
+	vm.globals["compact"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("compact(arr) expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("compact: first argument must be array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				val := arr.Get(i)
+				if val == types.NullValue || val == types.UndefinedValue {
+					continue
+				}
+				if b, ok := val.(types.Bool); ok && !bool(b) {
+					continue
+				}
+				if s, ok := val.(types.String); ok && s == "" {
+					continue
+				}
+				if n, ok := val.(types.Int); ok && n == 0 {
+					continue
+				}
+				if f, ok := val.(types.Float); ok && f == 0 {
+					continue
+				}
+				result.Append(val)
+			}
+			return result
+		},
+	}
+
+	vm.globals["rotate"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("rotate(arr, count) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("rotate: first argument must be array", 0, 0, "")
+			}
+			count, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("rotate: second argument must be integer", 0, 0, "")
+			}
+			n := arr.Len()
+			if n == 0 {
+				return collections.NewArray()
+			}
+			c := int(count) % n
+			if c < 0 {
+				c += n
+			}
+			if c == 0 {
+				return arr
+			}
+			result := collections.NewArray()
+			for i := n - c; i < n; i++ {
+				result.Append(arr.Get(i))
+			}
+			for i := 0; i < n-c; i++ {
+				result.Append(arr.Get(i))
+			}
+			return result
 		},
 	}
 
