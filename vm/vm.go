@@ -7157,6 +7157,52 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["dropWhile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("dropWhile() expects 2 arguments (array, value)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("dropWhile() first argument must be an array", 0, 0, "")
+			}
+			target := args[1]
+			result := collections.NewArray()
+			dropping := true
+			for i := 0; i < arr.Len(); i++ {
+				val := arr.Get(i)
+				if dropping && val.Equals(target) {
+					continue
+				}
+				dropping = false
+				result.Append(val)
+			}
+			return result
+		},
+	}
+
+	vm.globals["takeWhile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("takeWhile() expects 2 arguments (array, value)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("takeWhile() first argument must be an array", 0, 0, "")
+			}
+			target := args[1]
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				val := arr.Get(i)
+				if !val.Equals(target) {
+					break
+				}
+				result.Append(val)
+			}
+			return result
+		},
+	}
+
 	vm.globals["hasKey"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {
@@ -9689,6 +9735,52 @@ func (vm *VM) registerBuiltins() {
 				return types.NewError("randomInt: argument must be integer", 0, 0, "")
 			}
 			return types.Int(rand.Intn(int(max)))
+		},
+	}
+
+	vm.globals["dropWhile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("dropWhile(arr, value) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("dropWhile: first argument must be array", 0, 0, "")
+			}
+			target := args[1]
+			result := collections.NewArray()
+			dropping := true
+			for i := 0; i < arr.Len(); i++ {
+				val := arr.Get(i)
+				if dropping && val.Equals(target) {
+					continue
+				}
+				dropping = false
+				result.Append(val)
+			}
+			return result
+		},
+	}
+
+	vm.globals["takeWhile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("takeWhile(arr, value) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("takeWhile: first argument must be array", 0, 0, "")
+			}
+			target := args[1]
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				val := arr.Get(i)
+				if !val.Equals(target) {
+					break
+				}
+				result.Append(val)
+			}
+			return result
 		},
 	}
 
@@ -16598,6 +16690,52 @@ func (vm *VM) registerBuiltins() {
 				return types.NewError("randomInt: argument must be integer", 0, 0, "")
 			}
 			return types.Int(rand.Intn(int(max)))
+		},
+	}
+
+	vm.globals["dropWhile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("dropWhile(arr, value) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("dropWhile: first argument must be array", 0, 0, "")
+			}
+			target := args[1]
+			result := collections.NewArray()
+			dropping := true
+			for i := 0; i < arr.Len(); i++ {
+				val := arr.Get(i)
+				if dropping && val.Equals(target) {
+					continue
+				}
+				dropping = false
+				result.Append(val)
+			}
+			return result
+		},
+	}
+
+	vm.globals["takeWhile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("takeWhile(arr, value) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("takeWhile: first argument must be array", 0, 0, "")
+			}
+			target := args[1]
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				val := arr.Get(i)
+				if !val.Equals(target) {
+					break
+				}
+				result.Append(val)
+			}
+			return result
 		},
 	}
 
