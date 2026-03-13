@@ -427,6 +427,16 @@ func registerBuiltins(st *SymbolTable) {
 		"setTimeZone", "getTimeZone", "parseDate", "formatDate", "addDate", "dateDiff", "isLeapYear", "daysInMonth", "weekNumber", "dayOfYear", "startOfDay", "endOfDay", "startOfMonth", "endOfMonth", "startOfYear", "endOfYear", "timestampAdd", "strftime", "strptime", "sleepUntil", "sleepMs", "unixToTime", "formatDuration", "parseDuration",
 		// Hash and encoding
 		"hash", "crc32", "parseInt", "parseFloat", "formatInt", "formatFloat", "isInt", "isFloat", "toInt", "toFloat",
+		// Type checking and conversion
+		"isString", "isBool", "isArray", "isMap", "isFunction", "isNull", "isNumber", "isInteger", "toBool", "toStr", "toArray", "toMap",
+		// Math functions
+		"clamp", "wrap", "sign", "round", "floor", "ceil", "trunc", "abs", "sqrt", "cbrt", "pow", "exp", "exp2", "log", "log2", "log10", "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh", "degToRad", "radToDeg", "pi", "e", "phi", "tau", "inf", "negInf", "nan",
+		// Number utilities
+		"isNaN", "isInf", "isEven", "isOdd", "between", "within", "percent", "ratio", "lerp", "mapRange", "dist", "hypot",
+		// Integer math
+		"gcd", "lcm", "factorial", "fibonacci", "isPrime", "primeFactors", "divmod", "bitcount", "bitlen", "bits", "fromBits",
+		// Bitwise operations
+		"xor", "and", "or", "not", "shl", "shr",
 		// Array operations
 		"chunkArr", "unzip", "zipObj", "fromEntries", "toEntries", "headArr", "tailArr", "initArr", "lastArr", "uniqueArr", "flattenDeep", "differenceArr", "intersectionArr", "unionArr", "sortedIndex", "sortedLastIndex", "addIndex", "filterIndex", "findLastIndex", "findLast", "countBy", "groupByKey", "keyBy", "partition", "sortByKey", "sortByOrder", "isSorted", "sortedUNIQ",
 		// Math and bitwise

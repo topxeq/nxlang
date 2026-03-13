@@ -11569,6 +11569,927 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["isString"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isString() expects 1 argument", 0, 0, "")
+			}
+			_, ok := args[0].(types.String)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isBool"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isBool() expects 1 argument", 0, 0, "")
+			}
+			_, ok := args[0].(types.Bool)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isArray"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isArray() expects 1 argument", 0, 0, "")
+			}
+			_, ok := args[0].(*collections.Array)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isMap"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isMap() expects 1 argument", 0, 0, "")
+			}
+			_, ok := args[0].(*collections.Map)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isFunction"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isFunction() expects 1 argument", 0, 0, "")
+			}
+			_, ok := args[0].(*types.NativeFunction)
+			if ok {
+				return types.Bool(true)
+			}
+			_, ok = args[0].(*types.Function)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isNull"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isNull() expects 1 argument", 0, 0, "")
+			}
+			return types.Bool(args[0] == types.UndefinedValue || args[0] == nil)
+		},
+	}
+
+	vm.globals["isNumber"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isNumber() expects 1 argument", 0, 0, "")
+			}
+			_, ok := args[0].(types.Int)
+			if ok {
+				return types.Bool(true)
+			}
+			_, ok = args[0].(types.Float)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isInteger"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isInteger() expects 1 argument", 0, 0, "")
+			}
+			_, ok := args[0].(types.Int)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["toBool"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("toBool() expects 1 argument", 0, 0, "")
+			}
+			return types.Bool(types.ToBool(args[0]))
+		},
+	}
+
+	vm.globals["toStr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("toStr() expects 1 argument", 0, 0, "")
+			}
+			return types.String(types.ToString(args[0]))
+		},
+	}
+
+	vm.globals["toArray"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("toArray() expects 1 argument", 0, 0, "")
+			}
+			if arr, ok := args[0].(*collections.Array); ok {
+				return arr
+			}
+			if s, ok := args[0].(types.String); ok {
+				result := collections.NewArray()
+				for _, r := range string(s) {
+					result.Append(types.String(r))
+				}
+				return result
+			}
+			result := collections.NewArray()
+			result.Append(args[0])
+			return result
+		},
+	}
+
+	vm.globals["toMap"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("toMap() expects 1 argument", 0, 0, "")
+			}
+			if m, ok := args[0].(*collections.Map); ok {
+				return m
+			}
+			return collections.NewMap()
+		},
+	}
+
+	vm.globals["clamp"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("clamp() expects 3 arguments: value, min, max", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			min, _ := types.ToFloat(args[1])
+			max, _ := types.ToFloat(args[2])
+			if float64(val) < float64(min) {
+				return types.Float(min)
+			}
+			if float64(val) > float64(max) {
+				return types.Float(max)
+			}
+			return types.Float(val)
+		},
+	}
+
+	vm.globals["wrap"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("wrap() expects 3 arguments: value, min, max", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			min, _ := types.ToFloat(args[1])
+			max, _ := types.ToFloat(args[2])
+			range_ := float64(max) - float64(min)
+			if range_ == 0 {
+				return types.Float(min)
+			}
+			result := math.Mod(float64(val)-float64(min), range_)
+			if result < 0 {
+				result += range_
+			}
+			return types.Float(float64(min) + result)
+		},
+	}
+
+	vm.globals["sign"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("sign() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			if float64(val) > 0 {
+				return types.Int(1)
+			}
+			if float64(val) < 0 {
+				return types.Int(-1)
+			}
+			return types.Int(0)
+		},
+	}
+
+	vm.globals["round"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("round() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Round(float64(val)))
+		},
+	}
+
+	vm.globals["floor"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("floor() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Floor(float64(val)))
+		},
+	}
+
+	vm.globals["ceil"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("ceil() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Ceil(float64(val)))
+		},
+	}
+
+	vm.globals["trunc"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("trunc() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Trunc(float64(val)))
+		},
+	}
+
+	vm.globals["abs"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("abs() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Abs(float64(val)))
+		},
+	}
+
+	vm.globals["sqrt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("sqrt() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Sqrt(float64(val)))
+		},
+	}
+
+	vm.globals["cbrt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("cbrt() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Cbrt(float64(val)))
+		},
+	}
+
+	vm.globals["pow"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("pow() expects 2 arguments: base, exponent", 0, 0, "")
+			}
+			base, _ := types.ToFloat(args[0])
+			exp, _ := types.ToFloat(args[1])
+			return types.Float(math.Pow(float64(base), float64(exp)))
+		},
+	}
+
+	vm.globals["exp"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("exp() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Exp(float64(val)))
+		},
+	}
+
+	vm.globals["exp2"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("exp2() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Exp2(float64(val)))
+		},
+	}
+
+	vm.globals["log"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("log() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Log(float64(val)))
+		},
+	}
+
+	vm.globals["log2"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("log2() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Log2(float64(val)))
+		},
+	}
+
+	vm.globals["log10"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("log10() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Log10(float64(val)))
+		},
+	}
+
+	vm.globals["sin"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("sin() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Sin(float64(val)))
+		},
+	}
+
+	vm.globals["cos"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("cos() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Cos(float64(val)))
+		},
+	}
+
+	vm.globals["tan"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("tan() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Tan(float64(val)))
+		},
+	}
+
+	vm.globals["asin"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("asin() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Asin(float64(val)))
+		},
+	}
+
+	vm.globals["acos"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("acos() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Acos(float64(val)))
+		},
+	}
+
+	vm.globals["atan"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("atan() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Atan(float64(val)))
+		},
+	}
+
+	vm.globals["sinh"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("sinh() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Sinh(float64(val)))
+		},
+	}
+
+	vm.globals["cosh"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("cosh() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Cosh(float64(val)))
+		},
+	}
+
+	vm.globals["tanh"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("tanh() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(math.Tanh(float64(val)))
+		},
+	}
+
+	vm.globals["degToRad"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("degToRad() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(val * math.Pi / 180)
+		},
+	}
+
+	vm.globals["radToDeg"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("radToDeg() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(val * 180 / math.Pi)
+		},
+	}
+
+	vm.globals["pi"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Float(math.Pi)
+		},
+	}
+
+	vm.globals["e"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Float(math.E)
+		},
+	}
+
+	vm.globals["phi"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Float(1.618033988749895)
+		},
+	}
+
+	vm.globals["tau"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Float(math.Pi * 2)
+		},
+	}
+
+	vm.globals["inf"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Float(math.Inf(1))
+		},
+	}
+
+	vm.globals["negInf"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Float(math.Inf(-1))
+		},
+	}
+
+	vm.globals["nan"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Float(math.NaN())
+		},
+	}
+
+	vm.globals["isNaN"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isNaN() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Bool(math.IsNaN(float64(val)))
+		},
+	}
+
+	vm.globals["isInf"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isInf() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Bool(math.IsInf(float64(val), 0))
+		},
+	}
+
+	vm.globals["isEven"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isEven() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToInt(args[0])
+			return types.Bool(val%2 == 0)
+		},
+	}
+
+	vm.globals["isOdd"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isOdd() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToInt(args[0])
+			return types.Bool(val%2 != 0)
+		},
+	}
+
+	vm.globals["between"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("between() expects 3 arguments: value, min, max", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			min, _ := types.ToFloat(args[1])
+			max, _ := types.ToFloat(args[2])
+			return types.Bool(val >= min && val <= max)
+		},
+	}
+
+	vm.globals["within"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("within() expects 3 arguments: value, min, max", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			min, _ := types.ToFloat(args[1])
+			max, _ := types.ToFloat(args[2])
+			return types.Bool(val > min && val < max)
+		},
+	}
+
+	vm.globals["percent"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("percent() expects 2 arguments: value, total", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			total, _ := types.ToFloat(args[1])
+			if total == 0 {
+				return types.Float(0)
+			}
+			return types.Float(val / total * 100)
+		},
+	}
+
+	vm.globals["ratio"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("ratio() expects 2 arguments: part, total", 0, 0, "")
+			}
+			part, _ := types.ToFloat(args[0])
+			total, _ := types.ToFloat(args[1])
+			if total == 0 {
+				return types.Float(0)
+			}
+			return types.Float(part / total)
+		},
+	}
+
+	vm.globals["lerp"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("lerp() expects 3 arguments: start, end, t", 0, 0, "")
+			}
+			start, _ := types.ToFloat(args[0])
+			end, _ := types.ToFloat(args[1])
+			t, _ := types.ToFloat(args[2])
+			return types.Float(start + (end-start)*t)
+		},
+	}
+
+	vm.globals["mapRange"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 5 {
+				return types.NewError("mapRange() expects 5 arguments: value, inMin, inMax, outMin, outMax", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			inMin, _ := types.ToFloat(args[1])
+			inMax, _ := types.ToFloat(args[2])
+			outMin, _ := types.ToFloat(args[3])
+			outMax, _ := types.ToFloat(args[4])
+			if inMax == inMin {
+				return types.Float(outMin)
+			}
+			return types.Float(outMin + (val-inMin)*(outMax-outMin)/(inMax-inMin))
+		},
+	}
+
+	vm.globals["dist"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 4 {
+				return types.NewError("dist() expects 4 arguments: x1, y1, x2, y2", 0, 0, "")
+			}
+			x1, _ := types.ToFloat(args[0])
+			y1, _ := types.ToFloat(args[1])
+			x2, _ := types.ToFloat(args[2])
+			y2, _ := types.ToFloat(args[3])
+			dx := float64(x2) - float64(x1)
+			dy := float64(y2) - float64(y1)
+			return types.Float(math.Sqrt(dx*dx + dy*dy))
+		},
+	}
+
+	vm.globals["hypot"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("hypot() expects 2 arguments: x, y", 0, 0, "")
+			}
+			x, _ := types.ToFloat(args[0])
+			y, _ := types.ToFloat(args[1])
+			return types.Float(math.Hypot(float64(x), float64(y)))
+		},
+	}
+
+	vm.globals["gcd"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("gcd() expects 2 arguments", 0, 0, "")
+			}
+			a, _ := types.ToInt(args[0])
+			b, _ := types.ToInt(args[1])
+			if a < 0 {
+				a = -a
+			}
+			if b < 0 {
+				b = -b
+			}
+			for b != 0 {
+				a, b = b, a%b
+			}
+			return types.Int(a)
+		},
+	}
+
+	vm.globals["lcm"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("lcm() expects 2 arguments", 0, 0, "")
+			}
+			a, _ := types.ToInt(args[0])
+			b, _ := types.ToInt(args[1])
+			if a == 0 || b == 0 {
+				return types.Int(0)
+			}
+			if a < 0 {
+				a = -a
+			}
+			if b < 0 {
+				b = -b
+			}
+			gcd := func(x, y types.Int) types.Int {
+				if x < 0 {
+					x = -x
+				}
+				if y < 0 {
+					y = -y
+				}
+				for y != 0 {
+					x, y = y, x%y
+				}
+				return x
+			}
+			return types.Int(a * b / gcd(a, b))
+		},
+	}
+
+	vm.globals["factorial"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("factorial() expects 1 argument", 0, 0, "")
+			}
+			n, _ := types.ToInt(args[0])
+			if n < 0 {
+				return types.NewError("factorial() expects non-negative integer", 0, 0, "")
+			}
+			result := types.Int(1)
+			for i := types.Int(2); i <= n; i++ {
+				result *= i
+			}
+			return result
+		},
+	}
+
+	vm.globals["fibonacci"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("fibonacci() expects 1 argument", 0, 0, "")
+			}
+			n, _ := types.ToInt(args[0])
+			if n < 0 {
+				return types.NewError("fibonacci() expects non-negative integer", 0, 0, "")
+			}
+			if n == 0 {
+				return types.Int(0)
+			}
+			if n == 1 {
+				return types.Int(1)
+			}
+			a, b := types.Int(0), types.Int(1)
+			for i := types.Int(2); i <= n; i++ {
+				a, b = b, a+b
+			}
+			return b
+		},
+	}
+
+	vm.globals["isPrime"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isPrime() expects 1 argument", 0, 0, "")
+			}
+			n, _ := types.ToInt(args[0])
+			if n < 2 {
+				return types.Bool(false)
+			}
+			if n == 2 {
+				return types.Bool(true)
+			}
+			if n%2 == 0 {
+				return types.Bool(false)
+			}
+			for i := types.Int(3); i*i <= n; i += 2 {
+				if n%i == 0 {
+					return types.Bool(false)
+				}
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["primeFactors"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("primeFactors() expects 1 argument", 0, 0, "")
+			}
+			n, _ := types.ToInt(args[0])
+			if n < 2 {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			d := types.Int(2)
+			for d*d <= n {
+				for n%d == 0 {
+					result.Append(d)
+					n /= d
+				}
+				d++
+			}
+			if n > 1 {
+				result.Append(n)
+			}
+			return result
+		},
+	}
+
+	vm.globals["divmod"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("divmod() expects 2 arguments: dividend, divisor", 0, 0, "")
+			}
+			a, _ := types.ToInt(args[0])
+			b, _ := types.ToInt(args[1])
+			if b == 0 {
+				return types.NewError("divmod(): division by zero", 0, 0, "")
+			}
+			result := collections.NewArray()
+			result.Append(a / b)
+			result.Append(a % b)
+			return result
+		},
+	}
+
+	vm.globals["bitcount"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("bitcount() expects 1 argument", 0, 0, "")
+			}
+			n, _ := types.ToInt(args[0])
+			count := 0
+			for n > 0 {
+				if n&1 == 1 {
+					count++
+				}
+				n >>= 1
+			}
+			return types.Int(count)
+		},
+	}
+
+	vm.globals["bitlen"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("bitlen() expects 1 argument", 0, 0, "")
+			}
+			n, _ := types.ToInt(args[0])
+			if n == 0 {
+				return types.Int(0)
+			}
+			len := 0
+			for n > 0 {
+				len++
+				n >>= 1
+			}
+			return types.Int(len)
+		},
+	}
+
+	vm.globals["bits"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("bits() expects 1 argument", 0, 0, "")
+			}
+			n, _ := types.ToInt(args[0])
+			result := collections.NewArray()
+			if n == 0 {
+				result.Append(types.Int(0))
+				return result
+			}
+			bits := collections.NewArray()
+			for n > 0 {
+				bits.Append(types.Int(n & 1))
+				n >>= 1
+			}
+			for i := bits.Len() - 1; i >= 0; i-- {
+				result.Append(bits.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["fromBits"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("fromBits() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("fromBits() first argument must be an array", 0, 0, "")
+			}
+			result := types.Int(0)
+			for i := 0; i < arr.Len(); i++ {
+				bit, _ := types.ToInt(arr.Get(i))
+				result = (result << 1) | bit
+			}
+			return result
+		},
+	}
+
+	vm.globals["xor"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("xor() expects 2 arguments", 0, 0, "")
+			}
+			a, _ := types.ToInt(args[0])
+			b, _ := types.ToInt(args[1])
+			return types.Int(a ^ b)
+		},
+	}
+
+	vm.globals["and"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("and() expects 2 arguments", 0, 0, "")
+			}
+			a, _ := types.ToInt(args[0])
+			b, _ := types.ToInt(args[1])
+			return types.Int(a & b)
+		},
+	}
+
+	vm.globals["or"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("or() expects 2 arguments", 0, 0, "")
+			}
+			a, _ := types.ToInt(args[0])
+			b, _ := types.ToInt(args[1])
+			return types.Int(a | b)
+		},
+	}
+
+	vm.globals["not"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("not() expects 1 argument", 0, 0, "")
+			}
+			n, _ := types.ToInt(args[0])
+			return types.Int(^n)
+		},
+	}
+
+	vm.globals["shl"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("shl() expects 2 arguments: value, shift", 0, 0, "")
+			}
+			n, _ := types.ToInt(args[0])
+			s, _ := types.ToInt(args[1])
+			return types.Int(n << s)
+		},
+	}
+
+	vm.globals["shr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("shr() expects 2 arguments: value, shift", 0, 0, "")
+			}
+			n, _ := types.ToInt(args[0])
+			s, _ := types.ToInt(args[1])
+			return types.Int(n >> s)
+		},
+	}
+
 	// Debug functions
 	vm.globals["debug"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
