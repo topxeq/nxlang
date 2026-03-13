@@ -6995,6 +6995,112 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["toSorted"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("toSorted() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("toSorted() first argument must be an array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			// Copy elements
+			elems := make([]types.Object, arr.Len())
+			for i := 0; i < arr.Len(); i++ {
+				elems[i] = arr.Get(i)
+			}
+			// Simple sort (by string representation)
+			for i := 0; i < len(elems); i++ {
+				for j := i + 1; j < len(elems); j++ {
+					if elems[i].ToStr() > elems[j].ToStr() {
+						elems[i], elems[j] = elems[j], elems[i]
+					}
+				}
+			}
+			for _, e := range elems {
+				result.Append(e)
+			}
+			return result
+		},
+	}
+
+	vm.globals["toReversed"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("toReversed() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("toReversed() first argument must be an array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for i := arr.Len() - 1; i >= 0; i-- {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["isSorted"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isSorted() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("isSorted() first argument must be an array", 0, 0, "")
+			}
+			if arr.Len() <= 1 {
+				return types.Bool(true)
+			}
+			for i := 0; i < arr.Len()-1; i++ {
+				if arr.Get(i).ToStr() > arr.Get(i+1).ToStr() {
+					return types.Bool(false)
+				}
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["unzip"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("unzip() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("unzip() first argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return collections.NewArray()
+			}
+			// Find max sub-array length
+			maxLen := 0
+			for i := 0; i < arr.Len(); i++ {
+				if sub, ok := arr.Get(i).(*collections.Array); ok {
+					if sub.Len() > maxLen {
+						maxLen = sub.Len()
+					}
+				}
+			}
+			// Transpose
+			result := collections.NewArray()
+			for i := 0; i < maxLen; i++ {
+				sub := collections.NewArray()
+				for j := 0; j < arr.Len(); j++ {
+					if inner, ok := arr.Get(j).(*collections.Array); ok {
+						if i < inner.Len() {
+							sub.Append(inner.Get(i))
+						}
+					}
+				}
+				result.Append(sub)
+			}
+			return result
+		},
+	}
+
 	vm.globals["hasKey"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {
@@ -16224,6 +16330,108 @@ func (vm *VM) registerBuiltins() {
 					chunk.Append(arr.Get(i + j))
 				}
 				result.Append(chunk)
+			}
+			return result
+		},
+	}
+
+	vm.globals["toSorted"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("toSorted(arr) expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("toSorted: argument must be array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			elems := make([]types.Object, arr.Len())
+			for i := 0; i < arr.Len(); i++ {
+				elems[i] = arr.Get(i)
+			}
+			for i := 0; i < len(elems); i++ {
+				for j := i + 1; j < len(elems); j++ {
+					if elems[i].ToStr() > elems[j].ToStr() {
+						elems[i], elems[j] = elems[j], elems[i]
+					}
+				}
+			}
+			for _, e := range elems {
+				result.Append(e)
+			}
+			return result
+		},
+	}
+
+	vm.globals["toReversed"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("toReversed(arr) expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("toReversed: argument must be array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for i := arr.Len() - 1; i >= 0; i-- {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["isSorted"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isSorted(arr) expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("isSorted: argument must be array", 0, 0, "")
+			}
+			if arr.Len() <= 1 {
+				return types.Bool(true)
+			}
+			for i := 0; i < arr.Len()-1; i++ {
+				if arr.Get(i).ToStr() > arr.Get(i+1).ToStr() {
+					return types.Bool(false)
+				}
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["unzip"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("unzip(arr) expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("unzip: argument must be array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return collections.NewArray()
+			}
+			maxLen := 0
+			for i := 0; i < arr.Len(); i++ {
+				if sub, ok := arr.Get(i).(*collections.Array); ok {
+					if sub.Len() > maxLen {
+						maxLen = sub.Len()
+					}
+				}
+			}
+			result := collections.NewArray()
+			for i := 0; i < maxLen; i++ {
+				sub := collections.NewArray()
+				for j := 0; j < arr.Len(); j++ {
+					if inner, ok := arr.Get(j).(*collections.Array); ok {
+						if i < inner.Len() {
+							sub.Append(inner.Get(i))
+						}
+					}
+				}
+				result.Append(sub)
 			}
 			return result
 		},
