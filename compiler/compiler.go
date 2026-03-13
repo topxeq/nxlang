@@ -360,7 +360,9 @@ func registerBuiltins(st *SymbolTable) {
 		"chdir", "pwd", "glob", "absPath", "baseName", "dirName", "extName", "joinPath",
 		// Utility functions
 		"test", "assert", "tap", "do", "id", "const", "placeholder",
-		"compare", "ternary", "coalesce", "defaultTo", "negate",
+		"compare", "ternary", "coalesce", "defaultTo", "negate", "not",
+		// Bitwise functions
+		"bitAnd", "bitOr", "bitXor", "bitNot", "leftShift", "rightShift",
 		// String conversion
 		"strconv",
 		// Type conversion functions

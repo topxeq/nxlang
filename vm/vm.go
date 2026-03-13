@@ -4246,6 +4246,103 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["not"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("not() expects 1 argument", 0, 0, "")
+			}
+			if b, ok := args[0].(types.Bool); ok {
+				return types.Bool(!b)
+			}
+			return types.Bool(false)
+		},
+	}
+
+	vm.globals["bitAnd"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("bitAnd() expects at least 2 arguments", 0, 0, "")
+			}
+			result := -1
+			for _, arg := range args {
+				if n, ok := arg.(types.Int); ok {
+					result = int(n) & result
+				}
+			}
+			return types.Int(result)
+		},
+	}
+
+	vm.globals["bitOr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("bitOr() expects at least 2 arguments", 0, 0, "")
+			}
+			result := 0
+			for _, arg := range args {
+				if n, ok := arg.(types.Int); ok {
+					result = int(n) | result
+				}
+			}
+			return types.Int(result)
+		},
+	}
+
+	vm.globals["bitXor"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("bitXor() expects at least 2 arguments", 0, 0, "")
+			}
+			result := 0
+			for _, arg := range args {
+				if n, ok := arg.(types.Int); ok {
+					result = int(n) ^ result
+				}
+			}
+			return types.Int(result)
+		},
+	}
+
+	vm.globals["bitNot"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("bitNot() expects 1 argument", 0, 0, "")
+			}
+			if n, ok := args[0].(types.Int); ok {
+				return types.Int(^int(n))
+			}
+			return types.NewError("bitNot() expects an integer", 0, 0, "")
+		},
+	}
+
+	vm.globals["leftShift"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("leftShift() expects 2 arguments", 0, 0, "")
+			}
+			a, ok1 := args[0].(types.Int)
+			b, ok2 := args[1].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("leftShift() expects 2 integers", 0, 0, "")
+			}
+			return types.Int(int(a) << int(b))
+		},
+	}
+
+	vm.globals["rightShift"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("rightShift() expects 2 arguments", 0, 0, "")
+			}
+			a, ok1 := args[0].(types.Int)
+			b, ok2 := args[1].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("rightShift() expects 2 integers", 0, 0, "")
+			}
+			return types.Int(int(a) >> int(b))
+		},
+	}
+
 	vm.globals["strconv"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {
