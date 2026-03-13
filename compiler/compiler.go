@@ -346,7 +346,7 @@ func registerBuiltins(st *SymbolTable) {
 		"insert", "removeAt", "replaceAt",
 		// String functions
 		"isBlank", "removeSpaces", "removeExtraSpaces", "reverseStr", "countStr",
-		"hasPrefix", "hasSuffix",
+		"hasPrefix", "hasSuffix", "str", "repr", "ascii", "chr", "string", "index", "rindex",
 		// Map functions
 		"mapValues", "mapKeys", "groupBy", "zip", "unzip",
 		// Encoding functions

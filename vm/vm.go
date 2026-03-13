@@ -3871,6 +3871,103 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["str"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.String("")
+			}
+			return types.String(args[0].ToStr())
+		},
+	}
+
+	vm.globals["repr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.String("")
+			}
+			return types.String(fmt.Sprintf("%v", args[0]))
+		},
+	}
+
+	vm.globals["ascii"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("ascii() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			if len(s) == 0 {
+				return types.Int(0)
+			}
+			return types.Int(rune(s[0]))
+		},
+	}
+
+	vm.globals["chr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("chr() expects 1 argument", 0, 0, "")
+			}
+			code, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("chr() expects an integer", 0, 0, "")
+			}
+			return types.String(rune(code))
+		},
+	}
+
+	vm.globals["string"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.String("")
+			}
+			return types.String(args[0].ToStr())
+		},
+	}
+
+	vm.globals["index"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("index() expects 2 arguments", 0, 0, "")
+			}
+			if arr, ok := args[0].(*collections.Array); ok {
+				val := args[1]
+				for i := 0; i < arr.Len(); i++ {
+					if arr.Get(i).Equals(val) {
+						return types.Int(i)
+					}
+				}
+				return types.Int(-1)
+			}
+			if s, ok := args[0].(types.String); ok {
+				sub := string(types.ToString(args[1]))
+				idx := strings.Index(string(s), sub)
+				if idx < 0 {
+					return types.Int(-1)
+				}
+				return types.Int(idx)
+			}
+			return types.NewError("index() expects array or string", 0, 0, "")
+		},
+	}
+
+	vm.globals["rindex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("rindex() expects 2 arguments", 0, 0, "")
+			}
+			s, ok := args[0].(types.String)
+			if !ok {
+				return types.NewError("rindex() first argument must be string", 0, 0, "")
+			}
+			sub := string(types.ToString(args[1]))
+			idx := strings.LastIndex(string(s), sub)
+			if idx < 0 {
+				return types.Int(-1)
+			}
+			return types.Int(idx)
+		},
+	}
+
 	vm.globals["match"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {
