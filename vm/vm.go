@@ -1706,6 +1706,300 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["formatNumber"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("formatNumber() expects at least 1 argument", 0, 0, "")
+			}
+			f, ok := args[0].(types.Float)
+			if !ok {
+				i, ok := args[0].(types.Int)
+				if ok {
+					f = types.Float(i)
+				} else {
+					return types.NewError("formatNumber() expects a number", 0, 0, "")
+				}
+			}
+			decimals := 2
+			if len(args) > 1 {
+				if d, ok := args[1].(types.Int); ok {
+					decimals = int(d)
+				}
+			}
+			format := fmt.Sprintf(fmt.Sprintf("%%.%df", decimals), float64(f))
+			return types.String(format)
+		},
+	}
+
+	vm.globals["formatBytes"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("formatBytes() expects 1 argument", 0, 0, "")
+			}
+			bytes, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("formatBytes() expects an integer", 0, 0, "")
+			}
+			sizes := []string{"B", "KB", "MB", "GB", "TB", "PB"}
+			size := float64(bytes)
+			i := 0
+			for size >= 1024 && i < len(sizes)-1 {
+				size /= 1024
+				i++
+			}
+			return types.String(fmt.Sprintf("%.2f %s", size, sizes[i]))
+		},
+	}
+
+	vm.globals["isAlpha"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isAlpha() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			if len(s) == 0 {
+				return types.Bool(false)
+			}
+			for _, c := range s {
+				if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+					return types.Bool(false)
+				}
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["isNumeric"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isNumeric() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			if len(s) == 0 {
+				return types.Bool(false)
+			}
+			for _, c := range s {
+				if c < '0' || c > '9' {
+					return types.Bool(false)
+				}
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["isAlphaNumeric"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isAlphaNumeric() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			if len(s) == 0 {
+				return types.Bool(false)
+			}
+			for _, c := range s {
+				if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+					return types.Bool(false)
+				}
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["escape"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("escape() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			result := url.QueryEscape(s)
+			return types.String(result)
+		},
+	}
+
+	vm.globals["unescape"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("unescape() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			result, err := url.QueryUnescape(s)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("unescape error: %v", err), 0, 0, "")
+			}
+			return types.String(result)
+		},
+	}
+
+	vm.globals["left"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("left() expects 2 arguments (str, n)", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			n, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("left() expects (string, integer)", 0, 0, "")
+			}
+			if int(n) >= len(s) {
+				return types.String(s)
+			}
+			return types.String(s[:n])
+		},
+	}
+
+	vm.globals["right"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("right() expects 2 arguments (str, n)", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			n, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("right() expects (string, integer)", 0, 0, "")
+			}
+			if int(n) >= len(s) {
+				return types.String(s)
+			}
+			return types.String(s[len(s)-int(n):])
+		},
+	}
+
+	vm.globals["lpad"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("lpad() expects 3 arguments (str, len, pad)", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			length, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("lpad() expects (string, integer, string)", 0, 0, "")
+			}
+			pad := string(types.ToString(args[2]))
+			if len(s) >= int(length) {
+				return types.String(s)
+			}
+			padCount := int(length) - len(s)
+			pads := strings.Repeat(pad, (padCount/len(pad))+1)
+			return types.String(pads[:padCount] + s)
+		},
+	}
+
+	vm.globals["rpad"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("rpad() expects 3 arguments (str, len, pad)", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			length, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("rpad() expects (string, integer, string)", 0, 0, "")
+			}
+			pad := string(types.ToString(args[2]))
+			if len(s) >= int(length) {
+				return types.String(s)
+			}
+			padCount := int(length) - len(s)
+			pads := strings.Repeat(pad, (padCount/len(pad))+1)
+			return types.String(s + pads[:padCount])
+		},
+	}
+
+	vm.globals["after"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("after() expects 2 arguments (str, sep)", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			sep := string(types.ToString(args[1]))
+			idx := strings.Index(s, sep)
+			if idx < 0 {
+				return types.String("")
+			}
+			return types.String(s[idx+len(sep):])
+		},
+	}
+
+	vm.globals["before"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("before() expects 2 arguments (str, sep)", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			sep := string(types.ToString(args[1]))
+			idx := strings.Index(s, sep)
+			if idx < 0 {
+				return types.String(s)
+			}
+			return types.String(s[:idx])
+		},
+	}
+
+	vm.globals["between"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("between() expects 3 arguments (str, start, end)", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			start := string(types.ToString(args[1]))
+			end := string(types.ToString(args[2]))
+			startIdx := strings.Index(s, start)
+			if startIdx < 0 {
+				return types.String("")
+			}
+			startIdx += len(start)
+			endIdx := strings.Index(s[startIdx:], end)
+			if endIdx < 0 {
+				return types.String("")
+			}
+			return types.String(s[startIdx : startIdx+endIdx])
+		},
+	}
+
+	vm.globals["repeatStr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("repeatStr() expects 2 arguments (str, count)", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			count, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("repeatStr() expects (string, integer)", 0, 0, "")
+			}
+			if count < 0 {
+				return types.NewError("repeatStr() count must be non-negative", 0, 0, "")
+			}
+			return types.String(strings.Repeat(s, int(count)))
+		},
+	}
+
+	vm.globals["lines"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("lines() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			arr := collections.NewArray()
+			for _, line := range strings.Split(s, "\n") {
+				arr.Append(types.String(line))
+			}
+			return arr
+		},
+	}
+
+	vm.globals["words"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("words() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			arr := collections.NewArray()
+			for _, word := range strings.Fields(s) {
+				arr.Append(types.String(word))
+			}
+			return arr
+		},
+	}
+
 	vm.globals["base64Encode"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) == 0 {

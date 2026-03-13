@@ -319,6 +319,9 @@ func registerBuiltins(st *SymbolTable) {
 		"containsStr", "startsWith", "endsWith", "indexOf", "lastIndexOf",
 		"replaceAll", "split", "trim", "toUpper", "toLower",
 		"charAt", "charCodeAt", "fromCharCode",
+		"formatNumber", "formatBytes", "isAlpha", "isNumeric", "isAlphaNumeric",
+		"escape", "unescape", "left", "right", "lpad", "rpad",
+		"after", "before", "between", "repeatStr", "lines", "words",
 		// Map functions
 		"hasKey", "merge",
 		// Math functions
