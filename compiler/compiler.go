@@ -478,6 +478,11 @@ func registerBuiltins(st *SymbolTable) {
 		"isPowerOf2", "tzCount", "strFields", "strIndexAny", "strLastIndexAny",
 		"strContainsAny", "strContainsRune", "strHasPrefix", "strHasSuffix",
 		"strEqualFold", "strConv", "cpuCount", "urlJoin", "urlResolve", "isURL",
+		// Crypto and validation
+		"gzipEncode", "gzipDecode", "hmacMD5", "hmacSHA256", "aesEncrypt", "aesDecrypt",
+		"uuid", "isEmail", "isPhone", "isCreditCard", "slugify", "wordCount", "sentenceCount",
+		// Array functions
+		"reverseArr", "sample", "uniq", "difference", "intersection", "union", "addIndex",
 	}
 
 	for i, name := range builtins {

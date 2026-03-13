@@ -2,6 +2,10 @@ package vm
 
 import (
 	"bytes"
+	"compress/gzip"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -28,6 +32,8 @@ import (
 	"sync"
 	"time"
 	"unicode"
+
+	crand "crypto/rand"
 
 	"github.com/topxeq/nxlang/bytecode"
 	"github.com/topxeq/nxlang/compiler"
@@ -17719,6 +17725,389 @@ func (vm *VM) registerBuiltins() {
 			result.Set("status", types.Int(resp.StatusCode))
 			result.Set("body", types.String(string(respBody)))
 			result.Set("headers", types.String(fmt.Sprintf("%v", resp.Header)))
+			return result
+		},
+	}
+
+	vm.globals["gzipEncode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("gzipEncode() expects 1 argument", 0, 0, "")
+			}
+			data := args[0].ToStr()
+			var buf bytes.Buffer
+			w, err := gzip.NewWriterLevel(&buf, gzip.DefaultCompression)
+			if err != nil {
+				return types.NewError("gzipEncode() failed: "+err.Error(), 0, 0, "")
+			}
+			_, err = w.Write([]byte(data))
+			if err != nil {
+				w.Close()
+				return types.NewError("gzipEncode() failed: "+err.Error(), 0, 0, "")
+			}
+			w.Close()
+			return types.String(base64.StdEncoding.EncodeToString(buf.Bytes()))
+		},
+	}
+
+	vm.globals["gzipDecode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("gzipDecode() expects 1 argument", 0, 0, "")
+			}
+			data := args[0].ToStr()
+			decoded, err := base64.StdEncoding.DecodeString(data)
+			if err != nil {
+				return types.NewError("gzipDecode() failed: "+err.Error(), 0, 0, "")
+			}
+			r, err := gzip.NewReader(bytes.NewReader(decoded))
+			if err != nil {
+				return types.NewError("gzipDecode() failed: "+err.Error(), 0, 0, "")
+			}
+			defer r.Close()
+			result, err := io.ReadAll(r)
+			if err != nil {
+				return types.NewError("gzipDecode() failed: "+err.Error(), 0, 0, "")
+			}
+			return types.String(string(result))
+		},
+	}
+
+	vm.globals["hmacMD5"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("hmacMD5() expects 2 arguments (key, data)", 0, 0, "")
+			}
+			key := args[0].ToStr()
+			data := args[1].ToStr()
+			h := hmac.New(md5.New, []byte(key))
+			h.Write([]byte(data))
+			return types.String(hex.EncodeToString(h.Sum(nil)))
+		},
+	}
+
+	vm.globals["hmacSHA256"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("hmacSHA256() expects 2 arguments (key, data)", 0, 0, "")
+			}
+			key := args[0].ToStr()
+			data := args[1].ToStr()
+			h := hmac.New(sha256.New, []byte(key))
+			h.Write([]byte(data))
+			return types.String(hex.EncodeToString(h.Sum(nil)))
+		},
+	}
+
+	vm.globals["aesEncrypt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("aesEncrypt() expects 2 arguments (key, plaintext)", 0, 0, "")
+			}
+			key := args[0].ToStr()
+			plaintext := args[1].ToStr()
+			if len(key) != 16 && len(key) != 24 && len(key) != 32 {
+				return types.NewError("aesEncrypt() key must be 16, 24, or 32 bytes", 0, 0, "")
+			}
+			block, err := aes.NewCipher([]byte(key))
+			if err != nil {
+				return types.NewError("aesEncrypt() failed: "+err.Error(), 0, 0, "")
+			}
+			ciphertext := make([]byte, aes.BlockSize+len(plaintext))
+			iv := ciphertext[:aes.BlockSize]
+			if _, err := crand.Read(iv); err != nil {
+				return types.NewError("aesEncrypt() failed: "+err.Error(), 0, 0, "")
+			}
+			stream := cipher.NewCFBEncrypter(block, iv)
+			stream.XORKeyStream(ciphertext[aes.BlockSize:], []byte(plaintext))
+			return types.String(base64.StdEncoding.EncodeToString(ciphertext))
+		},
+	}
+
+	vm.globals["aesDecrypt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("aesDecrypt() expects 2 arguments (key, ciphertext)", 0, 0, "")
+			}
+			key := args[0].ToStr()
+			ciphertext := args[1].ToStr()
+			if len(key) != 16 && len(key) != 24 && len(key) != 32 {
+				return types.NewError("aesDecrypt() key must be 16, 24, or 32 bytes", 0, 0, "")
+			}
+			data, err := base64.StdEncoding.DecodeString(ciphertext)
+			if err != nil {
+				return types.NewError("aesDecrypt() failed: "+err.Error(), 0, 0, "")
+			}
+			block, err := aes.NewCipher([]byte(key))
+			if err != nil {
+				return types.NewError("aesDecrypt() failed: "+err.Error(), 0, 0, "")
+			}
+			if len(data) < aes.BlockSize {
+				return types.NewError("aesDecrypt() ciphertext too short", 0, 0, "")
+			}
+			iv := data[:aes.BlockSize]
+			data = data[aes.BlockSize:]
+			stream := cipher.NewCFBDecrypter(block, iv)
+			stream.XORKeyStream(data, data)
+			return types.String(string(data))
+		},
+	}
+
+	vm.globals["uuid"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			b := make([]byte, 16)
+			crand.Read(b)
+			b[6] = (b[6] & 0x0f) | 0x40
+			b[8] = (b[8] & 0x3f) | 0x80
+			return types.String(fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]))
+		},
+	}
+
+	vm.globals["isEmail"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isEmail() expects 1 argument", 0, 0, "")
+			}
+			email := args[0].ToStr()
+			pattern := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+			matched, _ := regexp.MatchString(pattern, email)
+			return types.Bool(matched)
+		},
+	}
+
+	vm.globals["isPhone"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isPhone() expects 1 argument", 0, 0, "")
+			}
+			phone := args[0].ToStr()
+			pattern := `^\+?[1-9]\d{1,14}$`
+			matched, _ := regexp.MatchString(pattern, strings.ReplaceAll(phone, "-", ""))
+			return types.Bool(matched)
+		},
+	}
+
+	vm.globals["isCreditCard"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isCreditCard() expects 1 argument", 0, 0, "")
+			}
+			card := strings.ReplaceAll(args[0].ToStr(), " ", "")
+			if len(card) < 13 || len(card) > 19 {
+				return types.Bool(false)
+			}
+			sum := 0
+			isSecond := false
+			for i := len(card) - 1; i >= 0; i-- {
+				d := int(card[i] - '0')
+				if isSecond {
+					d = d * 2
+					if d > 9 {
+						d = d - 9
+					}
+				}
+				sum += d
+				isSecond = !isSecond
+			}
+			return types.Bool(sum%10 == 0)
+		},
+	}
+
+	vm.globals["slugify"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("slugify() expects 1 argument", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			s = strings.ToLower(s)
+			s = regexp.MustCompile(`[^a-z0-9\s-]`).ReplaceAllString(s, "")
+			s = strings.TrimSpace(s)
+			s = regexp.MustCompile(`[\s-]+`).ReplaceAllString(s, "-")
+			return types.String(s)
+		},
+	}
+
+	vm.globals["wordCount"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("wordCount() expects 1 argument", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			words := strings.Fields(s)
+			return types.Int(len(words))
+		},
+	}
+
+	vm.globals["sentenceCount"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("sentenceCount() expects 1 argument", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			sentences := regexp.MustCompile(`[.!?]+`).Split(s, -1)
+			count := 0
+			for _, sent := range sentences {
+				if len(strings.TrimSpace(sent)) > 0 {
+					count++
+				}
+			}
+			return types.Int(count)
+		},
+	}
+
+	vm.globals["reverseArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("reverseArr() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("reverseArr() argument must be an array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for i := arr.Len() - 1; i >= 0; i-- {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["sample"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("sample() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("sample() argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return types.NullValue
+			}
+			idx := rand.Intn(arr.Len())
+			return arr.Get(idx)
+		},
+	}
+
+	vm.globals["uniq"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("uniq() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("uniq() argument must be an array", 0, 0, "")
+			}
+			set := make(map[string]bool)
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				item := arr.Get(i)
+				key := item.ToStr()
+				if !set[key] {
+					set[key] = true
+					result.Append(item)
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["difference"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("difference() expects at least 2 arguments", 0, 0, "")
+			}
+			arr1, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("difference() first argument must be an array", 0, 0, "")
+			}
+			arr2, ok := args[1].(*collections.Array)
+			if !ok {
+				return types.NewError("difference() second argument must be an array", 0, 0, "")
+			}
+			set := make(map[string]bool)
+			for i := 0; i < arr2.Len(); i++ {
+				set[arr2.Get(i).ToStr()] = true
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr1.Len(); i++ {
+				item := arr1.Get(i)
+				if !set[item.ToStr()] {
+					result.Append(item)
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["intersection"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("intersection() expects at least 2 arguments", 0, 0, "")
+			}
+			arr1, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("intersection() first argument must be an array", 0, 0, "")
+			}
+			arr2, ok := args[1].(*collections.Array)
+			if !ok {
+				return types.NewError("intersection() second argument must be an array", 0, 0, "")
+			}
+			set := make(map[string]bool)
+			for i := 0; i < arr2.Len(); i++ {
+				set[arr2.Get(i).ToStr()] = true
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr1.Len(); i++ {
+				item := arr1.Get(i)
+				if set[item.ToStr()] {
+					result.Append(item)
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["union"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("union() expects at least 1 argument", 0, 0, "")
+			}
+			set := make(map[string]types.Object)
+			for _, arg := range args {
+				arr, ok := arg.(*collections.Array)
+				if !ok {
+					continue
+				}
+				for i := 0; i < arr.Len(); i++ {
+					item := arr.Get(i)
+					set[item.ToStr()] = item
+				}
+			}
+			result := collections.NewArray()
+			for _, v := range set {
+				result.Append(v)
+			}
+			return result
+		},
+	}
+
+	vm.globals["addIndex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("addIndex() expects at least 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("addIndex() first argument must be an array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				pair := collections.NewArray()
+				pair.Append(types.Int(i))
+				pair.Append(arr.Get(i))
+				result.Append(pair)
+			}
 			return result
 		},
 	}
