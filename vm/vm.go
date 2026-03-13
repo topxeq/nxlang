@@ -4517,6 +4517,97 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["isUndefined"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isUndefined() expects 1 argument", 0, 0, "")
+			}
+			return types.Bool(args[0] == types.UndefinedValue)
+		},
+	}
+
+	vm.globals["isNull"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isNull() expects 1 argument", 0, 0, "")
+			}
+			return types.Bool(args[0] == types.NullValue)
+		},
+	}
+
+	vm.globals["isNil"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isNil() expects 1 argument", 0, 0, "")
+			}
+			return types.Bool(args[0] == types.UndefinedValue || args[0] == types.NullValue)
+		},
+	}
+
+	vm.globals["isTruthy"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isTruthy() expects 1 argument", 0, 0, "")
+			}
+			val := args[0]
+			if val == types.UndefinedValue || val == types.NullValue {
+				return types.Bool(false)
+			}
+			if b, ok := val.(types.Bool); ok {
+				return b
+			}
+			if n, ok := val.(types.Int); ok {
+				return types.Bool(n != 0)
+			}
+			if f, ok := val.(types.Float); ok {
+				return types.Bool(f != 0)
+			}
+			if s, ok := val.(types.String); ok {
+				return types.Bool(len(s) > 0)
+			}
+			if a, ok := val.(*collections.Array); ok {
+				return types.Bool(a.Len() > 0)
+			}
+			if m, ok := val.(*collections.Map); ok {
+				return types.Bool(m.Len() > 0)
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["isEmptyStr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isEmptyStr() expects 1 argument", 0, 0, "")
+			}
+			s, ok := args[0].(types.String)
+			if !ok {
+				return types.Bool(false)
+			}
+			return types.Bool(len(s) == 0)
+		},
+	}
+
+	vm.globals["byteSize"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("byteSize() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			return types.Int(len([]byte(s)))
+		},
+	}
+
+	vm.globals["runeSize"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("runeSize() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			return types.Int(len([]rune(s)))
+		},
+	}
+
 	// Debug functions
 	vm.globals["debug"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {

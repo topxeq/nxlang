@@ -365,8 +365,9 @@ func registerBuiltins(st *SymbolTable) {
 		"bitAnd", "bitOr", "bitXor", "bitNot", "leftShift", "rightShift",
 		// String conversion
 		"strconv",
-		// Type conversion functions
+		// Type check functions
 		"int", "float", "bool", "string", "byte", "uint", "char", "bytes", "chars",
+		"isUndefined", "isNull", "isNil", "isTruthy", "isEmptyStr", "byteSize", "runeSize",
 		// Graphics/Canvas functions
 		"canvas", "clear", "drawPoint", "drawLine", "drawRectangle", "fillRectangle", "drawCircle", "fillCircle", "savePNG", "loadPNG", "getPixel", "canvasWidth", "canvasHeight",
 		// Data/CSV functions
