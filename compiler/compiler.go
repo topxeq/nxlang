@@ -379,6 +379,10 @@ func registerBuiltins(st *SymbolTable) {
 		"contains", "startsWith", "endsWith", "trim",
 		// Type check functions
 		"isArray", "isMap", "isString", "isBool", "isFunction", "isEven", "isOdd",
+		// Encoding functions
+		"base64Encode", "base64Decode", "urlEncode", "urlDecode",
+		// String functions
+		"split", "replace", "toUpper", "toLower", "splitLines", "repeat", "indexOf", "lastIndexOf",
 		// Graphics/Canvas functions
 		"canvas", "clear", "drawPoint", "drawLine", "drawRectangle", "fillRectangle", "drawCircle", "fillCircle", "savePNG", "loadPNG", "getPixel", "canvasWidth", "canvasHeight",
 		// Data/CSV functions

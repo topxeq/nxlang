@@ -4956,6 +4956,161 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["base64Encode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("base64Encode() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			return types.String(base64.StdEncoding.EncodeToString([]byte(str)))
+		},
+	}
+
+	vm.globals["base64Decode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("base64Decode() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			decoded, err := base64.StdEncoding.DecodeString(str)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("base64Decode error: %v", err), 0, 0, "")
+			}
+			return types.String(string(decoded))
+		},
+	}
+
+	vm.globals["split"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("split() expects at least 2 arguments", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			sep := string(types.ToString(args[1]))
+			parts := strings.Split(str, sep)
+			result := collections.NewArray()
+			for _, part := range parts {
+				result.Append(types.String(part))
+			}
+			return result
+		},
+	}
+
+	vm.globals["replace"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("replace() expects at least 3 arguments", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			old := string(types.ToString(args[1]))
+			new := string(types.ToString(args[2]))
+			return types.String(strings.Replace(str, old, new, -1))
+		},
+	}
+
+	vm.globals["toUpper"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("toUpper() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			return types.String(strings.ToUpper(str))
+		},
+	}
+
+	vm.globals["toLower"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("toLower() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			return types.String(strings.ToLower(str))
+		},
+	}
+
+	vm.globals["splitLines"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("splitLines() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			parts := strings.Split(str, "\n")
+			result := collections.NewArray()
+			for _, part := range parts {
+				result.Append(types.String(part))
+			}
+			return result
+		},
+	}
+
+	vm.globals["repeat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("repeat() expects 2 arguments", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			count, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("repeat() expects string and integer", 0, 0, "")
+			}
+			return types.String(strings.Repeat(str, int(count)))
+		},
+	}
+
+	vm.globals["indexOf"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("indexOf() expects at least 2 arguments", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			substr := string(types.ToString(args[1]))
+			idx := strings.Index(str, substr)
+			if idx == -1 {
+				return types.Int(-1)
+			}
+			return types.Int(idx)
+		},
+	}
+
+	vm.globals["lastIndexOf"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("lastIndexOf() expects at least 2 arguments", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			substr := string(types.ToString(args[1]))
+			idx := strings.LastIndex(str, substr)
+			if idx == -1 {
+				return types.Int(-1)
+			}
+			return types.Int(idx)
+		},
+	}
+
+	vm.globals["urlEncode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("urlEncode() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			return types.String(url.QueryEscape(str))
+		},
+	}
+
+	vm.globals["urlDecode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("urlDecode() expects 1 argument", 0, 0, "")
+			}
+			str := string(types.ToString(args[0]))
+			decoded, err := url.QueryUnescape(str)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("urlDecode error: %v", err), 0, 0, "")
+			}
+			return types.String(decoded)
+		},
+	}
+
 	// Debug functions
 	vm.globals["debug"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
