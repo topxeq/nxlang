@@ -421,6 +421,8 @@ func registerBuiltins(st *SymbolTable) {
 		"rangeStep", "times", "tap", "pipe", "compose", "once", "memoize", "curry", "flip", "identity", "constant", "partial", "sleepAsync", "async", "defer", "noop", "always", "juxt", "apply", "spread", "call", "bind",
 		// Object path functions
 		"getPath", "setPath", "pickPaths", "omitPaths", "deepGet", "deepSet", "cloneDeep", "mergeDeep",
+		// Array operations
+		"chunkArr", "unzip", "zipObj", "fromEntries", "toEntries", "headArr", "tailArr", "initArr", "lastArr", "uniqueArr", "flattenDeep", "differenceArr", "intersectionArr", "unionArr", "sortedIndex", "sortedLastIndex", "addIndex", "filterIndex", "findLastIndex", "findLast", "countBy", "groupByKey", "keyBy", "partition", "sortByKey", "sortByOrder",
 		// Graphics/Canvas functions
 		"canvas", "clear", "drawPoint", "drawLine", "drawRectangle", "fillRectangle", "drawCircle", "fillCircle", "savePNG", "loadPNG", "getPixel", "canvasWidth", "canvasHeight",
 		// Data/CSV functions
