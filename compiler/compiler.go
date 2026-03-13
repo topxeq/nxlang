@@ -389,6 +389,12 @@ func registerBuiltins(st *SymbolTable) {
 		"md5", "sha1", "sha256", "sha512",
 		// System functions
 		"exit", "env", "args",
+		// Math constants
+		"pi", "e", "abs",
+		// Time functions
+		"now", "nowISO", "timestamp", "timestampMs", "sleep",
+		// Utility functions
+		"typeName", "typeOf", "len", "keys", "values",
 		// Graphics/Canvas functions
 		"canvas", "clear", "drawPoint", "drawLine", "drawRectangle", "fillRectangle", "drawCircle", "fillCircle", "savePNG", "loadPNG", "getPixel", "canvasWidth", "canvasHeight",
 		// Data/CSV functions
