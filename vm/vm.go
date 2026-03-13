@@ -4343,6 +4343,116 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["httpHead"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("httpHead() expects at least 1 argument (url)", 0, 0, "")
+			}
+			url := string(types.ToString(args[0]))
+			client := &http.Client{}
+			req, err := http.NewRequest("HEAD", url, nil)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("httpHead error: %v", err), 0, 0, "")
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("httpHead error: %v", err), 0, 0, "")
+			}
+			defer resp.Body.Close()
+			result := collections.NewMap()
+			result.Set("status", types.Int(resp.StatusCode))
+			result.Set("statusText", types.String(resp.Status))
+			return result
+		},
+	}
+
+	vm.globals["httpOptions"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("httpOptions() expects at least 1 argument (url)", 0, 0, "")
+			}
+			url := string(types.ToString(args[0]))
+			client := &http.Client{}
+			req, err := http.NewRequest("OPTIONS", url, nil)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("httpOptions error: %v", err), 0, 0, "")
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("httpOptions error: %v", err), 0, 0, "")
+			}
+			defer resp.Body.Close()
+			result := collections.NewMap()
+			result.Set("status", types.Int(resp.StatusCode))
+			result.Set("statusText", types.String(resp.Status))
+			arr := collections.NewArray()
+			for _, method := range resp.Header["Allow"] {
+				arr.Append(types.String(method))
+			}
+			result.Set("methods", arr)
+			return result
+		},
+	}
+
+	vm.globals["httpPatch"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("httpPatch() expects at least 2 arguments (url, body)", 0, 0, "")
+			}
+			url := string(types.ToString(args[0]))
+			body := string(types.ToString(args[1]))
+			return doHTTPRequest("PATCH", url, body, nil)
+		},
+	}
+
+	vm.globals["urlParse"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("urlParse() expects 1 argument", 0, 0, "")
+			}
+			urlStr := string(types.ToString(args[0]))
+			u, err := url.Parse(urlStr)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("urlParse error: %v", err), 0, 0, "")
+			}
+			result := collections.NewMap()
+			result.Set("scheme", types.String(u.Scheme))
+			result.Set("host", types.String(u.Host))
+			result.Set("path", types.String(u.Path))
+			result.Set("query", types.String(u.RawQuery))
+			result.Set("fragment", types.String(u.Fragment))
+			result.Set("user", types.String(u.User.Username()))
+			return result
+		},
+	}
+
+	vm.globals["urlBuild"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("urlBuild() expects at least 1 argument", 0, 0, "")
+			}
+			u := &url.URL{}
+			if m, ok := args[0].(*collections.Map); ok {
+				if v := m.Get("scheme"); v != types.UndefinedValue {
+					u.Scheme = string(types.ToString(v))
+				}
+				if v := m.Get("host"); v != types.UndefinedValue {
+					u.Host = string(types.ToString(v))
+				}
+				if v := m.Get("path"); v != types.UndefinedValue {
+					u.Path = string(types.ToString(v))
+				}
+				if v := m.Get("query"); v != types.UndefinedValue {
+					u.RawQuery = string(types.ToString(v))
+				}
+				if v := m.Get("fragment"); v != types.UndefinedValue {
+					u.Fragment = string(types.ToString(v))
+				}
+			}
+			return types.String(u.String())
+		},
+	}
+
 	vm.globals["strconv"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {

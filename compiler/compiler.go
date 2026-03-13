@@ -375,6 +375,7 @@ func registerBuiltins(st *SymbolTable) {
 		"loadPlugin", "unloadPlugin", "callPlugin", "listPlugins",
 		// HTTP functions
 		"httpGet", "httpPost", "httpPostJSON", "httpPut", "httpDelete", "httpRequest",
+		"httpHead", "httpOptions", "httpPatch", "urlParse", "urlBuild",
 	}
 
 	for i, name := range builtins {
