@@ -447,7 +447,11 @@ func registerBuiltins(st *SymbolTable) {
 		"envVar", "envVars", "osName", "arch", "cpuCount", "numGoroutine",
 		// JSON
 		"toJSON", "fromJSON", "typeName", "lenArr",
+		// Array math
+		"minNum", "maxNum", "sumArr", "avgArr",
 		// Array operations
+		"uniqArr", "differenceArr", "intersectionArr", "unionArr", "includesArr", "indexOfArr", "concatArr", "sliceArr", "firstArr", "lastArr", "takeArr", "dropArr",
+		// Array operations (existing)
 		"chunkArr", "unzip", "zipObj", "fromEntries", "toEntries", "headArr", "tailArr", "initArr", "lastArr", "uniqueArr", "flattenDeep", "differenceArr", "intersectionArr", "unionArr", "sortedIndex", "sortedLastIndex", "addIndex", "filterIndex", "findLastIndex", "findLast", "countBy", "groupByKey", "keyBy", "partition", "sortByKey", "sortByOrder", "isSorted", "sortedUNIQ",
 		// Math and bitwise
 		"xor", "bitcount", "gcd", "lcm", "isPowerOf2", "tzCount",

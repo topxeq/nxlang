@@ -13104,6 +13104,357 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["minNum"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("minNum() expects at least 1 argument", 0, 0, "")
+			}
+			min, _ := types.ToFloat(args[0])
+			for i := 1; i < len(args); i++ {
+				val, _ := types.ToFloat(args[i])
+				if float64(val) < float64(min) {
+					min = val
+				}
+			}
+			return types.Float(min)
+		},
+	}
+
+	vm.globals["maxNum"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("maxNum() expects at least 1 argument", 0, 0, "")
+			}
+			max, _ := types.ToFloat(args[0])
+			for i := 1; i < len(args); i++ {
+				val, _ := types.ToFloat(args[i])
+				if float64(val) > float64(max) {
+					max = val
+				}
+			}
+			return types.Float(max)
+		},
+	}
+
+	vm.globals["sumArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("sumArr() expects 1 argument: array", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("sumArr() first argument must be an array", 0, 0, "")
+			}
+			var sum types.Float
+			for i := 0; i < arr.Len(); i++ {
+				val, _ := types.ToFloat(arr.Get(i))
+				sum += val
+			}
+			return sum
+		},
+	}
+
+	vm.globals["avgArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("avgArr() expects 1 argument: array", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("avgArr() first argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return types.Float(0)
+			}
+			var sum types.Float
+			for i := 0; i < arr.Len(); i++ {
+				val, _ := types.ToFloat(arr.Get(i))
+				sum += val
+			}
+			return types.Float(float64(sum) / float64(arr.Len()))
+		},
+	}
+
+	vm.globals["uniqArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("uniqArr() expects 1 argument: array", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("uniqArr() first argument must be an array", 0, 0, "")
+			}
+			seen := make(map[string]bool)
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				val := arr.Get(i).ToStr()
+				if !seen[val] {
+					seen[val] = true
+					result.Append(arr.Get(i))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["differenceArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("differenceArr() expects 2 arguments", 0, 0, "")
+			}
+			arr1, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("differenceArr() first argument must be an array", 0, 0, "")
+			}
+			arr2, ok := args[1].(*collections.Array)
+			if !ok {
+				return types.NewError("differenceArr() second argument must be an array", 0, 0, "")
+			}
+			set2 := make(map[string]bool)
+			for i := 0; i < arr2.Len(); i++ {
+				set2[arr2.Get(i).ToStr()] = true
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr1.Len(); i++ {
+				val := arr1.Get(i).ToStr()
+				if !set2[val] {
+					result.Append(arr1.Get(i))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["intersectionArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("intersectionArr() expects 2 arguments", 0, 0, "")
+			}
+			arr1, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("intersectionArr() first argument must be an array", 0, 0, "")
+			}
+			arr2, ok := args[1].(*collections.Array)
+			if !ok {
+				return types.NewError("intersectionArr() second argument must be an array", 0, 0, "")
+			}
+			set2 := make(map[string]bool)
+			for i := 0; i < arr2.Len(); i++ {
+				set2[arr2.Get(i).ToStr()] = true
+			}
+			result := collections.NewArray()
+			seen := make(map[string]bool)
+			for i := 0; i < arr1.Len(); i++ {
+				val := arr1.Get(i).ToStr()
+				if set2[val] && !seen[val] {
+					seen[val] = true
+					result.Append(arr1.Get(i))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["unionArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("unionArr() expects 2 arguments", 0, 0, "")
+			}
+			arr1, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("unionArr() first argument must be an array", 0, 0, "")
+			}
+			arr2, ok := args[1].(*collections.Array)
+			if !ok {
+				return types.NewError("unionArr() second argument must be an array", 0, 0, "")
+			}
+			seen := make(map[string]bool)
+			result := collections.NewArray()
+			for i := 0; i < arr1.Len(); i++ {
+				val := arr1.Get(i).ToStr()
+				if !seen[val] {
+					seen[val] = true
+					result.Append(arr1.Get(i))
+				}
+			}
+			for i := 0; i < arr2.Len(); i++ {
+				val := arr2.Get(i).ToStr()
+				if !seen[val] {
+					seen[val] = true
+					result.Append(arr2.Get(i))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["includesArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("includesArr() expects 2 arguments: array, value", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("includesArr() first argument must be an array", 0, 0, "")
+			}
+			target := args[1].ToStr()
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).ToStr() == target {
+					return types.Bool(true)
+				}
+			}
+			return types.Bool(false)
+		},
+	}
+
+	vm.globals["indexOfArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("indexOfArr() expects 2 arguments: array, value", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("indexOfArr() first argument must be an array", 0, 0, "")
+			}
+			target := args[1].ToStr()
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).ToStr() == target {
+					return types.Int(i)
+				}
+			}
+			return types.Int(-1)
+		},
+	}
+
+	vm.globals["concatArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("concatArr() expects at least 1 argument", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for _, arg := range args {
+				arr, ok := arg.(*collections.Array)
+				if !ok {
+					result.Append(arg)
+				} else {
+					for i := 0; i < arr.Len(); i++ {
+						result.Append(arr.Get(i))
+					}
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["sliceArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("sliceArr() expects at least 2 arguments: array, start", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("sliceArr() first argument must be an array", 0, 0, "")
+			}
+			start, _ := types.ToInt(args[1])
+			arrLen := arr.Len()
+			end := arrLen
+			if len(args) >= 3 {
+				e, _ := types.ToInt(args[2])
+				end = int(e)
+			}
+			if start < 0 {
+				start = 0
+			}
+			if end > arrLen {
+				end = arrLen
+			}
+			if start >= types.Int(end) {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			for i := int(start); i < end; i++ {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["firstArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("firstArr() expects 1 argument: array", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("firstArr() first argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return types.UndefinedValue
+			}
+			return arr.Get(0)
+		},
+	}
+
+	vm.globals["lastArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("lastArr() expects 1 argument: array", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("lastArr() first argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return types.UndefinedValue
+			}
+			return arr.Get(arr.Len() - 1)
+		},
+	}
+
+	vm.globals["takeArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("takeArr() expects 2 arguments: array, n", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("takeArr() first argument must be an array", 0, 0, "")
+			}
+			n, _ := types.ToInt(args[1])
+			arrLen := arr.Len()
+			if n >= types.Int(arrLen) {
+				return arr
+			}
+			result := collections.NewArray()
+			for i := types.Int(0); i < n && i < types.Int(arrLen); i++ {
+				result.Append(arr.Get(int(i)))
+			}
+			return result
+		},
+	}
+
+	vm.globals["dropArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("dropArr() expects 2 arguments: array, n", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("dropArr() first argument must be an array", 0, 0, "")
+			}
+			n, _ := types.ToInt(args[1])
+			arrLen := arr.Len()
+			if n >= types.Int(arrLen) {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			for i := n; i < types.Int(arrLen); i++ {
+				result.Append(arr.Get(int(i)))
+			}
+			return result
+		},
+	}
+
 	// Debug functions
 	vm.globals["debug"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
