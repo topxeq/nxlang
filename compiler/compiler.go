@@ -417,6 +417,10 @@ func registerBuiltins(st *SymbolTable) {
 		"mapCodePoints", "filterChars", "reduceArr", "forEach", "someArr", "everyArr", "findArr", "findIndexArr", "createArray", "createMap",
 		// Utility functions
 		"isEmpty", "not", "and", "or", "coalesce", "defaultTo", "ifElse", "when",
+		// Functional programming
+		"rangeStep", "times", "tap", "pipe", "compose", "once", "memoize", "curry", "flip", "identity", "constant", "partial", "sleepAsync", "async", "defer", "noop", "always", "juxt", "apply", "spread", "call", "bind",
+		// Object path functions
+		"getPath", "setPath", "pickPaths", "omitPaths", "deepGet", "deepSet", "cloneDeep", "mergeDeep",
 		// Graphics/Canvas functions
 		"canvas", "clear", "drawPoint", "drawLine", "drawRectangle", "fillRectangle", "drawCircle", "fillCircle", "savePNG", "loadPNG", "getPixel", "canvasWidth", "canvasHeight",
 		// Data/CSV functions
