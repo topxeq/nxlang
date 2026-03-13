@@ -2133,6 +2133,90 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["find"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("find() expects at least 2 arguments (array, value)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("find() first argument must be an array", 0, 0, "")
+			}
+			target := args[1]
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					return arr.Get(i)
+				}
+			}
+			return types.NullValue
+		},
+	}
+
+	vm.globals["findIndex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("findIndex() expects at least 2 arguments (array, value)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("findIndex() first argument must be an array", 0, 0, "")
+			}
+			target := args[1]
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					return types.Int(i)
+				}
+			}
+			return types.Int(-1)
+		},
+	}
+
+	vm.globals["reject"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("reject() expects at least 2 arguments (array, value)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("reject() first argument must be an array", 0, 0, "")
+			}
+			target := args[1]
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				if !arr.Get(i).Equals(target) {
+					result.Append(arr.Get(i))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["partition"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("partition() expects at least 2 arguments (array, value)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("partition() first argument must be an array", 0, 0, "")
+			}
+			target := args[1]
+			truthy := collections.NewArray()
+			falsy := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					truthy.Append(arr.Get(i))
+				} else {
+					falsy.Append(arr.Get(i))
+				}
+			}
+			result := collections.NewArray()
+			result.Append(truthy)
+			result.Append(falsy)
+			return result
+		},
+	}
+
 	vm.globals["chunk"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {
@@ -6032,6 +6116,90 @@ func (vm *VM) registerBuiltins() {
 				}
 			}
 			flatten(arr)
+			return result
+		},
+	}
+
+	vm.globals["find"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("find() expects at least 2 arguments (array, value)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("find() first argument must be an array", 0, 0, "")
+			}
+			target := args[1]
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					return arr.Get(i)
+				}
+			}
+			return types.NullValue
+		},
+	}
+
+	vm.globals["findIndex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("findIndex() expects at least 2 arguments (array, value)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("findIndex() first argument must be an array", 0, 0, "")
+			}
+			target := args[1]
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					return types.Int(i)
+				}
+			}
+			return types.Int(-1)
+		},
+	}
+
+	vm.globals["reject"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("reject() expects at least 2 arguments (array, value)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("reject() first argument must be an array", 0, 0, "")
+			}
+			target := args[1]
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				if !arr.Get(i).Equals(target) {
+					result.Append(arr.Get(i))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["partition"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("partition() expects at least 2 arguments (array, value)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("partition() first argument must be an array", 0, 0, "")
+			}
+			target := args[1]
+			truthy := collections.NewArray()
+			falsy := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					truthy.Append(arr.Get(i))
+				} else {
+					falsy.Append(arr.Get(i))
+				}
+			}
+			result := collections.NewArray()
+			result.Append(truthy)
+			result.Append(falsy)
 			return result
 		},
 	}
@@ -16491,6 +16659,90 @@ func (vm *VM) registerBuiltins() {
 				}
 			}
 			flat(arr)
+			return result
+		},
+	}
+
+	vm.globals["find"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("find(arr, value) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("find: first argument must be array", 0, 0, "")
+			}
+			target := args[1]
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					return arr.Get(i)
+				}
+			}
+			return types.NullValue
+		},
+	}
+
+	vm.globals["findIndex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("findIndex(arr, value) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("findIndex: first argument must be array", 0, 0, "")
+			}
+			target := args[1]
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					return types.Int(i)
+				}
+			}
+			return types.Int(-1)
+		},
+	}
+
+	vm.globals["reject"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("reject(arr, value) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("reject: first argument must be array", 0, 0, "")
+			}
+			target := args[1]
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				if !arr.Get(i).Equals(target) {
+					result.Append(arr.Get(i))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["partition"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("partition(arr, value) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("partition: first argument must be array", 0, 0, "")
+			}
+			target := args[1]
+			truthy := collections.NewArray()
+			falsy := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					truthy.Append(arr.Get(i))
+				} else {
+					falsy.Append(arr.Get(i))
+				}
+			}
+			result := collections.NewArray()
+			result.Append(truthy)
+			result.Append(falsy)
 			return result
 		},
 	}
