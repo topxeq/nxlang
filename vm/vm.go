@@ -10,6 +10,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash/crc32"
+	"hash/fnv"
 	"io"
 	"math"
 	"math/rand"
@@ -11002,6 +11004,568 @@ func (vm *VM) registerBuiltins() {
 				result.Append(fn.Fn(arr.Get(i), types.Int(i)))
 			}
 			return result
+		},
+	}
+
+	var timeLocation *time.Location
+
+	vm.globals["setTimeZone"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("setTimeZone() expects a timezone string", 0, 0, "")
+			}
+			tz := string(types.ToString(args[0]))
+			loc, err := time.LoadLocation(tz)
+			if err != nil {
+				return types.NewError("setTimeZone(): invalid timezone: "+tz, 0, 0, "")
+			}
+			timeLocation = loc
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["getTimeZone"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			return types.String(timeLocation.String())
+		},
+	}
+
+	vm.globals["parseDate"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("parseDate() expects at least 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			layout := time.RFC3339
+			if len(args) >= 2 {
+				layout = string(types.ToString(args[1]))
+			}
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t, err := time.ParseInLocation(layout, s, timeLocation)
+			if err != nil {
+				return types.NewError("parseDate(): "+err.Error(), 0, 0, "")
+			}
+			result := collections.NewMap()
+			result.Set("year", types.Int(t.Year()))
+			result.Set("month", types.Int(t.Month()))
+			result.Set("day", types.Int(t.Day()))
+			result.Set("hour", types.Int(t.Hour()))
+			result.Set("minute", types.Int(t.Minute()))
+			result.Set("second", types.Int(t.Second()))
+			result.Set("weekday", types.String(t.Weekday().String()))
+			result.Set("unix", types.Int(t.Unix()))
+			return result
+		},
+	}
+
+	vm.globals["formatDate"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("formatDate() expects at least 1 argument", 0, 0, "")
+			}
+			var t time.Time
+			switch v := args[0].(type) {
+			case types.Int:
+				t = time.Unix(int64(v), 0)
+			case *collections.Array:
+				if v.Len() >= 6 {
+					year, _ := types.ToInt(v.Get(0))
+					month, _ := types.ToInt(v.Get(1))
+					day, _ := types.ToInt(v.Get(2))
+					hour, _ := types.ToInt(v.Get(3))
+					minute, _ := types.ToInt(v.Get(4))
+					second, _ := types.ToInt(v.Get(5))
+					t = time.Date(int(year), time.Month(month), int(day), int(hour), int(minute), int(second), 0, time.UTC)
+				} else {
+					return types.NewError("formatDate(): array must have at least 6 elements", 0, 0, "")
+				}
+			default:
+				return types.NewError("formatDate(): first argument must be unix timestamp or array", 0, 0, "")
+			}
+			layout := "2006-01-02 15:04:05"
+			if len(args) >= 2 {
+				layout = string(types.ToString(args[1]))
+			}
+			return types.String(t.Format(layout))
+		},
+	}
+
+	vm.globals["addDate"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 4 {
+				return types.NewError("addDate() expects 4 arguments: timestamp, years, months, days", 0, 0, "")
+			}
+			unix, _ := types.ToInt(args[0])
+			years, _ := types.ToInt(args[1])
+			months, _ := types.ToInt(args[2])
+			days, _ := types.ToInt(args[3])
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t := time.Unix(int64(unix), 0).In(timeLocation)
+			t = t.AddDate(int(years), int(months), int(days))
+			return types.Int(t.Unix())
+		},
+	}
+
+	vm.globals["dateDiff"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("dateDiff() expects 2 arguments: timestamp1, timestamp2", 0, 0, "")
+			}
+			t1, _ := types.ToInt(args[0])
+			t2, _ := types.ToInt(args[1])
+			diff := time.Duration(t2-t1) * time.Second
+			result := collections.NewMap()
+			result.Set("seconds", types.Int(diff.Seconds()))
+			result.Set("minutes", types.Int(diff.Minutes()))
+			result.Set("hours", types.Int(diff.Hours()))
+			result.Set("days", types.Int(diff.Hours()/24))
+			return result
+		},
+	}
+
+	vm.globals["isLeapYear"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isLeapYear() expects 1 argument", 0, 0, "")
+			}
+			year, _ := types.ToInt(args[0])
+			return types.Bool((year%4 == 0 && year%100 != 0) || year%400 == 0)
+		},
+	}
+
+	vm.globals["daysInMonth"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("daysInMonth() expects 2 arguments: year, month", 0, 0, "")
+			}
+			year, _ := types.ToInt(args[0])
+			month, _ := types.ToInt(args[1])
+			t := time.Date(int(year), time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+			return types.Int(t.AddDate(0, 1, -1).Day())
+		},
+	}
+
+	vm.globals["weekNumber"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("weekNumber() expects 1 argument: timestamp", 0, 0, "")
+			}
+			unix, _ := types.ToInt(args[0])
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t := time.Unix(int64(unix), 0).In(timeLocation)
+			_, week := t.ISOWeek()
+			return types.Int(week)
+		},
+	}
+
+	vm.globals["dayOfYear"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("dayOfYear() expects 1 argument: timestamp", 0, 0, "")
+			}
+			unix, _ := types.ToInt(args[0])
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t := time.Unix(int64(unix), 0).In(timeLocation)
+			return types.Int(t.YearDay())
+		},
+	}
+
+	vm.globals["startOfDay"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("startOfDay() expects 1 argument: timestamp", 0, 0, "")
+			}
+			unix, _ := types.ToInt(args[0])
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t := time.Unix(int64(unix), 0).In(timeLocation)
+			start := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, timeLocation)
+			return types.Int(start.Unix())
+		},
+	}
+
+	vm.globals["endOfDay"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("endOfDay() expects 1 argument: timestamp", 0, 0, "")
+			}
+			unix, _ := types.ToInt(args[0])
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t := time.Unix(int64(unix), 0).In(timeLocation)
+			end := time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 999999999, timeLocation)
+			return types.Int(end.Unix())
+		},
+	}
+
+	vm.globals["startOfMonth"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("startOfMonth() expects 1 argument: timestamp", 0, 0, "")
+			}
+			unix, _ := types.ToInt(args[0])
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t := time.Unix(int64(unix), 0).In(timeLocation)
+			start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, timeLocation)
+			return types.Int(start.Unix())
+		},
+	}
+
+	vm.globals["endOfMonth"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("endOfMonth() expects 1 argument: timestamp", 0, 0, "")
+			}
+			unix, _ := types.ToInt(args[0])
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t := time.Unix(int64(unix), 0).In(timeLocation)
+			end := t.AddDate(0, 1, -1)
+			end = time.Date(end.Year(), end.Month(), end.Day(), 23, 59, 59, 999999999, timeLocation)
+			return types.Int(end.Unix())
+		},
+	}
+
+	vm.globals["startOfYear"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("startOfYear() expects 1 argument: timestamp", 0, 0, "")
+			}
+			unix, _ := types.ToInt(args[0])
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t := time.Unix(int64(unix), 0).In(timeLocation)
+			start := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, timeLocation)
+			return types.Int(start.Unix())
+		},
+	}
+
+	vm.globals["endOfYear"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("endOfYear() expects 1 argument: timestamp", 0, 0, "")
+			}
+			unix, _ := types.ToInt(args[0])
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t := time.Unix(int64(unix), 0).In(timeLocation)
+			end := time.Date(t.Year(), 12, 31, 23, 59, 59, 999999999, timeLocation)
+			return types.Int(end.Unix())
+		},
+	}
+
+	vm.globals["timestampAdd"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("timestampAdd() expects 3 arguments: timestamp, value, unit", 0, 0, "")
+			}
+			unix, _ := types.ToInt(args[0])
+			value, _ := types.ToInt(args[1])
+			unit := string(types.ToString(args[2]))
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t := time.Unix(int64(unix), 0).In(timeLocation)
+			switch unit {
+			case "second", "seconds", "s":
+				t = t.Add(time.Duration(value) * time.Second)
+			case "minute", "minutes", "m":
+				t = t.Add(time.Duration(value) * time.Minute)
+			case "hour", "hours", "h":
+				t = t.Add(time.Duration(value) * time.Hour)
+			case "day", "days", "d":
+				t = t.AddDate(0, 0, int(value))
+			case "week", "weeks", "w":
+				t = t.AddDate(0, 0, int(value)*7)
+			case "month", "months":
+				t = t.AddDate(0, int(value), 0)
+			case "year", "years":
+				t = t.AddDate(int(value), 0, 0)
+			default:
+				return types.NewError("timestampAdd(): invalid unit: "+unit, 0, 0, "")
+			}
+			return types.Int(t.Unix())
+		},
+	}
+
+	vm.globals["strftime"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("strftime() expects 2 arguments: timestamp, format", 0, 0, "")
+			}
+			unix, _ := types.ToInt(args[0])
+			format := string(types.ToString(args[1]))
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t := time.Unix(int64(unix), 0).In(timeLocation)
+			result := format
+			result = strings.ReplaceAll(result, "%Y", fmt.Sprintf("%d", t.Year()))
+			result = strings.ReplaceAll(result, "%m", fmt.Sprintf("%02d", t.Month()))
+			result = strings.ReplaceAll(result, "%d", fmt.Sprintf("%02d", t.Day()))
+			result = strings.ReplaceAll(result, "%H", fmt.Sprintf("%02d", t.Hour()))
+			result = strings.ReplaceAll(result, "%M", fmt.Sprintf("%02d", t.Minute()))
+			result = strings.ReplaceAll(result, "%S", fmt.Sprintf("%02d", t.Second()))
+			result = strings.ReplaceAll(result, "%w", fmt.Sprintf("%d", t.Weekday()))
+			result = strings.ReplaceAll(result, "%j", fmt.Sprintf("%03d", t.YearDay()))
+			_, week := t.ISOWeek()
+			result = strings.ReplaceAll(result, "%U", fmt.Sprintf("%02d", week))
+			return types.String(result)
+		},
+	}
+
+	vm.globals["strptime"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("strptime() expects 2 arguments: string, format", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			format := string(types.ToString(args[1]))
+			format = strings.ReplaceAll(format, "%Y", "2006")
+			format = strings.ReplaceAll(format, "%m", "01")
+			format = strings.ReplaceAll(format, "%d", "02")
+			format = strings.ReplaceAll(format, "%H", "15")
+			format = strings.ReplaceAll(format, "%M", "04")
+			format = strings.ReplaceAll(format, "%S", "05")
+			format = strings.ReplaceAll(format, "%j", "002")
+			format = strings.ReplaceAll(format, "%w", "0")
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t, err := time.ParseInLocation(format, s, timeLocation)
+			if err != nil {
+				return types.NewError("strptime(): "+err.Error(), 0, 0, "")
+			}
+			return types.Int(t.Unix())
+		},
+	}
+
+	vm.globals["sleepUntil"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("sleepUntil() expects 1 argument: timestamp", 0, 0, "")
+			}
+			until, _ := types.ToInt(args[0])
+			now := int64(time.Now().Unix())
+			if int64(until) > now {
+				time.Sleep(time.Duration(int64(until)-now) * time.Second)
+			}
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["sleepMs"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("sleepMs() expects 1 argument: milliseconds", 0, 0, "")
+			}
+			ms, _ := types.ToInt(args[0])
+			time.Sleep(time.Duration(ms) * time.Millisecond)
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["unixToTime"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("unixToTime() expects 1 argument: unix timestamp", 0, 0, "")
+			}
+			unix, _ := types.ToInt(args[0])
+			if timeLocation == nil {
+				timeLocation = time.Local
+			}
+			t := time.Unix(int64(unix), 0).In(timeLocation)
+			result := collections.NewMap()
+			result.Set("year", types.Int(t.Year()))
+			result.Set("month", types.Int(t.Month()))
+			result.Set("day", types.Int(t.Day()))
+			result.Set("hour", types.Int(t.Hour()))
+			result.Set("minute", types.Int(t.Minute()))
+			result.Set("second", types.Int(t.Second()))
+			result.Set("weekday", types.String(t.Weekday().String()))
+			result.Set("unix", types.Int(t.Unix()))
+			return result
+		},
+	}
+
+	vm.globals["formatDuration"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("formatDuration() expects 1 argument: seconds", 0, 0, "")
+			}
+			secs, _ := types.ToFloat(args[0])
+			d := time.Duration(float64(secs) * float64(time.Second))
+			result := collections.NewMap()
+			result.Set("seconds", types.Float(d.Seconds()))
+			result.Set("minutes", types.Float(d.Minutes()))
+			result.Set("hours", types.Float(d.Hours()))
+			result.Set("days", types.Float(d.Hours()/24))
+			result.Set("string", types.String(d.String()))
+			return result
+		},
+	}
+
+	vm.globals["parseDuration"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("parseDuration() expects 1 argument: duration string", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			d, err := time.ParseDuration(s)
+			if err != nil {
+				return types.NewError("parseDuration(): "+err.Error(), 0, 0, "")
+			}
+			return types.Float(d.Seconds())
+		},
+	}
+
+	vm.globals["hash"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("hash() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			h := fnv.New32a()
+			h.Write([]byte(s))
+			return types.Int(h.Sum32())
+		},
+	}
+
+	vm.globals["crc32"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("crc32() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			return types.Int(crc32.ChecksumIEEE([]byte(s)))
+		},
+	}
+
+	vm.globals["parseInt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("parseInt() expects at least 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			base := 10
+			if len(args) >= 2 {
+				b, _ := types.ToInt(args[1])
+				base = int(b)
+			}
+			val, err := strconv.ParseInt(s, base, 64)
+			if err != nil {
+				return types.UndefinedValue
+			}
+			return types.Int(val)
+		},
+	}
+
+	vm.globals["parseFloat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("parseFloat() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			val, err := strconv.ParseFloat(s, 64)
+			if err != nil {
+				return types.UndefinedValue
+			}
+			return types.Float(val)
+		},
+	}
+
+	vm.globals["formatInt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("formatInt() expects at least 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToInt(args[0])
+			base := 10
+			if len(args) >= 2 {
+				b, _ := types.ToInt(args[1])
+				base = int(b)
+			}
+			return types.String(strconv.FormatInt(int64(val), base))
+		},
+	}
+
+	vm.globals["formatFloat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("formatFloat() expects at least 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			prec := -1
+			if len(args) >= 2 {
+				p, _ := types.ToInt(args[1])
+				prec = int(p)
+			}
+			format := byte('f')
+			if len(args) >= 3 {
+				f := string(types.ToString(args[2]))
+				if len(f) > 0 {
+					format = f[0]
+				}
+			}
+			return types.String(strconv.FormatFloat(float64(val), format, prec, 64))
+		},
+	}
+
+	vm.globals["isInt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isInt() expects 1 argument", 0, 0, "")
+			}
+			_, ok := args[0].(types.Int)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["isFloat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isFloat() expects 1 argument", 0, 0, "")
+			}
+			_, ok := args[0].(types.Float)
+			return types.Bool(ok)
+		},
+	}
+
+	vm.globals["toInt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("toInt() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToInt(args[0])
+			return val
+		},
+	}
+
+	vm.globals["toFloat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("toFloat() expects 1 argument", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			return types.Float(val)
 		},
 	}
 

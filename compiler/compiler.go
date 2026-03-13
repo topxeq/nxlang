@@ -423,6 +423,10 @@ func registerBuiltins(st *SymbolTable) {
 		"getPath", "setPath", "pickPaths", "omitPaths", "deepGet", "deepSet", "cloneDeep", "mergeDeep",
 		// Array operations with index support
 		"rangeN", "timesN", "forEachN", "mapN", "filterN", "reduceN", "findN", "findIndexN", "everyN", "someN", "sortByN", "groupByN", "countByN", "partitionN", "keyByN", "sortedIndexN", "toSortedN", "toReversedN", "with", "findLastN", "findLastIndexN", "addIndexN",
+		// Date/time functions
+		"setTimeZone", "getTimeZone", "parseDate", "formatDate", "addDate", "dateDiff", "isLeapYear", "daysInMonth", "weekNumber", "dayOfYear", "startOfDay", "endOfDay", "startOfMonth", "endOfMonth", "startOfYear", "endOfYear", "timestampAdd", "strftime", "strptime", "sleepUntil", "sleepMs", "unixToTime", "formatDuration", "parseDuration",
+		// Hash and encoding
+		"hash", "crc32", "parseInt", "parseFloat", "formatInt", "formatFloat", "isInt", "isFloat", "toInt", "toFloat",
 		// Array operations
 		"chunkArr", "unzip", "zipObj", "fromEntries", "toEntries", "headArr", "tailArr", "initArr", "lastArr", "uniqueArr", "flattenDeep", "differenceArr", "intersectionArr", "unionArr", "sortedIndex", "sortedLastIndex", "addIndex", "filterIndex", "findLastIndex", "findLast", "countBy", "groupByKey", "keyBy", "partition", "sortByKey", "sortByOrder", "isSorted", "sortedUNIQ",
 		// Math and bitwise
