@@ -1083,6 +1083,59 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["weekOfYear"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("weekOfYear() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				t, _ = time.Parse("2006-01-02", s)
+			}
+			year, week := t.ISOWeek()
+			m := collections.NewMap()
+			m.Set("year", types.Int(year))
+			m.Set("week", types.Int(week))
+			return m
+		},
+	}
+
+	vm.globals["utcNow"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			t := time.Now().UTC()
+			return types.String(t.Format("2006-01-02 15:04:05"))
+		},
+	}
+
+	vm.globals["unixToTime"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("unixToTime() expects 1 argument", 0, 0, "")
+			}
+			ts, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("unixToTime() expects an integer", 0, 0, "")
+			}
+			t := time.Unix(int64(ts), 0)
+			return types.String(t.Format("2006-01-02 15:04:05"))
+		},
+	}
+
+	vm.globals["sleepMicros"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sleepMicros() expects 1 argument", 0, 0, "")
+			}
+			us, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("sleepMicros() expects an integer", 0, 0, "")
+			}
+			time.Sleep(time.Duration(us) * time.Microsecond)
+			return types.UndefinedValue
+		},
+	}
+
 	vm.globals["take"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {

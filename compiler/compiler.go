@@ -337,6 +337,7 @@ func registerBuiltins(st *SymbolTable) {
 		"nowUnix", "nowUnixMs", "timestampToTime",
 		"timeYear", "timeMonth", "timeDay", "timeHour", "timeMinute", "timeSecond", "timeWeekday",
 		"addDays", "addMonths", "addYears", "date", "time", "isoWeek", "isoYear", "daysInMonth", "isLeapYear",
+		"weekOfYear", "utcNow", "unixToTime", "sleepMicros",
 		// Math functions
 		"product", "factorial", "gcd", "lcm", "isPrime", "fibonacci", "inRange", "percent", "mod", "divmod", "sign", "nan", "inf",
 		// Array functions
