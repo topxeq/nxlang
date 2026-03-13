@@ -1136,6 +1136,277 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["pluck"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("pluck() expects at least 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("pluck() first argument must be an array", 0, 0, "")
+			}
+			key := string(types.ToString(args[1]))
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				val := arr.Get(i)
+				if m, ok := val.(*collections.Map); ok {
+					result.Append(m.Get(key))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["partition"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("partition() expects at least 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("partition() first argument must be an array", 0, 0, "")
+			}
+			size, ok := args[1].(types.Int)
+			if !ok || size <= 0 {
+				return types.NewError("partition() second argument must be positive integer", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i += int(size) {
+				part := collections.NewArray()
+				end := i + int(size)
+				if end > arr.Len() {
+					end = arr.Len()
+				}
+				for j := i; j < end; j++ {
+					part.Append(arr.Get(j))
+				}
+				result.Append(part)
+			}
+			return result
+		},
+	}
+
+	vm.globals["transpose"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("transpose() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("transpose() argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return collections.NewArray()
+			}
+			first, ok := arr.Get(0).(*collections.Array)
+			if !ok {
+				return types.NewError("transpose() array elements must be arrays", 0, 0, "")
+			}
+			numCols := first.Len()
+			result := collections.NewArray()
+			for i := 0; i < numCols; i++ {
+				col := collections.NewArray()
+				for j := 0; j < arr.Len(); j++ {
+					row, ok := arr.Get(j).(*collections.Array)
+					if !ok {
+						return types.NewError("transpose() array elements must be arrays", 0, 0, "")
+					}
+					col.Append(row.Get(i))
+				}
+				result.Append(col)
+			}
+			return result
+		},
+	}
+
+	vm.globals["flattenDeep"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("flattenDeep() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("flattenDeep() argument must be an array", 0, 0, "")
+			}
+			result := collections.NewArray()
+			var flatten func(a *collections.Array, depth int)
+			d := -1
+			if len(args) > 1 {
+				if depthVal, depthOk := args[1].(types.Int); depthOk {
+					d = int(depthVal)
+				}
+			}
+			flatten = func(a *collections.Array, depth int) {
+				for i := 0; i < a.Len(); i++ {
+					val := a.Get(i)
+					if nested, ok := val.(*collections.Array); ok {
+						if depth != 0 {
+							flatten(nested, depth-1)
+						} else {
+							result.Append(nested)
+						}
+					} else {
+						result.Append(val)
+					}
+				}
+			}
+			flatten(arr, d)
+			return result
+		},
+	}
+
+	vm.globals["nth"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("nth() expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("nth() first argument must be an array", 0, 0, "")
+			}
+			n, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("nth() second argument must be an integer", 0, 0, "")
+			}
+			idx := int(n)
+			if idx < 0 {
+				idx = arr.Len() + idx
+			}
+			if idx < 0 || idx >= arr.Len() {
+				return types.UndefinedValue
+			}
+			return arr.Get(idx)
+		},
+	}
+
+	vm.globals["findIndex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("findIndex() expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("findIndex() first argument must be an array", 0, 0, "")
+			}
+			target := args[1]
+			for i := 0; i < arr.Len(); i++ {
+				if arr.Get(i).Equals(target) {
+					return types.Int(i)
+				}
+			}
+			return types.Int(-1)
+		},
+	}
+
+	vm.globals["findLastIndex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("findLastIndex() expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("findLastIndex() first argument must be an array", 0, 0, "")
+			}
+			target := args[1]
+			for i := arr.Len() - 1; i >= 0; i-- {
+				if arr.Get(i).Equals(target) {
+					return types.Int(i)
+				}
+			}
+			return types.Int(-1)
+		},
+	}
+
+	vm.globals["insert"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("insert() expects 3 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("insert() first argument must be an array", 0, 0, "")
+			}
+			idx, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("insert() second argument must be an integer", 0, 0, "")
+			}
+			val := args[2]
+			result := collections.NewArray()
+			pos := int(idx)
+			if pos < 0 {
+				pos = 0
+			}
+			if pos > arr.Len() {
+				pos = arr.Len()
+			}
+			for i := 0; i < pos; i++ {
+				result.Append(arr.Get(i))
+			}
+			result.Append(val)
+			for i := pos; i < arr.Len(); i++ {
+				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["removeAt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("removeAt() expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("removeAt() first argument must be an array", 0, 0, "")
+			}
+			idx, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("removeAt() second argument must be an integer", 0, 0, "")
+			}
+			pos := int(idx)
+			if pos < 0 || pos >= arr.Len() {
+				return arr
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				if i != pos {
+					result.Append(arr.Get(i))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["replaceAt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("replaceAt() expects 3 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("replaceAt() first argument must be an array", 0, 0, "")
+			}
+			idx, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("replaceAt() second argument must be an integer", 0, 0, "")
+			}
+			val := args[2]
+			pos := int(idx)
+			if pos < 0 || pos >= arr.Len() {
+				return arr
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i++ {
+				if i == pos {
+					result.Append(val)
+				} else {
+					result.Append(arr.Get(i))
+				}
+			}
+			return result
+		},
+	}
+
 	vm.globals["take"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {

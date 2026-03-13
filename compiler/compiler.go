@@ -342,6 +342,8 @@ func registerBuiltins(st *SymbolTable) {
 		"product", "factorial", "gcd", "lcm", "isPrime", "fibonacci", "inRange", "percent", "mod", "divmod", "sign", "nan", "inf",
 		// Array functions
 		"take", "drop", "takeLast", "dropLast", "first", "last", "head", "tail", "init",
+		"pluck", "partition", "transpose", "flattenDeep", "nth", "findIndex", "findLastIndex",
+		"insert", "removeAt", "replaceAt",
 		// String functions
 		"isBlank", "removeSpaces", "removeExtraSpaces", "reverseStr", "countStr",
 		"hasPrefix", "hasSuffix",
