@@ -411,6 +411,12 @@ func registerBuiltins(st *SymbolTable) {
 		"readFile", "writeFile", "appendFile", "readLines", "writeLines", "mkdir", "remove", "removeAll", "rename", "copy", "readDir", "cwd", "chdir", "hostname", "homeDir", "tempDir", "isDir", "isFile", "exists", "stat",
 		// Runtime functions
 		"eval", "parse", "compile", "version", "info", "gc", "numCPU", "freeMemory", "totalMemory", "sleepMicros", "sleepNanos", "unix", "unixMs", "unixNano",
+		// String functions
+		"splitN", "replaceAll", "count", "hasPrefix", "hasSuffix", "lines", "words", "bytes", "runes", "fromBytes", "fromRunes", "padStart", "padEnd", "trimLeft", "trimRight", "trimPrefix", "trimSuffix", "title", "toTitle", "toLowerSpecial", "toUpperSpecial", "isTitle", "equalFold", "compare", "containsAny", "containsRune", "indexAny", "lastIndexAny",
+		// Array functions
+		"mapCodePoints", "filterChars", "reduceArr", "forEach", "someArr", "everyArr", "findArr", "findIndexArr", "createArray", "createMap",
+		// Utility functions
+		"isEmpty", "not", "and", "or", "coalesce", "defaultTo", "ifElse", "when",
 		// Graphics/Canvas functions
 		"canvas", "clear", "drawPoint", "drawLine", "drawRectangle", "fillRectangle", "drawCircle", "fillCircle", "savePNG", "loadPNG", "getPixel", "canvasWidth", "canvasHeight",
 		// Data/CSV functions
