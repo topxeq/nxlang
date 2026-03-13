@@ -4043,6 +4043,32 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["formatJSON"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("formatJSON() expects 1 argument", 0, 0, "")
+			}
+			data, err := json.MarshalIndent(args[0], "", "  ")
+			if err != nil {
+				return types.NewError(fmt.Sprintf("formatJSON error: %v", err), 0, 0, "")
+			}
+			return types.String(string(data))
+		},
+	}
+
+	vm.globals["toJSON"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("toJSON() expects 1 argument", 0, 0, "")
+			}
+			data, err := json.Marshal(args[0])
+			if err != nil {
+				return types.NewError(fmt.Sprintf("toJSON error: %v", err), 0, 0, "")
+			}
+			return types.String(string(data))
+		},
+	}
+
 	vm.globals["replaceRegex"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 3 {
@@ -5810,6 +5836,7 @@ func (vm *VM) registerBuiltins() {
 	}
 
 	vm.globals["parseJson"] = vm.globals["fromJson"]
+	vm.globals["parseJSON"] = vm.globals["fromJson"]
 
 	// typeOf - returns the type name of a value
 	vm.globals["typeOf"] = &types.NativeFunction{
