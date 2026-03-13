@@ -7101,6 +7101,62 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["sampleSize"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("sampleSize() expects 2 arguments (array, n)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("sampleSize() first argument must be an array", 0, 0, "")
+			}
+			n, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("sampleSize() second argument must be an integer", 0, 0, "")
+			}
+			if int(n) >= arr.Len() {
+				n = types.Int(arr.Len())
+			}
+			if n <= 0 {
+				return collections.NewArray()
+			}
+			// Create shuffled copy and take first n
+			indices := make([]int, arr.Len())
+			for i := range indices {
+				indices[i] = i
+			}
+			// Fisher-Yates shuffle
+			for i := len(indices) - 1; i > 0; i-- {
+				j := rand.Intn(i + 1)
+				indices[i], indices[j] = indices[j], indices[i]
+			}
+			result := collections.NewArray()
+			for i := 0; i < int(n); i++ {
+				result.Append(arr.Get(indices[i]))
+			}
+			return result
+		},
+	}
+
+	vm.globals["randomFloat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Float(rand.Float64())
+		},
+	}
+
+	vm.globals["randomInt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Int(rand.Int())
+			}
+			max, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("randomInt() argument must be an integer", 0, 0, "")
+			}
+			return types.Int(rand.Intn(int(max)))
+		},
+	}
+
 	vm.globals["hasKey"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {
@@ -9579,6 +9635,60 @@ func (vm *VM) registerBuiltins() {
 				result.Append(col)
 			}
 			return result
+		},
+	}
+
+	vm.globals["sampleSize"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("sampleSize(arr, n) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("sampleSize: first argument must be array", 0, 0, "")
+			}
+			n, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("sampleSize: second argument must be integer", 0, 0, "")
+			}
+			if int(n) >= arr.Len() {
+				n = types.Int(arr.Len())
+			}
+			if n <= 0 {
+				return collections.NewArray()
+			}
+			indices := make([]int, arr.Len())
+			for i := range indices {
+				indices[i] = i
+			}
+			for i := len(indices) - 1; i > 0; i-- {
+				j := rand.Intn(i + 1)
+				indices[i], indices[j] = indices[j], indices[i]
+			}
+			result := collections.NewArray()
+			for i := 0; i < int(n); i++ {
+				result.Append(arr.Get(indices[i]))
+			}
+			return result
+		},
+	}
+
+	vm.globals["randomFloat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Float(rand.Float64())
+		},
+	}
+
+	vm.globals["randomInt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Int(rand.Int())
+			}
+			max, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("randomInt: argument must be integer", 0, 0, "")
+			}
+			return types.Int(rand.Intn(int(max)))
 		},
 	}
 
@@ -16434,6 +16544,60 @@ func (vm *VM) registerBuiltins() {
 				result.Append(sub)
 			}
 			return result
+		},
+	}
+
+	vm.globals["sampleSize"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("sampleSize(arr, n) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("sampleSize: first argument must be array", 0, 0, "")
+			}
+			n, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("sampleSize: second argument must be integer", 0, 0, "")
+			}
+			if int(n) >= arr.Len() {
+				n = types.Int(arr.Len())
+			}
+			if n <= 0 {
+				return collections.NewArray()
+			}
+			indices := make([]int, arr.Len())
+			for i := range indices {
+				indices[i] = i
+			}
+			for i := len(indices) - 1; i > 0; i-- {
+				j := rand.Intn(i + 1)
+				indices[i], indices[j] = indices[j], indices[i]
+			}
+			result := collections.NewArray()
+			for i := 0; i < int(n); i++ {
+				result.Append(arr.Get(indices[i]))
+			}
+			return result
+		},
+	}
+
+	vm.globals["randomFloat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Float(rand.Float64())
+		},
+	}
+
+	vm.globals["randomInt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.Int(rand.Int())
+			}
+			max, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("randomInt: argument must be integer", 0, 0, "")
+			}
+			return types.Int(rand.Intn(int(max)))
 		},
 	}
 
