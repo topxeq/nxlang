@@ -422,7 +422,11 @@ func registerBuiltins(st *SymbolTable) {
 		// Object path functions
 		"getPath", "setPath", "pickPaths", "omitPaths", "deepGet", "deepSet", "cloneDeep", "mergeDeep",
 		// Array operations
-		"chunkArr", "unzip", "zipObj", "fromEntries", "toEntries", "headArr", "tailArr", "initArr", "lastArr", "uniqueArr", "flattenDeep", "differenceArr", "intersectionArr", "unionArr", "sortedIndex", "sortedLastIndex", "addIndex", "filterIndex", "findLastIndex", "findLast", "countBy", "groupByKey", "keyBy", "partition", "sortByKey", "sortByOrder",
+		"chunkArr", "unzip", "zipObj", "fromEntries", "toEntries", "headArr", "tailArr", "initArr", "lastArr", "uniqueArr", "flattenDeep", "differenceArr", "intersectionArr", "unionArr", "sortedIndex", "sortedLastIndex", "addIndex", "filterIndex", "findLastIndex", "findLast", "countBy", "groupByKey", "keyBy", "partition", "sortByKey", "sortByOrder", "isSorted", "sortedUNIQ",
+		// Math and bitwise
+		"xor", "bitcount", "gcd", "lcm", "isPowerOf2", "tzCount",
+		// Type conversion
+		"char", "chars", "add", "negate", "inc", "dec", "sign", "signBit", "uint", "uint8", "int8", "int16", "int32", "int64", "float32", "float64", "byteVal",
 		// Graphics/Canvas functions
 		"canvas", "clear", "drawPoint", "drawLine", "drawRectangle", "fillRectangle", "drawCircle", "fillCircle", "savePNG", "loadPNG", "getPixel", "canvasWidth", "canvasHeight",
 		// Data/CSV functions
