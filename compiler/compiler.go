@@ -339,7 +339,12 @@ func registerBuiltins(st *SymbolTable) {
 		// Encoding functions
 		"base64URLEncode", "base64URLDecode",
 		// Regex functions
-		"match", "replaceRegex", "splitRegex", "findRegex",
+		"match", "replaceRegex", "splitRegex", "findRegex", "matchRegex",
+		// File functions
+		"fileExists", "isDir", "isFile", "fileSize", "fileModified", "copyFile", "rename",
+		"chdir", "pwd", "glob", "absPath", "baseName", "dirName", "extName", "joinPath",
+		// Utility functions
+		"test", "assert", "tap", "do", "id", "const", "placeholder",
 		// String conversion
 		"strconv",
 		// Type conversion functions

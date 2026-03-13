@@ -642,6 +642,193 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["isDir"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isDir() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			info, err := os.Stat(path)
+			if err != nil {
+				return types.Bool(false)
+			}
+			return types.Bool(info.IsDir())
+		},
+	}
+
+	vm.globals["isFile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isFile() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			info, err := os.Stat(path)
+			if err != nil {
+				return types.Bool(false)
+			}
+			return types.Bool(!info.IsDir())
+		},
+	}
+
+	vm.globals["fileSize"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("fileSize() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			info, err := os.Stat(path)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("fileSize error: %v", err), 0, 0, "")
+			}
+			return types.Int(info.Size())
+		},
+	}
+
+	vm.globals["fileModified"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("fileModified() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			info, err := os.Stat(path)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("fileModified error: %v", err), 0, 0, "")
+			}
+			return types.String(info.ModTime().Format("2006-01-02 15:04:05"))
+		},
+	}
+
+	vm.globals["copyFile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("copyFile() expects 2 arguments (src, dst)", 0, 0, "")
+			}
+			src := string(types.ToString(args[0]))
+			dst := string(types.ToString(args[1]))
+			data, err := os.ReadFile(src)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("copyFile error: %v", err), 0, 0, "")
+			}
+			err = os.WriteFile(dst, data, 0644)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("copyFile error: %v", err), 0, 0, "")
+			}
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["rename"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("rename() expects 2 arguments (old, new)", 0, 0, "")
+			}
+			old := string(types.ToString(args[0]))
+			new := string(types.ToString(args[1]))
+			err := os.Rename(old, new)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("rename error: %v", err), 0, 0, "")
+			}
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["chdir"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("chdir() expects 1 argument", 0, 0, "")
+			}
+			dir := string(types.ToString(args[0]))
+			err := os.Chdir(dir)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("chdir error: %v", err), 0, 0, "")
+			}
+			wd, _ := os.Getwd()
+			return types.String(wd)
+		},
+	}
+
+	vm.globals["pwd"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			wd, _ := os.Getwd()
+			return types.String(wd)
+		},
+	}
+
+	vm.globals["glob"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("glob() expects 1 argument (pattern)", 0, 0, "")
+			}
+			pattern := string(types.ToString(args[0]))
+			matches, err := filepath.Glob(pattern)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("glob error: %v", err), 0, 0, "")
+			}
+			arr := collections.NewArray()
+			for _, match := range matches {
+				arr.Append(types.String(match))
+			}
+			return arr
+		},
+	}
+
+	vm.globals["absPath"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("absPath() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			abs, err := filepath.Abs(path)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("absPath error: %v", err), 0, 0, "")
+			}
+			return types.String(abs)
+		},
+	}
+
+	vm.globals["baseName"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("baseName() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			return types.String(filepath.Base(path))
+		},
+	}
+
+	vm.globals["dirName"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("dirName() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			return types.String(filepath.Dir(path))
+		},
+	}
+
+	vm.globals["extName"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("extName() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			return types.String(filepath.Ext(path))
+		},
+	}
+
+	vm.globals["joinPath"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("joinPath() expects at least 1 argument", 0, 0, "")
+			}
+			parts := make([]string, len(args))
+			for i, arg := range args {
+				parts[i] = string(types.ToString(arg))
+			}
+			return types.String(filepath.Join(parts...))
+		},
+	}
+
 	vm.globals["round"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) == 0 {
@@ -2682,6 +2869,109 @@ func (vm *VM) registerBuiltins() {
 				arr.Append(types.String(match))
 			}
 			return arr
+		},
+	}
+
+	vm.globals["matchRegex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("matchRegex() expects 2 arguments (pattern, string)", 0, 0, "")
+			}
+			pattern := string(types.ToString(args[0]))
+			s := string(types.ToString(args[1]))
+			re := regexp.MustCompile(pattern)
+			return types.Bool(re.MatchString(s))
+		},
+	}
+
+	vm.globals["replaceRegex"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("replaceRegex() expects 3 arguments (pattern, replacement, string)", 0, 0, "")
+			}
+			pattern := string(types.ToString(args[0]))
+			replacement := string(types.ToString(args[1]))
+			s := string(types.ToString(args[2]))
+			re := regexp.MustCompile(pattern)
+			result := re.ReplaceAllString(s, replacement)
+			return types.String(result)
+		},
+	}
+
+	vm.globals["test"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("test() expects at least 1 argument", 0, 0, "")
+			}
+			fmt.Println()
+			for i, arg := range args {
+				fmt.Printf("Test %d: %v\n", i+1, arg.ToStr())
+			}
+			fmt.Println()
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["assert"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("assert() expects at least 1 argument", 0, 0, "")
+			}
+			condition, ok := args[0].(types.Bool)
+			if !ok {
+				return types.NewError("assert() first argument must be boolean", 0, 0, "")
+			}
+			if !condition {
+				msg := "Assertion failed"
+				if len(args) > 1 {
+					msg = string(types.ToString(args[1]))
+				}
+				return types.NewError(msg, 0, 0, "")
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["tap"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("tap() expects at least 1 argument", 0, 0, "")
+			}
+			fmt.Println(args[0].ToStr())
+			return args[0]
+		},
+	}
+
+	vm.globals["do"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("do() expects at least 1 argument", 0, 0, "")
+			}
+			return args[len(args)-1]
+		},
+	}
+
+	vm.globals["id"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("id() expects 1 argument", 0, 0, "")
+			}
+			return args[0]
+		},
+	}
+
+	vm.globals["const"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("const() expects 1 argument", 0, 0, "")
+			}
+			return args[0]
+		},
+	}
+
+	vm.globals["placeholder"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.UndefinedValue
 		},
 	}
 
