@@ -472,6 +472,12 @@ func registerBuiltins(st *SymbolTable) {
 		// HTTP functions
 		"httpGet", "httpPost", "httpPostJSON", "httpPut", "httpDelete", "httpRequest",
 		"httpHead", "httpOptions", "httpPatch", "urlParse", "urlBuild",
+		// New functions
+		"chunkArr", "zipObj", "fromEntries", "toEntries", "median", "variance", "stddev",
+		"htmlEncode", "htmlDecode", "truncate", "leftPad", "rightPad",
+		"isPowerOf2", "tzCount", "strFields", "strIndexAny", "strLastIndexAny",
+		"strContainsAny", "strContainsRune", "strHasPrefix", "strHasSuffix",
+		"strEqualFold", "strConv", "cpuCount", "urlJoin", "urlResolve", "isURL",
 	}
 
 	for i, name := range builtins {

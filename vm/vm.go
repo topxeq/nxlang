@@ -14,6 +14,7 @@ import (
 	"hash/fnv"
 	"io"
 	"math"
+	"math/bits"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -17053,6 +17054,671 @@ func (vm *VM) registerBuiltins() {
 				m.Set("author", types.String(info.Author))
 				result.Append(m)
 			}
+			return result
+		},
+	}
+
+	vm.globals["chunkArr"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("chunkArr() expects 2 arguments (array, size)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("chunkArr() first argument must be an array", 0, 0, "")
+			}
+			size, err := types.ToInt(args[1])
+			if err != nil {
+				return err
+			}
+			if size <= 0 {
+				return types.NewError("chunkArr() size must be positive", 0, 0, "")
+			}
+			result := collections.NewArray()
+			for i := 0; i < arr.Len(); i += int(size) {
+				chunk := collections.NewArray()
+				end := i + int(size)
+				if end > arr.Len() {
+					end = arr.Len()
+				}
+				for j := i; j < end; j++ {
+					chunk.Append(arr.Get(j))
+				}
+				result.Append(chunk)
+			}
+			return result
+		},
+	}
+
+	vm.globals["zipObj"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("zipObj() expects 2 arguments (keys, values)", 0, 0, "")
+			}
+			keys, ok1 := args[0].(*collections.Array)
+			vals, ok2 := args[1].(*collections.Array)
+			if !ok1 || !ok2 {
+				return types.NewError("zipObj() arguments must be arrays", 0, 0, "")
+			}
+			result := collections.NewMap()
+			n := keys.Len()
+			if vals.Len() < n {
+				n = vals.Len()
+			}
+			for i := 0; i < n; i++ {
+				k := keys.Get(i).ToStr()
+				result.Set(k, vals.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["fromEntries"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("fromEntries() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("fromEntries() argument must be an array", 0, 0, "")
+			}
+			result := collections.NewMap()
+			for i := 0; i < arr.Len(); i++ {
+				entry, ok := arr.Get(i).(*collections.Array)
+				if ok && entry.Len() >= 2 {
+					k := entry.Get(0).ToStr()
+					result.Set(k, entry.Get(1))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["toEntries"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("toEntries() expects 1 argument", 0, 0, "")
+			}
+			m, ok := args[0].(*collections.Map)
+			if !ok {
+				return types.NewError("toEntries() argument must be a map", 0, 0, "")
+			}
+			result := collections.NewArray()
+			keys := m.Keys()
+			for i := 0; i < keys.Len(); i++ {
+				k := keys.Get(i).ToStr()
+				entry := collections.NewArray()
+				entry.Append(types.String(k))
+				entry.Append(m.Get(k))
+				result.Append(entry)
+			}
+			return result
+		},
+	}
+
+	vm.globals["median"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("median() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("median() argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return types.NullValue
+			}
+			nums := make([]float64, arr.Len())
+			for i := 0; i < arr.Len(); i++ {
+				f, _ := types.ToFloat(arr.Get(i))
+				nums[i] = float64(f)
+			}
+			sort.Float64s(nums)
+			n := len(nums)
+			if n%2 == 0 {
+				return types.Float((nums[n/2-1] + nums[n/2]) / 2)
+			}
+			return types.Float(nums[n/2])
+		},
+	}
+
+	vm.globals["variance"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("variance() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("variance() argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return types.Float(0)
+			}
+			sum := 0.0
+			for i := 0; i < arr.Len(); i++ {
+				f, _ := types.ToFloat(arr.Get(i))
+				sum += float64(f)
+			}
+			mean := sum / float64(arr.Len())
+			var sumSq float64
+			for i := 0; i < arr.Len(); i++ {
+				f, _ := types.ToFloat(arr.Get(i))
+				d := float64(f) - mean
+				sumSq += d * d
+			}
+			return types.Float(sumSq / float64(arr.Len()))
+		},
+	}
+
+	vm.globals["stddev"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("stddev() expects 1 argument", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("stddev() argument must be an array", 0, 0, "")
+			}
+			if arr.Len() == 0 {
+				return types.Float(0)
+			}
+			sum := 0.0
+			for i := 0; i < arr.Len(); i++ {
+				f, _ := types.ToFloat(arr.Get(i))
+				sum += float64(f)
+			}
+			mean := sum / float64(arr.Len())
+			var sumSq float64
+			for i := 0; i < arr.Len(); i++ {
+				f, _ := types.ToFloat(arr.Get(i))
+				d := float64(f) - mean
+				sumSq += d * d
+			}
+			variance := sumSq / float64(arr.Len())
+			return types.Float(math.Sqrt(variance))
+		},
+	}
+
+	vm.globals["htmlEncode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("htmlEncode() expects 1 argument", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			s = strings.ReplaceAll(s, "&", "&amp;")
+			s = strings.ReplaceAll(s, "<", "&lt;")
+			s = strings.ReplaceAll(s, ">", "&gt;")
+			s = strings.ReplaceAll(s, `"`, "&quot;")
+			s = strings.ReplaceAll(s, "'", "&#39;")
+			return types.String(s)
+		},
+	}
+
+	vm.globals["htmlDecode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("htmlDecode() expects 1 argument", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			s = strings.ReplaceAll(s, "&lt;", "<")
+			s = strings.ReplaceAll(s, "&gt;", ">")
+			s = strings.ReplaceAll(s, "&quot;", `"`)
+			s = strings.ReplaceAll(s, "&#39;", "'")
+			s = strings.ReplaceAll(s, "&amp;", "&")
+			return types.String(s)
+		},
+	}
+
+	vm.globals["truncate"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("truncate() expects 2 arguments (str, length)", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			n, err := types.ToInt(args[1])
+			if err != nil {
+				return err
+			}
+			runes := []rune(s)
+			if len(runes) <= int(n) {
+				return types.String(s)
+			}
+			return types.String(string(runes[:int(n)]) + "...")
+		},
+	}
+
+	vm.globals["leftPad"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("leftPad() expects 3 arguments (str, length, pad)", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			n, err := types.ToInt(args[1])
+			if err != nil {
+				return err
+			}
+			pad := args[2].ToStr()
+			if len(s) >= int(n) {
+				return types.String(s)
+			}
+			padStr := strings.Repeat(pad, int(n)-len(s))
+			return types.String(padStr + s)
+		},
+	}
+
+	vm.globals["rightPad"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("rightPad() expects 3 arguments (str, length, pad)", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			n, err := types.ToInt(args[1])
+			if err != nil {
+				return err
+			}
+			pad := args[2].ToStr()
+			if len(s) >= int(n) {
+				return types.String(s)
+			}
+			padStr := strings.Repeat(pad, int(n)-len(s))
+			return types.String(s + padStr)
+		},
+	}
+
+	vm.globals["isPowerOf2"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isPowerOf2() expects 1 argument", 0, 0, "")
+			}
+			n, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			return types.Bool(n > 0 && (n&(n-1)) == 0)
+		},
+	}
+
+	vm.globals["tzCount"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("tzCount() expects 1 argument", 0, 0, "")
+			}
+			n, err := types.ToInt(args[0])
+			if err != nil {
+				return err
+			}
+			return types.Int(bits.TrailingZeros64(uint64(n)))
+		},
+	}
+
+	vm.globals["strFields"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("strFields() expects 1 argument", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			fields := strings.Fields(s)
+			result := collections.NewArray()
+			for _, f := range fields {
+				result.Append(types.String(f))
+			}
+			return result
+		},
+	}
+
+	vm.globals["strIndexAny"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("strIndexAny() expects 2 arguments", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			chars := args[1].ToStr()
+			idx := strings.IndexAny(s, chars)
+			if idx < 0 {
+				return types.Int(-1)
+			}
+			return types.Int(idx)
+		},
+	}
+
+	vm.globals["strLastIndexAny"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("strLastIndexAny() expects 2 arguments", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			chars := args[1].ToStr()
+			idx := strings.LastIndexAny(s, chars)
+			if idx < 0 {
+				return types.Int(-1)
+			}
+			return types.Int(idx)
+		},
+	}
+
+	vm.globals["strContainsAny"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("strContainsAny() expects 2 arguments", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			chars := args[1].ToStr()
+			return types.Bool(strings.ContainsAny(s, chars))
+		},
+	}
+
+	vm.globals["strContainsRune"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("strContainsRune() expects 2 arguments", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			r := []rune(args[1].ToStr())
+			if len(r) == 0 {
+				return types.Bool(false)
+			}
+			return types.Bool(strings.ContainsRune(s, r[0]))
+		},
+	}
+
+	vm.globals["strHasPrefix"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("strHasPrefix() expects 2 arguments", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			prefix := args[1].ToStr()
+			return types.Bool(strings.HasPrefix(s, prefix))
+		},
+	}
+
+	vm.globals["strHasSuffix"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("strHasSuffix() expects 2 arguments", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			suffix := args[1].ToStr()
+			return types.Bool(strings.HasSuffix(s, suffix))
+		},
+	}
+
+	vm.globals["strEqualFold"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("strEqualFold() expects 2 arguments", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			t := args[1].ToStr()
+			return types.Bool(strings.EqualFold(s, t))
+		},
+	}
+
+	vm.globals["strConv"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("strConv() expects at least 1 argument", 0, 0, "")
+			}
+			return types.String(args[0].ToStr())
+		},
+	}
+
+	vm.globals["numCPU"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(runtime.NumCPU())
+		},
+	}
+
+	vm.globals["cpuCount"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(runtime.NumCPU())
+		},
+	}
+
+	vm.globals["numCPU"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(runtime.NumCPU())
+		},
+	}
+
+	vm.globals["urlBuild"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("urlBuild() expects at least 1 argument", 0, 0, "")
+			}
+			u, err := url.Parse(args[0].ToStr())
+			if err != nil {
+				return types.NewError("urlBuild() failed: "+err.Error(), 0, 0, "")
+			}
+			if len(args) >= 2 {
+				m, ok := args[1].(*collections.Map)
+				if ok {
+					q := u.Query()
+					keys := m.Keys()
+					for i := 0; i < keys.Len(); i++ {
+						k := keys.Get(i).ToStr()
+						q.Set(k, m.Get(k).ToStr())
+					}
+					u.RawQuery = q.Encode()
+				}
+			}
+			return types.String(u.String())
+		},
+	}
+
+	vm.globals["urlJoin"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("urlJoin() expects at least 2 arguments", 0, 0, "")
+			}
+			base, err := url.Parse(args[0].ToStr())
+			if err != nil {
+				return types.NewError("urlJoin() failed: "+err.Error(), 0, 0, "")
+			}
+			rel := args[1].ToStr()
+			return types.String(base.ResolveReference(&url.URL{Path: rel}).String())
+		},
+	}
+
+	vm.globals["urlResolve"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("urlResolve() expects 2 arguments", 0, 0, "")
+			}
+			base, err := url.Parse(args[0].ToStr())
+			if err != nil {
+				return types.NewError("urlResolve() failed: "+err.Error(), 0, 0, "")
+			}
+			ref, err := url.Parse(args[1].ToStr())
+			if err != nil {
+				return types.NewError("urlResolve() failed: "+err.Error(), 0, 0, "")
+			}
+			return types.String(base.ResolveReference(ref).String())
+		},
+	}
+
+	vm.globals["isURL"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("isURL() expects 1 argument", 0, 0, "")
+			}
+			s := args[0].ToStr()
+			_, err := url.Parse(s)
+			return types.Bool(err == nil && strings.Contains(s, "://"))
+		},
+	}
+
+	vm.globals["httpHead"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("httpHead() expects at least 1 argument (url)", 0, 0, "")
+			}
+			url := args[0].ToStr()
+			resp, err := http.Head(url)
+			if err != nil {
+				return types.NewError("httpHead() failed: "+err.Error(), 0, 0, "")
+			}
+			defer resp.Body.Close()
+			result := collections.NewMap()
+			result.Set("status", types.Int(resp.StatusCode))
+			result.Set("headers", types.String(fmt.Sprintf("%v", resp.Header)))
+			return result
+		},
+	}
+
+	vm.globals["httpDelete"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("httpDelete() expects at least 1 argument (url)", 0, 0, "")
+			}
+			url := args[0].ToStr()
+			req, err := http.NewRequest("DELETE", url, nil)
+			if err != nil {
+				return types.NewError("httpDelete() failed: "+err.Error(), 0, 0, "")
+			}
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			if err != nil {
+				return types.NewError("httpDelete() failed: "+err.Error(), 0, 0, "")
+			}
+			defer resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body)
+			result := collections.NewMap()
+			result.Set("status", types.Int(resp.StatusCode))
+			result.Set("body", types.String(string(body)))
+			return result
+		},
+	}
+
+	vm.globals["httpPut"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("httpPut() expects at least 2 arguments (url, body)", 0, 0, "")
+			}
+			url := args[0].ToStr()
+			body := args[1].ToStr()
+			contentType := "text/plain"
+			if len(args) >= 3 {
+				contentType = args[2].ToStr()
+			}
+			resp, err := http.Post(url, contentType, strings.NewReader(body))
+			if err != nil {
+				return types.NewError("httpPut() failed: "+err.Error(), 0, 0, "")
+			}
+			defer resp.Body.Close()
+			respBody, _ := io.ReadAll(resp.Body)
+			result := collections.NewMap()
+			result.Set("status", types.Int(resp.StatusCode))
+			result.Set("body", types.String(string(respBody)))
+			return result
+		},
+	}
+
+	vm.globals["httpPatch"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("httpPatch() expects at least 2 arguments (url, body)", 0, 0, "")
+			}
+			url := args[0].ToStr()
+			body := args[1].ToStr()
+			req, err := http.NewRequest("PATCH", url, strings.NewReader(body))
+			if err != nil {
+				return types.NewError("httpPatch() failed: "+err.Error(), 0, 0, "")
+			}
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			if err != nil {
+				return types.NewError("httpPatch() failed: "+err.Error(), 0, 0, "")
+			}
+			defer resp.Body.Close()
+			respBody, _ := io.ReadAll(resp.Body)
+			result := collections.NewMap()
+			result.Set("status", types.Int(resp.StatusCode))
+			result.Set("body", types.String(string(respBody)))
+			return result
+		},
+	}
+
+	vm.globals["httpOptions"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("httpOptions() expects at least 1 argument (url)", 0, 0, "")
+			}
+			url := args[0].ToStr()
+			req, err := http.NewRequest("OPTIONS", url, nil)
+			if err != nil {
+				return types.NewError("httpOptions() failed: "+err.Error(), 0, 0, "")
+			}
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			if err != nil {
+				return types.NewError("httpOptions() failed: "+err.Error(), 0, 0, "")
+			}
+			defer resp.Body.Close()
+			result := collections.NewMap()
+			result.Set("status", types.Int(resp.StatusCode))
+			result.Set("allow", types.String(resp.Header.Get("Allow")))
+			return result
+		},
+	}
+
+	vm.globals["httpPostJSON"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("httpPostJSON() expects at least 2 arguments (url, json)", 0, 0, "")
+			}
+			url := args[0].ToStr()
+			jsonData := args[1].ToStr()
+			resp, err := http.Post(url, "application/json", strings.NewReader(jsonData))
+			if err != nil {
+				return types.NewError("httpPostJSON() failed: "+err.Error(), 0, 0, "")
+			}
+			defer resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body)
+			result := collections.NewMap()
+			result.Set("status", types.Int(resp.StatusCode))
+			result.Set("body", types.String(string(body)))
+			return result
+		},
+	}
+
+	vm.globals["httpRequest"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("httpRequest() expects at least 3 arguments (method, url, body)", 0, 0, "")
+			}
+			method := args[0].ToStr()
+			url := args[1].ToStr()
+			body := args[1].ToStr()
+			var bodyReader io.Reader
+			if len(body) > 0 && args[2] != nil {
+				bodyReader = strings.NewReader(args[2].ToStr())
+			}
+			req, err := http.NewRequest(method, url, bodyReader)
+			if err != nil {
+				return types.NewError("httpRequest() failed: "+err.Error(), 0, 0, "")
+			}
+			if len(args) >= 4 {
+				headers, ok := args[3].(*collections.Map)
+				if ok {
+					keys := headers.Keys()
+					for i := 0; i < keys.Len(); i++ {
+						k := keys.Get(i).ToStr()
+						req.Header.Set(k, headers.Get(k).ToStr())
+					}
+				}
+			}
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			if err != nil {
+				return types.NewError("httpRequest() failed: "+err.Error(), 0, 0, "")
+			}
+			defer resp.Body.Close()
+			respBody, _ := io.ReadAll(resp.Body)
+			result := collections.NewMap()
+			result.Set("status", types.Int(resp.StatusCode))
+			result.Set("body", types.String(string(respBody)))
+			result.Set("headers", types.String(fmt.Sprintf("%v", resp.Header)))
 			return result
 		},
 	}
