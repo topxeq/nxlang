@@ -314,7 +314,7 @@ func registerBuiltins(st *SymbolTable) {
 		"repeat", "padLeft", "padRight", "camelCase", "snakeCase", "kebabCase",
 		// Array functions
 		"unique", "flatten", "chunk", "shuffle", "sample", "reverse", "sort", "join", "count",
-		"any", "all", "none", "difference", "intersection", "union",
+		"any", "all", "none", "difference", "intersection", "union", "copy", "fill", "fillRange", "fillN",
 		// Math functions
 		"min", "max", "sum", "avg", "range",
 		// String functions
@@ -329,8 +329,11 @@ func registerBuiltins(st *SymbolTable) {
 		"hasKey", "merge",
 		// Math functions
 		"randomFloat", "clamp", "lerp", "pow", "sqrt", "abs", "log", "log10", "sin", "cos", "tan",
-		// Type check functions
-		"isEmpty", "isInt", "isFloat", "isNumber",
+		// Type check/conversion functions
+		"isEmpty", "isInt", "isFloat", "isNumber", "typeOf",
+		"toInt", "toFloat", "toString", "toBool", "toArray", "toMap",
+		// Time functions
+		"sleep", "timestamp", "unix", "unixMilli", "unixNano", "now", "formatTime",
 		// Map functions
 		"mapValues", "mapKeys", "groupBy", "zip", "unzip",
 		// Encoding functions

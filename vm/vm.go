@@ -2291,6 +2291,289 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["sleep"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sleep() expects 1 argument", 0, 0, "")
+			}
+			duration, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("sleep() expects an integer (seconds)", 0, 0, "")
+			}
+			time.Sleep(time.Duration(duration) * time.Second)
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["typeOf"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("typeOf() expects 1 argument", 0, 0, "")
+			}
+			return types.String(args[0].TypeName())
+		},
+	}
+
+	vm.globals["toInt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("toInt() expects 1 argument", 0, 0, "")
+			}
+			switch v := args[0].(type) {
+			case types.Int:
+				return v
+			case types.Float:
+				return types.Int(int(v))
+			case types.String:
+				i, err := strconv.Atoi(string(v))
+				if err != nil {
+					return types.NewError(fmt.Sprintf("toInt() error: %v", err), 0, 0, "")
+				}
+				return types.Int(i)
+			default:
+				return types.NewError("toInt() not supported for this type", 0, 0, "")
+			}
+		},
+	}
+
+	vm.globals["toFloat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("toFloat() expects 1 argument", 0, 0, "")
+			}
+			switch v := args[0].(type) {
+			case types.Int:
+				return types.Float(v)
+			case types.Float:
+				return v
+			case types.String:
+				f, err := strconv.ParseFloat(string(v), 64)
+				if err != nil {
+					return types.NewError(fmt.Sprintf("toFloat() error: %v", err), 0, 0, "")
+				}
+				return types.Float(f)
+			default:
+				return types.NewError("toFloat() not supported for this type", 0, 0, "")
+			}
+		},
+	}
+
+	vm.globals["toString"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("toString() expects 1 argument", 0, 0, "")
+			}
+			return types.String(args[0].ToStr())
+		},
+	}
+
+	vm.globals["toBool"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("toBool() expects 1 argument", 0, 0, "")
+			}
+			switch v := args[0].(type) {
+			case types.Bool:
+				return v
+			case types.Int:
+				return types.Bool(v != 0)
+			case types.Float:
+				return types.Bool(v != 0)
+			case types.String:
+				return types.Bool(v != "" && v != "false" && v != "0")
+			default:
+				return types.NewError("toBool() not supported for this type", 0, 0, "")
+			}
+		},
+	}
+
+	vm.globals["toArray"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("toArray() expects 1 argument", 0, 0, "")
+			}
+			if arr, ok := args[0].(*collections.Array); ok {
+				return arr
+			}
+			if s, ok := args[0].(types.String); ok {
+				arr := collections.NewArray()
+				for _, c := range s {
+					arr.Append(types.String(c))
+				}
+				return arr
+			}
+			return types.NewError("toArray() not supported for this type", 0, 0, "")
+		},
+	}
+
+	vm.globals["toMap"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("toMap() expects 1 argument", 0, 0, "")
+			}
+			if m, ok := args[0].(*collections.Map); ok {
+				return m
+			}
+			if om, ok := args[0].(*collections.OrderedMap); ok {
+				result := collections.NewMap()
+				keys := om.Keys()
+				for i := 0; i < keys.Len(); i++ {
+					k := keys.Get(i).(types.String)
+					result.Set(string(k), om.Get(string(k)))
+				}
+				return result
+			}
+			return types.NewError("toMap() not supported for this type", 0, 0, "")
+		},
+	}
+
+	vm.globals["timestamp"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().Unix())
+		},
+	}
+
+	vm.globals["unix"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().Unix())
+		},
+	}
+
+	vm.globals["unixMilli"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().UnixMilli())
+		},
+	}
+
+	vm.globals["unixNano"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().UnixNano())
+		},
+	}
+
+	vm.globals["now"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.String(time.Now().Format("2006-01-02 15:04:05"))
+		},
+	}
+
+	vm.globals["formatTime"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("formatTime() expects at least 1 argument", 0, 0, "")
+			}
+			t := time.Now()
+			format := "2006-01-02 15:04:05"
+			if len(args) > 1 {
+				format = string(types.ToString(args[1]))
+			}
+			if ts, ok := args[0].(types.Int); ok {
+				t = time.Unix(int64(ts), 0)
+			}
+			return types.String(t.Format(format))
+		},
+	}
+
+	vm.globals["copy"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("copy() expects 1 argument", 0, 0, "")
+			}
+			obj := args[0]
+			switch v := obj.(type) {
+			case *collections.Array:
+				newArr := collections.NewArray()
+				for i := 0; i < v.Len(); i++ {
+					newArr.Append(v.Get(i))
+				}
+				return newArr
+			case *collections.Map:
+				newMap := collections.NewMap()
+				for k, val := range v.Entries {
+					newMap.Set(k, val)
+				}
+				return newMap
+			case *collections.OrderedMap:
+				newMap := collections.NewOrderedMap()
+				keys := v.Keys()
+				for i := 0; i < keys.Len(); i++ {
+					k := keys.Get(i).(types.String)
+					newMap.Set(string(k), v.Get(string(k)))
+				}
+				return newMap
+			default:
+				return obj
+			}
+		},
+	}
+
+	vm.globals["fill"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("fill() expects at least 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("fill() first argument must be an array", 0, 0, "")
+			}
+			val := args[1]
+			for i := 0; i < arr.Len(); i++ {
+				arr.Set(i, val)
+			}
+			return arr
+		},
+	}
+
+	vm.globals["fillRange"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("fillRange() expects at least 3 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("fillRange() first argument must be an array", 0, 0, "")
+			}
+			start, ok1 := args[1].(types.Int)
+			end, ok2 := args[2].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("fillRange() expects (array, start, end, value)", 0, 0, "")
+			}
+			var val types.Object = types.UndefinedValue
+			if len(args) > 3 {
+				val = args[3]
+			}
+			for i := int(start); i < int(end) && i < arr.Len(); i++ {
+				arr.Set(i, val)
+			}
+			return arr
+		},
+	}
+
+	vm.globals["fillN"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("fillN() expects at least 3 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("fillN() first argument must be an array", 0, 0, "")
+			}
+			start, ok1 := args[1].(types.Int)
+			n, ok2 := args[2].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("fillN() expects (array, start, n, value)", 0, 0, "")
+			}
+			var val types.Object = types.UndefinedValue
+			if len(args) > 3 {
+				val = args[3]
+			}
+			for i := int(start); i < int(start)+int(n) && i < arr.Len(); i++ {
+				arr.Set(i, val)
+			}
+			return arr
+		},
+	}
+
 	vm.globals["base64Encode"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) == 0 {
