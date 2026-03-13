@@ -1010,6 +1010,79 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["date"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			t := time.Now()
+			return types.String(t.Format("2006-01-02"))
+		},
+	}
+
+	vm.globals["time"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			t := time.Now()
+			return types.String(t.Format("15:04:05"))
+		},
+	}
+
+	vm.globals["isoWeek"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isoWeek() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				t, _ = time.Parse("2006-01-02", s)
+			}
+			_, week := t.ISOWeek()
+			return types.Int(week)
+		},
+	}
+
+	vm.globals["isoYear"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isoYear() expects 1 argument", 0, 0, "")
+			}
+			s := string(types.ToString(args[0]))
+			t, err := time.Parse("2006-01-02 15:04:05", s)
+			if err != nil {
+				t, _ = time.Parse("2006-01-02", s)
+			}
+			year, _ := t.ISOWeek()
+			return types.Int(year)
+		},
+	}
+
+	vm.globals["daysInMonth"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("daysInMonth() expects 2 arguments", 0, 0, "")
+			}
+			year, ok1 := args[0].(types.Int)
+			month, ok2 := args[1].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("daysInMonth() expects 2 integers", 0, 0, "")
+			}
+			t := time.Date(int(year), time.Month(int(month)), 1, 0, 0, 0, 0, time.UTC)
+			return types.Int(t.AddDate(0, 1, -1).Day())
+		},
+	}
+
+	vm.globals["isLeapYear"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isLeapYear() expects 1 argument", 0, 0, "")
+			}
+			year, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("isLeapYear() expects an integer", 0, 0, "")
+			}
+			y := int(year)
+			return types.Bool((y%4 == 0 && y%100 != 0) || y%400 == 0)
+		},
+	}
+
 	vm.globals["take"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {
@@ -1410,6 +1483,104 @@ func (vm *VM) registerBuiltins() {
 			s := string(types.ToString(args[0]))
 			suffix := string(types.ToString(args[1]))
 			return types.Bool(strings.HasSuffix(s, suffix))
+		},
+	}
+
+	vm.globals["inRange"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 3 {
+				return types.NewError("inRange() expects 3 arguments", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			start, _ := types.ToFloat(args[1])
+			end, _ := types.ToFloat(args[2])
+			return types.Bool(val >= start && val <= end)
+		},
+	}
+
+	vm.globals["percent"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("percent() expects 2 arguments", 0, 0, "")
+			}
+			val, _ := types.ToFloat(args[0])
+			total, _ := types.ToFloat(args[1])
+			if total == 0 {
+				return types.Float(0)
+			}
+			return types.Float((val / total) * 100)
+		},
+	}
+
+	vm.globals["mod"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("mod() expects 2 arguments", 0, 0, "")
+			}
+			a, ok1 := args[0].(types.Int)
+			b, ok2 := args[1].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("mod() expects 2 integers", 0, 0, "")
+			}
+			if b == 0 {
+				return types.NewError("mod() division by zero", 0, 0, "")
+			}
+			return types.Int(a % b)
+		},
+	}
+
+	vm.globals["divmod"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("divmod() expects 2 arguments", 0, 0, "")
+			}
+			a, ok1 := args[0].(types.Int)
+			b, ok2 := args[1].(types.Int)
+			if !ok1 || !ok2 {
+				return types.NewError("divmod() expects 2 integers", 0, 0, "")
+			}
+			if b == 0 {
+				return types.NewError("divmod() division by zero", 0, 0, "")
+			}
+			result := collections.NewMap()
+			result.Set("quotient", types.Int(a/b))
+			result.Set("remainder", types.Int(a%b))
+			return result
+		},
+	}
+
+	vm.globals["sign"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sign() expects 1 argument", 0, 0, "")
+			}
+			f, _ := types.ToFloat(args[0])
+			if f > 0 {
+				return types.Int(1)
+			} else if f < 0 {
+				return types.Int(-1)
+			}
+			return types.Int(0)
+		},
+	}
+
+	vm.globals["nan"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("nan() expects 1 argument", 0, 0, "")
+			}
+			f, _ := types.ToFloat(args[0])
+			return types.Bool(math.IsNaN(float64(f)))
+		},
+	}
+
+	vm.globals["inf"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("inf() expects 1 argument", 0, 0, "")
+			}
+			f, _ := types.ToFloat(args[0])
+			return types.Bool(math.IsInf(float64(f), 0))
 		},
 	}
 

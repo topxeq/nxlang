@@ -336,10 +336,11 @@ func registerBuiltins(st *SymbolTable) {
 		"sleep", "timestamp", "unix", "unixMilli", "unixNano", "now", "formatTime",
 		"nowUnix", "nowUnixMs", "timestampToTime",
 		"timeYear", "timeMonth", "timeDay", "timeHour", "timeMinute", "timeSecond", "timeWeekday",
-		"addDays", "addMonths", "addYears",
+		"addDays", "addMonths", "addYears", "date", "time", "isoWeek", "isoYear", "daysInMonth", "isLeapYear",
+		// Math functions
+		"product", "factorial", "gcd", "lcm", "isPrime", "fibonacci", "inRange", "percent", "mod", "divmod", "sign", "nan", "inf",
 		// Array functions
 		"take", "drop", "takeLast", "dropLast", "first", "last", "head", "tail", "init",
-		"product", "factorial", "gcd", "lcm", "isPrime", "fibonacci",
 		// String functions
 		"isBlank", "removeSpaces", "removeExtraSpaces", "reverseStr", "countStr",
 		"hasPrefix", "hasSuffix",
