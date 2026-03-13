@@ -6941,6 +6941,60 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["duplicate"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("duplicate() expects 2 arguments (array, times)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("duplicate() first argument must be an array", 0, 0, "")
+			}
+			times, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("duplicate() second argument must be an integer", 0, 0, "")
+			}
+			if times <= 0 {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			for t := types.Int(0); t < times; t++ {
+				for i := 0; i < arr.Len(); i++ {
+					result.Append(arr.Get(i))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["sliding"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("sliding() expects 2 arguments (array, size)", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("sliding() first argument must be an array", 0, 0, "")
+			}
+			size, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("sliding() second argument must be an integer", 0, 0, "")
+			}
+			if size <= 0 || int(size) > arr.Len() {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			for i := 0; i <= arr.Len()-int(size); i++ {
+				chunk := collections.NewArray()
+				for j := 0; j < int(size); j++ {
+					chunk.Append(arr.Get(i + j))
+				}
+				result.Append(chunk)
+			}
+			return result
+		},
+	}
+
 	vm.globals["hasKey"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 2 {
@@ -16116,6 +16170,60 @@ func (vm *VM) registerBuiltins() {
 			}
 			for i := 0; i < n-c; i++ {
 				result.Append(arr.Get(i))
+			}
+			return result
+		},
+	}
+
+	vm.globals["duplicate"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("duplicate(arr, times) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("duplicate: first argument must be array", 0, 0, "")
+			}
+			times, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("duplicate: second argument must be integer", 0, 0, "")
+			}
+			if times <= 0 {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			for t := types.Int(0); t < times; t++ {
+				for i := 0; i < arr.Len(); i++ {
+					result.Append(arr.Get(i))
+				}
+			}
+			return result
+		},
+	}
+
+	vm.globals["sliding"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("sliding(arr, size) expects 2 arguments", 0, 0, "")
+			}
+			arr, ok := args[0].(*collections.Array)
+			if !ok {
+				return types.NewError("sliding: first argument must be array", 0, 0, "")
+			}
+			size, ok := args[1].(types.Int)
+			if !ok {
+				return types.NewError("sliding: second argument must be integer", 0, 0, "")
+			}
+			if size <= 0 || int(size) > arr.Len() {
+				return collections.NewArray()
+			}
+			result := collections.NewArray()
+			for i := 0; i <= arr.Len()-int(size); i++ {
+				chunk := collections.NewArray()
+				for j := 0; j < int(size); j++ {
+					chunk.Append(arr.Get(i + j))
+				}
+				result.Append(chunk)
 			}
 			return result
 		},

@@ -398,7 +398,7 @@ func registerBuiltins(st *SymbolTable) {
 		// Array functions
 		"range", "enumerate", "zip", "each", "pluck", "groupBy", "sortBy", "reverseArr", "shuffle", "sample", "flatten", "chunk", "joinStr", "uniq", "slice", "any", "all", "none", "find", "findIndex",
 		// More array functions
-		"includes", "every", "some", "fill", "first", "last", "tail", "init", "nth", "take", "drop", "takeLast", "dropLast", "insert", "removeAt", "replaceAt", "size", "empty", "clone", "concat", "join", "compact", "rotate",
+		"includes", "every", "some", "fill", "first", "last", "tail", "init", "nth", "take", "drop", "takeLast", "dropLast", "insert", "removeAt", "replaceAt", "size", "empty", "clone", "concat", "join", "compact", "rotate", "duplicate", "sliding", "groupByKey",
 		// Map functions
 		"hasKey", "delete", "set", "get", "merge", "toMap", "fromPairs", "toPairs", "invert", "pick", "omit",
 		// Type conversion
