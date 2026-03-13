@@ -7,6 +7,7 @@ import (
 	"github.com/topxeq/nxlang/compiler"
 	"github.com/topxeq/nxlang/parser"
 	"github.com/topxeq/nxlang/types"
+	"github.com/topxeq/nxlang/types/collections"
 )
 
 func runSource(t *testing.T, source string) types.Object {
@@ -1502,6 +1503,169 @@ func TestArrayBuiltinFunctions(t *testing.T) {
 	for _, tt := range tests {
 		result := runSource(t, tt.source)
 		if !result.Equals(tt.expected) {
+			t.Errorf("Source: %s, Expected: %v, Got: %v", tt.source, tt.expected, result)
+		}
+	}
+}
+
+func TestValidationFunctions(t *testing.T) {
+	tests := []struct {
+		source   string
+		expected types.Object
+	}{
+		{"isEmail(\"test@example.com\")", types.Bool(true)},
+		{"isEmail(\"invalid\")", types.Bool(false)},
+		{"isEmail(\"test@domain\")", types.Bool(false)},
+		{"isEmail(\"user@domain.co.uk\")", types.Bool(true)},
+		{"isPhone(\"+1234567890\")", types.Bool(true)},
+		{"isPhone(\"12345678901\")", types.Bool(true)},
+		{"isPhone(\"123\")", types.Bool(false)},
+		{"isPhone(\"123456789\")", types.Bool(false)},
+		{"isCreditCard(\"4532015112830366\")", types.Bool(true)},
+		{"isCreditCard(\"378282246310005\")", types.Bool(true)},
+		{"isCreditCard(\"1234567890\")", types.Bool(false)},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !result.Equals(tt.expected) {
+			t.Errorf("Source: %s, Expected: %v, Got: %v", tt.source, tt.expected, result)
+		}
+	}
+}
+
+func TestStringUtilityFunctions(t *testing.T) {
+	tests := []struct {
+		source   string
+		expected types.Object
+	}{
+		{"slugify(\"Hello World\")", types.String("hello-world")},
+		{"slugify(\"Test  Multiple   Spaces\")", types.String("test-multiple-spaces")},
+		{"slugify(\"ABC123!@#\")", types.String("abc123")},
+		{"wordCount(\"hello world test\")", types.Int(3)},
+		{"wordCount(\"\")", types.Int(0)},
+		{"wordCount(\"   spaces   \")", types.Int(1)},
+		{"sentenceCount(\"Hello. World! How are you?\")", types.Int(3)},
+		{"sentenceCount(\"One\")", types.Int(1)},
+		{"sentenceCount(\"\")", types.Int(0)},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !result.Equals(tt.expected) {
+			t.Errorf("Source: %s, Expected: %v, Got: %v", tt.source, tt.expected, result)
+		}
+	}
+}
+
+func TestArrayUtilityFunctions(t *testing.T) {
+	tests := []struct {
+		source   string
+		expected types.Object
+	}{
+		{"len(reverseArr([1, 2, 3]))", types.Int(3)},
+		{"len(uniq([1, 2, 2, 3, 3, 3]))", types.Int(3)},
+		{"len(difference([1, 2, 3, 4], [2, 4]))", types.Int(2)},
+		{"len(intersection([1, 2, 3, 4], [2, 4, 5]))", types.Int(2)},
+		{"len(union([1, 2], [3, 4]))", types.Int(4)},
+		{"len(addIndex([\"a\", \"b\"]))", types.Int(2)},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !result.Equals(tt.expected) {
+			t.Errorf("Source: %s, Expected: %v, Got: %v", tt.source, tt.expected, result)
+		}
+	}
+
+	// Test sample returns an element from the array
+	sampleResult := runSource(t, "sample([1, 2, 3, 4, 5])")
+	valid := false
+	for i := 1; i <= 5; i++ {
+		if sampleResult.Equals(types.Int(i)) {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		t.Errorf("sample() should return an element from the array, got: %v", sampleResult)
+	}
+}
+
+func TestHashAndCryptoFunctions(t *testing.T) {
+	tests := []struct {
+		source  string
+		checkFn func(types.Object) bool
+	}{
+		{"md5(\"hello\")", func(r types.Object) bool { return r.Equals(types.String("5d41402abc4b2a76b9719d911017c592")) }},
+		{"sha1(\"hello\")", func(r types.Object) bool { return r.Equals(types.String("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d")) }},
+		{"sha256(\"hello\")", func(r types.Object) bool {
+			return r.Equals(types.String("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"))
+		}},
+		{"hmacMD5(\"key\", \"message\")", func(r types.Object) bool { s := r.ToStr(); return len(s) == 32 }},
+		{"hmacSHA256(\"key\", \"message\")", func(r types.Object) bool { s := r.ToStr(); return len(s) == 64 }},
+		{"uuid()", func(r types.Object) bool { s := r.ToStr(); return len(s) == 36 }},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !tt.checkFn(result) {
+			t.Errorf("Source: %s, Unexpected result: %v", tt.source, result)
+		}
+	}
+}
+
+func TestAESEncryption(t *testing.T) {
+	source := `
+	let key = "1234567890123456"
+	let plaintext = "Hello World"
+	let encrypted = aesEncrypt(key, plaintext)
+	let decrypted = aesDecrypt(key, encrypted)
+	decrypted
+	`
+	result := runSource(t, source)
+	if !result.Equals(types.String("Hello World")) {
+		t.Errorf("AES encryption/decryption failed, got: %v", result)
+	}
+}
+
+func TestGzipFunctions(t *testing.T) {
+	source := `
+	let data = "Hello World Hello World"
+	let encoded = gzipEncode(data)
+	let decoded = gzipDecode(encoded)
+	decoded
+	`
+	result := runSource(t, source)
+	if !result.Equals(types.String("Hello World Hello World")) {
+		t.Errorf("Gzip test failed, got: %v", result)
+	}
+}
+
+func TestArraySetOperations(t *testing.T) {
+	tests := []struct {
+		source   string
+		checkFn  func(types.Object) bool
+		expected types.Object
+	}{
+		{"difference([1,2,3,4], [2,4])[0]", func(r types.Object) bool { return r.Equals(types.Int(1)) || r.Equals(types.Int(3)) }, types.Int(1)},
+		{"intersection([1,2,3,4], [3,4,5])[0]", func(r types.Object) bool { return r.Equals(types.Int(3)) || r.Equals(types.Int(4)) }, types.Int(3)},
+		{"union([1,2], [3,4])", func(r types.Object) bool {
+			arr := r.(*collections.Array)
+			return arr.Len() == 4
+		}, types.Int(4)},
+		{"uniq([1,1,2,2,3])[0]", func(r types.Object) bool { return r.Equals(types.Int(1)) }, types.Int(1)},
+		{"addIndex([\"a\",\"b\"])[0][0]", func(r types.Object) bool { return r.Equals(types.Int(0)) }, types.Int(0)},
+		{"reverseArr([1,2,3])[0]", func(r types.Object) bool { return r.Equals(types.Int(3)) }, types.Int(3)},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if tt.checkFn != nil {
+			if !tt.checkFn(result) {
+				t.Errorf("Source: %s, Unexpected result: %v", tt.source, result)
+			}
+		} else if !result.Equals(tt.expected) {
 			t.Errorf("Source: %s, Expected: %v, Got: %v", tt.source, tt.expected, result)
 		}
 	}

@@ -17881,7 +17881,7 @@ func (vm *VM) registerBuiltins() {
 				return types.NewError("isPhone() expects 1 argument", 0, 0, "")
 			}
 			phone := args[0].ToStr()
-			pattern := `^\+?[1-9]\d{1,14}$`
+			pattern := `^\+?[1-9]\d{9,14}$`
 			matched, _ := regexp.MatchString(pattern, strings.ReplaceAll(phone, "-", ""))
 			return types.Bool(matched)
 		},
