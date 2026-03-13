@@ -407,6 +407,10 @@ func registerBuiltins(st *SymbolTable) {
 		"clamp", "inRange", "random", "rand", "randBetween", "randFloat", "shuffleStr",
 		// String/Print functions
 		"format", "printf", "sprintf", "print", "println",
+		// File functions
+		"readFile", "writeFile", "appendFile", "readLines", "writeLines", "mkdir", "remove", "removeAll", "rename", "copy", "readDir", "cwd", "chdir", "hostname", "homeDir", "tempDir", "isDir", "isFile", "exists", "stat",
+		// Runtime functions
+		"eval", "parse", "compile", "version", "info", "gc", "numCPU", "freeMemory", "totalMemory", "sleepMicros", "sleepNanos", "unix", "unixMs", "unixNano",
 		// Graphics/Canvas functions
 		"canvas", "clear", "drawPoint", "drawLine", "drawRectangle", "fillRectangle", "drawCircle", "fillCircle", "savePNG", "loadPNG", "getPixel", "canvasWidth", "canvasHeight",
 		// Data/CSV functions

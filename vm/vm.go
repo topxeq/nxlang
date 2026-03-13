@@ -6979,6 +6979,465 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["readFile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("readFile() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("readFile error: %v", err), 0, 0, "")
+			}
+			return types.String(string(data))
+		},
+	}
+
+	vm.globals["writeFile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("writeFile() expects at least 2 arguments", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			content := string(types.ToString(args[1]))
+			err := os.WriteFile(path, []byte(content), 0644)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("writeFile error: %v", err), 0, 0, "")
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["appendFile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("appendFile() expects at least 2 arguments", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			content := string(types.ToString(args[1]))
+			f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("appendFile error: %v", err), 0, 0, "")
+			}
+			defer f.Close()
+			_, err = f.WriteString(content)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("appendFile error: %v", err), 0, 0, "")
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["readLines"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("readLines() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("readLines error: %v", err), 0, 0, "")
+			}
+			lines := strings.Split(string(data), "\n")
+			result := collections.NewArray()
+			for _, line := range lines {
+				result.Append(types.String(line))
+			}
+			return result
+		},
+	}
+
+	vm.globals["writeLines"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("writeLines() expects at least 2 arguments", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			arr, ok := args[1].(*collections.Array)
+			if !ok {
+				return types.NewError("writeLines() second argument must be an array", 0, 0, "")
+			}
+			var lines []string
+			for i := 0; i < arr.Len(); i++ {
+				lines = append(lines, string(types.ToString(arr.Get(i))))
+			}
+			content := strings.Join(lines, "\n")
+			err := os.WriteFile(path, []byte(content), 0644)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("writeLines error: %v", err), 0, 0, "")
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["mkdir"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("mkdir() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			err := os.MkdirAll(path, 0755)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("mkdir error: %v", err), 0, 0, "")
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["remove"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("remove() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			err := os.Remove(path)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("remove error: %v", err), 0, 0, "")
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["removeAll"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("removeAll() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			err := os.RemoveAll(path)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("removeAll error: %v", err), 0, 0, "")
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["rename"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("rename() expects 2 arguments", 0, 0, "")
+			}
+			oldPath := string(types.ToString(args[0]))
+			newPath := string(types.ToString(args[1]))
+			err := os.Rename(oldPath, newPath)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("rename error: %v", err), 0, 0, "")
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["copy"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("copy() expects 2 arguments", 0, 0, "")
+			}
+			src := string(types.ToString(args[0]))
+			dst := string(types.ToString(args[1]))
+			sourceFile, err := os.Open(src)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("copy error: %v", err), 0, 0, "")
+			}
+			defer sourceFile.Close()
+			destFile, err := os.Create(dst)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("copy error: %v", err), 0, 0, "")
+			}
+			defer destFile.Close()
+			_, err = io.Copy(destFile, sourceFile)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("copy error: %v", err), 0, 0, "")
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["readDir"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("readDir() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			entries, err := os.ReadDir(path)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("readDir error: %v", err), 0, 0, "")
+			}
+			result := collections.NewArray()
+			for _, entry := range entries {
+				info := collections.NewMap()
+				info.Set("name", types.String(entry.Name()))
+				info.Set("isDir", types.Bool(entry.IsDir()))
+				result.Append(info)
+			}
+			return result
+		},
+	}
+
+	vm.globals["cwd"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			dir, err := os.Getwd()
+			if err != nil {
+				return types.NewError(fmt.Sprintf("cwd error: %v", err), 0, 0, "")
+			}
+			return types.String(dir)
+		},
+	}
+
+	vm.globals["chdir"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("chdir() expects 1 argument", 0, 0, "")
+			}
+			dir := string(types.ToString(args[0]))
+			err := os.Chdir(dir)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("chdir error: %v", err), 0, 0, "")
+			}
+			return types.Bool(true)
+		},
+	}
+
+	vm.globals["hostname"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			name, err := os.Hostname()
+			if err != nil {
+				return types.NewError(fmt.Sprintf("hostname error: %v", err), 0, 0, "")
+			}
+			return types.String(name)
+		},
+	}
+
+	vm.globals["homeDir"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			dir, err := os.UserHomeDir()
+			if err != nil {
+				return types.NewError(fmt.Sprintf("homeDir error: %v", err), 0, 0, "")
+			}
+			return types.String(dir)
+		},
+	}
+
+	vm.globals["tempDir"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.String(os.TempDir())
+		},
+	}
+
+	vm.globals["eval"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("eval() expects 1 argument", 0, 0, "")
+			}
+			source := string(types.ToString(args[0]))
+			lexer := parser.NewLexer(source)
+			p := parser.NewParser(lexer)
+			program := p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				return types.NewError(fmt.Sprintf("eval parse errors: %v", p.Errors()), 0, 0, "")
+			}
+			comp := compiler.NewCompiler()
+			if err := comp.Compile(program); err != nil {
+				return types.NewError(fmt.Sprintf("eval compile error: %v", err), 0, 0, "")
+			}
+			bc := comp.Bytecode()
+			vm := NewVM(bc)
+			if err := vm.Run(); err != nil {
+				return types.NewError(fmt.Sprintf("eval runtime error: %v", err), 0, 0, "")
+			}
+			if vm.Stack().Size() > 0 {
+				return vm.Stack().Peek()
+			}
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["parse"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("parse() expects 1 argument", 0, 0, "")
+			}
+			source := string(types.ToString(args[0]))
+			lexer := parser.NewLexer(source)
+			p := parser.NewParser(lexer)
+			_ = p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				return types.NewError(fmt.Sprintf("parse errors: %v", p.Errors()), 0, 0, "")
+			}
+			return types.String("OK")
+		},
+	}
+
+	vm.globals["compile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("compile() expects 1 argument", 0, 0, "")
+			}
+			source := string(types.ToString(args[0]))
+			lexer := parser.NewLexer(source)
+			p := parser.NewParser(lexer)
+			program := p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				return types.NewError(fmt.Sprintf("compile parse errors: %v", p.Errors()), 0, 0, "")
+			}
+			comp := compiler.NewCompiler()
+			if err := comp.Compile(program); err != nil {
+				return types.NewError(fmt.Sprintf("compile error: %v", err), 0, 0, "")
+			}
+			return types.String("OK")
+		},
+	}
+
+	vm.globals["version"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.String("1.0.0")
+		},
+	}
+
+	vm.globals["info"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			result := collections.NewMap()
+			result.Set("version", types.String("1.0.0"))
+			result.Set("platform", types.String(runtime.GOOS))
+			result.Set("arch", types.String(runtime.GOARCH))
+			result.Set("numCPU", types.Int(runtime.NumCPU()))
+			return result
+		},
+	}
+
+	vm.globals["gc"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			runtime.GC()
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["numCPU"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(runtime.NumCPU())
+		},
+	}
+
+	vm.globals["freeMemory"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			return types.Int(m.Frees)
+		},
+	}
+
+	vm.globals["totalMemory"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			return types.Int(m.Alloc)
+		},
+	}
+
+	vm.globals["sleepMicros"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sleepMicros() expects 1 argument", 0, 0, "")
+			}
+			us, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("sleepMicros() expects an integer", 0, 0, "")
+			}
+			time.Sleep(time.Duration(us) * time.Microsecond)
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["sleepNanos"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("sleepNanos() expects 1 argument", 0, 0, "")
+			}
+			ns, ok := args[0].(types.Int)
+			if !ok {
+				return types.NewError("sleepNanos() expects an integer", 0, 0, "")
+			}
+			time.Sleep(time.Duration(ns) * time.Nanosecond)
+			return types.UndefinedValue
+		},
+	}
+
+	vm.globals["unix"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().Unix())
+		},
+	}
+
+	vm.globals["unixMs"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().UnixMilli())
+		},
+	}
+
+	vm.globals["unixNano"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			return types.Int(time.Now().UnixNano())
+		},
+	}
+
+	vm.globals["isDir"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isDir() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			info, err := os.Stat(path)
+			if err != nil {
+				return types.Bool(false)
+			}
+			return types.Bool(info.IsDir())
+		},
+	}
+
+	vm.globals["isFile"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("isFile() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			info, err := os.Stat(path)
+			if err != nil {
+				return types.Bool(false)
+			}
+			return types.Bool(!info.IsDir())
+		},
+	}
+
+	vm.globals["exists"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("exists() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			_, err := os.Stat(path)
+			return types.Bool(err == nil)
+		},
+	}
+
+	vm.globals["stat"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("stat() expects 1 argument", 0, 0, "")
+			}
+			path := string(types.ToString(args[0]))
+			info, err := os.Stat(path)
+			if err != nil {
+				return types.NewError(fmt.Sprintf("stat error: %v", err), 0, 0, "")
+			}
+			result := collections.NewMap()
+			result.Set("name", types.String(info.Name()))
+			result.Set("size", types.Int(info.Size()))
+			result.Set("isDir", types.Bool(info.IsDir()))
+			result.Set("mode", types.Int(int64(info.Mode())))
+			result.Set("modTime", types.String(info.ModTime().Format("2006-01-02 15:04:05")))
+			return result
+		},
+	}
+
 	// Debug functions
 	vm.globals["debug"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
