@@ -354,7 +354,7 @@ func registerBuiltins(st *SymbolTable) {
 		// Regex functions
 		"match", "replaceRegex", "splitRegex", "findRegex", "matchRegex",
 		// JSON functions
-		"formatJSON", "toJSON", "parseJSON", "fromJson",
+		"formatJSON", "toJSON", "jsonEncode", "parseJSON", "fromJson",
 		// File functions
 		"fileExists", "isDir", "isFile", "fileSize", "fileModified", "copyFile", "rename",
 		"chdir", "pwd", "glob", "absPath", "baseName", "dirName", "extName", "joinPath",
@@ -416,7 +416,7 @@ func registerBuiltins(st *SymbolTable) {
 		// Array functions
 		"mapCodePoints", "filterChars", "reduceArr", "forEach", "someArr", "everyArr", "findArr", "findIndexArr", "createArray", "createMap",
 		// Utility functions
-		"isEmpty", "not", "and", "or", "coalesce", "defaultTo", "ifElse", "when",
+		"isEmpty", "not", "and", "or", "coalesce", "defaultTo", "ifElse", "when", "equal", "neq", "gt", "lt", "gte", "lte",
 		// Functional programming
 		"rangeStep", "times", "tap", "pipe", "compose", "once", "memoize", "curry", "flip", "identity", "constant", "partial", "sleepAsync", "async", "defer", "noop", "always", "juxt", "apply", "spread", "call", "bind",
 		// Object path functions

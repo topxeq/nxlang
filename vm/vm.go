@@ -2552,6 +2552,144 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["equal"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("equal() expects 2 arguments", 0, 0, "")
+			}
+			return types.Bool(args[0].Equals(args[1]))
+		},
+	}
+
+	vm.globals["neq"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("neq() expects 2 arguments", 0, 0, "")
+			}
+			return types.Bool(!args[0].Equals(args[1]))
+		},
+	}
+
+	vm.globals["gt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("gt() expects 2 arguments", 0, 0, "")
+			}
+			a, b := args[0], args[1]
+			aInt, aOk := a.(types.Int)
+			bInt, bOk := b.(types.Int)
+			if aOk && bOk {
+				return types.Bool(aInt > bInt)
+			}
+			aFloat, aFloatOk := a.(types.Float)
+			bFloat, bFloatOk := b.(types.Float)
+			if aFloatOk && bFloatOk {
+				return types.Bool(aFloat > bFloat)
+			}
+			if aOk {
+				f, _ := types.ToFloat(b)
+				return types.Bool(float64(aInt) > float64(f))
+			}
+			if bOk {
+				f, _ := types.ToFloat(a)
+				return types.Bool(float64(f) > float64(bInt))
+			}
+			aF, _ := types.ToFloat(a)
+			bF, _ := types.ToFloat(b)
+			return types.Bool(float64(aF) > float64(bF))
+		},
+	}
+
+	vm.globals["lt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("lt() expects 2 arguments", 0, 0, "")
+			}
+			a, b := args[0], args[1]
+			aInt, aOk := a.(types.Int)
+			bInt, bOk := b.(types.Int)
+			if aOk && bOk {
+				return types.Bool(aInt < bInt)
+			}
+			aFloat, aFloatOk := a.(types.Float)
+			bFloat, bFloatOk := b.(types.Float)
+			if aFloatOk && bFloatOk {
+				return types.Bool(aFloat < bFloat)
+			}
+			if aOk {
+				f, _ := types.ToFloat(b)
+				return types.Bool(float64(aInt) < float64(f))
+			}
+			if bOk {
+				f, _ := types.ToFloat(a)
+				return types.Bool(float64(f) < float64(bInt))
+			}
+			aF, _ := types.ToFloat(a)
+			bF, _ := types.ToFloat(b)
+			return types.Bool(float64(aF) < float64(bF))
+		},
+	}
+
+	vm.globals["gte"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("gte() expects 2 arguments", 0, 0, "")
+			}
+			a, b := args[0], args[1]
+			aInt, aOk := a.(types.Int)
+			bInt, bOk := b.(types.Int)
+			if aOk && bOk {
+				return types.Bool(aInt >= bInt)
+			}
+			aFloat, aFloatOk := a.(types.Float)
+			bFloat, bFloatOk := b.(types.Float)
+			if aFloatOk && bFloatOk {
+				return types.Bool(aFloat >= bFloat)
+			}
+			if aOk {
+				f, _ := types.ToFloat(b)
+				return types.Bool(float64(aInt) >= float64(f))
+			}
+			if bOk {
+				f, _ := types.ToFloat(a)
+				return types.Bool(float64(f) >= float64(bInt))
+			}
+			aF, _ := types.ToFloat(a)
+			bF, _ := types.ToFloat(b)
+			return types.Bool(float64(aF) >= float64(bF))
+		},
+	}
+
+	vm.globals["lte"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("lte() expects 2 arguments", 0, 0, "")
+			}
+			a, b := args[0], args[1]
+			aInt, aOk := a.(types.Int)
+			bInt, bOk := b.(types.Int)
+			if aOk && bOk {
+				return types.Bool(aInt <= bInt)
+			}
+			aFloat, aFloatOk := a.(types.Float)
+			bFloat, bFloatOk := b.(types.Float)
+			if aFloatOk && bFloatOk {
+				return types.Bool(aFloat <= bFloat)
+			}
+			if aOk {
+				f, _ := types.ToFloat(b)
+				return types.Bool(float64(aInt) <= float64(f))
+			}
+			if bOk {
+				f, _ := types.ToFloat(a)
+				return types.Bool(float64(f) <= float64(bInt))
+			}
+			aF, _ := types.ToFloat(a)
+			bF, _ := types.ToFloat(b)
+			return types.Bool(float64(aF) <= float64(bF))
+		},
+	}
+
 	vm.globals["isInt"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) == 0 {
@@ -4074,6 +4212,19 @@ func (vm *VM) registerBuiltins() {
 			data, err := json.Marshal(args[0])
 			if err != nil {
 				return types.NewError(fmt.Sprintf("toJSON error: %v", err), 0, 0, "")
+			}
+			return types.String(string(data))
+		},
+	}
+
+	vm.globals["jsonEncode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) == 0 {
+				return types.NewError("jsonEncode() expects 1 argument", 0, 0, "")
+			}
+			data, err := json.Marshal(toJSONable(args[0]))
+			if err != nil {
+				return types.NewError(fmt.Sprintf("jsonEncode error: %v", err), 0, 0, "")
 			}
 			return types.String(string(data))
 		},
@@ -8024,6 +8175,144 @@ func (vm *VM) registerBuiltins() {
 			default:
 				return types.NewError("isEmpty() unsupported type", 0, 0, "")
 			}
+		},
+	}
+
+	vm.globals["equal"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("equal() expects 2 arguments", 0, 0, "")
+			}
+			return types.Bool(args[0].Equals(args[1]))
+		},
+	}
+
+	vm.globals["neq"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("neq() expects 2 arguments", 0, 0, "")
+			}
+			return types.Bool(!args[0].Equals(args[1]))
+		},
+	}
+
+	vm.globals["gt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("gt() expects 2 arguments", 0, 0, "")
+			}
+			a, b := args[0], args[1]
+			aInt, aOk := a.(types.Int)
+			bInt, bOk := b.(types.Int)
+			if aOk && bOk {
+				return types.Bool(aInt > bInt)
+			}
+			aFloat, aFloatOk := a.(types.Float)
+			bFloat, bFloatOk := b.(types.Float)
+			if aFloatOk && bFloatOk {
+				return types.Bool(aFloat > bFloat)
+			}
+			if aOk {
+				f, _ := types.ToFloat(b)
+				return types.Bool(float64(aInt) > float64(f))
+			}
+			if bOk {
+				f, _ := types.ToFloat(a)
+				return types.Bool(float64(f) > float64(bInt))
+			}
+			aF, _ := types.ToFloat(a)
+			bF, _ := types.ToFloat(b)
+			return types.Bool(float64(aF) > float64(bF))
+		},
+	}
+
+	vm.globals["lt"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("lt() expects 2 arguments", 0, 0, "")
+			}
+			a, b := args[0], args[1]
+			aInt, aOk := a.(types.Int)
+			bInt, bOk := b.(types.Int)
+			if aOk && bOk {
+				return types.Bool(aInt < bInt)
+			}
+			aFloat, aFloatOk := a.(types.Float)
+			bFloat, bFloatOk := b.(types.Float)
+			if aFloatOk && bFloatOk {
+				return types.Bool(aFloat < bFloat)
+			}
+			if aOk {
+				f, _ := types.ToFloat(b)
+				return types.Bool(float64(aInt) < float64(f))
+			}
+			if bOk {
+				f, _ := types.ToFloat(a)
+				return types.Bool(float64(f) < float64(bInt))
+			}
+			aF, _ := types.ToFloat(a)
+			bF, _ := types.ToFloat(b)
+			return types.Bool(float64(aF) < float64(bF))
+		},
+	}
+
+	vm.globals["gte"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("gte() expects 2 arguments", 0, 0, "")
+			}
+			a, b := args[0], args[1]
+			aInt, aOk := a.(types.Int)
+			bInt, bOk := b.(types.Int)
+			if aOk && bOk {
+				return types.Bool(aInt >= bInt)
+			}
+			aFloat, aFloatOk := a.(types.Float)
+			bFloat, bFloatOk := b.(types.Float)
+			if aFloatOk && bFloatOk {
+				return types.Bool(aFloat >= bFloat)
+			}
+			if aOk {
+				f, _ := types.ToFloat(b)
+				return types.Bool(float64(aInt) >= float64(f))
+			}
+			if bOk {
+				f, _ := types.ToFloat(a)
+				return types.Bool(float64(f) >= float64(bInt))
+			}
+			aF, _ := types.ToFloat(a)
+			bF, _ := types.ToFloat(b)
+			return types.Bool(float64(aF) >= float64(bF))
+		},
+	}
+
+	vm.globals["lte"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 2 {
+				return types.NewError("lte() expects 2 arguments", 0, 0, "")
+			}
+			a, b := args[0], args[1]
+			aInt, aOk := a.(types.Int)
+			bInt, bOk := b.(types.Int)
+			if aOk && bOk {
+				return types.Bool(aInt <= bInt)
+			}
+			aFloat, aFloatOk := a.(types.Float)
+			bFloat, bFloatOk := b.(types.Float)
+			if aFloatOk && bFloatOk {
+				return types.Bool(aFloat <= bFloat)
+			}
+			if aOk {
+				f, _ := types.ToFloat(b)
+				return types.Bool(float64(aInt) <= float64(f))
+			}
+			if bOk {
+				f, _ := types.ToFloat(a)
+				return types.Bool(float64(f) <= float64(bInt))
+			}
+			aF, _ := types.ToFloat(a)
+			bF, _ := types.ToFloat(b)
+			return types.Bool(float64(aF) <= float64(bF))
 		},
 	}
 
@@ -13065,6 +13354,19 @@ func (vm *VM) registerBuiltins() {
 		},
 	}
 
+	vm.globals["jsonEncode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("jsonEncode() expects 1 argument", 0, 0, "")
+			}
+			jsonBytes, err := json.Marshal(toJSONable(args[0]))
+			if err != nil {
+				return types.NewError("jsonEncode(): "+err.Error(), 0, 0, "")
+			}
+			return types.String(string(jsonBytes))
+		},
+	}
+
 	vm.globals["fromJSON"] = &types.NativeFunction{
 		Fn: func(args ...types.Object) types.Object {
 			if len(args) < 1 {
@@ -14030,6 +14332,19 @@ func (vm *VM) registerBuiltins() {
 			jsonBytes, err := json.Marshal(args[0])
 			if err != nil {
 				return types.NewError("toJSON(): "+err.Error(), 0, 0, "")
+			}
+			return types.String(string(jsonBytes))
+		},
+	}
+
+	vm.globals["jsonEncode"] = &types.NativeFunction{
+		Fn: func(args ...types.Object) types.Object {
+			if len(args) < 1 {
+				return types.NewError("jsonEncode() expects 1 argument", 0, 0, "")
+			}
+			jsonBytes, err := json.Marshal(toJSONable(args[0]))
+			if err != nil {
+				return types.NewError("jsonEncode(): "+err.Error(), 0, 0, "")
 			}
 			return types.String(string(jsonBytes))
 		},
