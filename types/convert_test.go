@@ -238,3 +238,123 @@ func TestTypeCodeConsistency(t *testing.T) {
 		}
 	}
 }
+
+func TestObjectEquals(t *testing.T) {
+	// Test Int equals
+	if !Int(5).Equals(Int(5)) {
+		t.Error("Int(5) should equal Int(5)")
+	}
+	if Int(5).Equals(Int(6)) {
+		t.Error("Int(5) should not equal Int(6)")
+	}
+
+	// Test Float equals
+	if !Float(3.14).Equals(Float(3.14)) {
+		t.Error("Float(3.14) should equal Float(3.14)")
+	}
+
+	// Test String equals
+	if !String("hello").Equals(String("hello")) {
+		t.Error("String('hello') should equal String('hello')")
+	}
+
+	// Test Bool equals
+	if !Bool(true).Equals(Bool(true)) {
+		t.Error("Bool(true) should equal Bool(true)")
+	}
+
+	// Test cross-type comparisons
+	if Int(5).Equals(String("5")) {
+		t.Error("Int(5) should not equal String('5')")
+	}
+}
+
+func TestObjectStr(t *testing.T) {
+	tests := []struct {
+		obj      Object
+		expected string
+	}{
+		{Int(123), "123"},
+		{Float(3.14), "3.14"},
+		{Bool(true), "true"},
+		{Bool(false), "false"},
+		{String("hello"), "hello"},
+		{NullValue, "null"},
+		{UndefinedValue, "undefined"},
+	}
+
+	for _, tt := range tests {
+		if tt.obj.ToStr() != tt.expected {
+			t.Errorf("ToStr() = %s, expected %s", tt.obj.ToStr(), tt.expected)
+		}
+	}
+}
+
+func TestNullUndefined(t *testing.T) {
+	// Test Null
+	if NullValue.TypeCode() != TypeNull {
+		t.Error("NullValue should have TypeNull")
+	}
+	if NullValue.TypeName() != "null" {
+		t.Error("NullValue should have typeName 'null'")
+	}
+	if !NullValue.Equals(NullValue) {
+		t.Error("NullValue should equal itself")
+	}
+
+	// Test Undefined
+	if UndefinedValue.TypeCode() != TypeUndefined {
+		t.Error("UndefinedValue should have TypeUndefined")
+	}
+	if UndefinedValue.TypeName() != "undefined" {
+		t.Error("UndefinedValue should have typeName 'undefined'")
+	}
+}
+
+func TestByteOperations(t *testing.T) {
+	b := Byte(65)
+
+	if b.TypeCode() != TypeByte {
+		t.Error("Byte should have TypeByte")
+	}
+	if b.TypeName() != "byte" {
+		t.Error("Byte should have typeName 'byte'")
+	}
+	if b.ToStr() != "65" {
+		t.Errorf("Byte ToStr = %s, expected 65", b.ToStr())
+	}
+}
+
+func TestCharOperations(t *testing.T) {
+	c := Char(65) // 'A'
+
+	if c.TypeCode() != TypeChar {
+		t.Error("Char should have TypeChar")
+	}
+	if c.TypeName() != "char" {
+		t.Error("Char should have typeName 'char'")
+	}
+	if c.ToStr() != "A" {
+		t.Errorf("Char ToStr = %s, expected A", c.ToStr())
+	}
+
+	// Test Unicode character
+	unicode := Char(20013) // '中'
+	if unicode.ToStr() != "中" {
+		t.Errorf("Unicode Char ToStr = %s, expected 中", unicode.ToStr())
+	}
+}
+
+func TestUIntOperations(t *testing.T) {
+	u := UInt(123456)
+
+	if u.TypeCode() != TypeUInt {
+		t.Error("UInt should have TypeUInt")
+	}
+	if u.TypeName() != "uint" {
+		t.Error("UInt should have typeName 'uint'")
+	}
+	if !u.Equals(UInt(123456)) {
+		t.Error("UInt should equal same value")
+	}
+}
