@@ -902,3 +902,312 @@ func TestParseTernaryExpression(t *testing.T) {
 		}
 	}
 }
+
+func TestParsePostfixExpression(t *testing.T) {
+	tests := []string{
+		`x++`,
+		`x--`,
+		`arr[0]++`,
+	}
+
+	for _, input := range tests {
+		l := NewLexer(input)
+		p := NewParser(l)
+		program := p.ParseProgram()
+
+		if len(p.Errors()) > 0 {
+			t.Fatalf("Parser errors for %s: %v", input, p.Errors())
+		}
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("Expected 1 statement, got %d", len(program.Statements))
+		}
+	}
+}
+
+func TestParseForStatementVariants(t *testing.T) {
+	tests := []string{
+		`for i := 0; i < 10; i++ { print(i) }`,
+		`for { break }`,
+		`for i, v in [1, 2, 3] { print(i, v) }`,
+		`for i in [1, 2, 3] { print(i) }`,
+	}
+
+	for _, input := range tests {
+		l := NewLexer(input)
+		p := NewParser(l)
+		program := p.ParseProgram()
+
+		if len(p.Errors()) > 0 {
+			t.Fatalf("Parser errors for %s: %v", input, p.Errors())
+		}
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("Expected 1 statement for %s, got %d", input, len(program.Statements))
+		}
+
+		_, ok := program.Statements[0].(*ForStatement)
+		if !ok {
+			t.Fatalf("Expected *ForStatement for %s, got %T", input, program.Statements[0])
+		}
+	}
+}
+
+func TestParseFloatLiteral(t *testing.T) {
+	tests := []string{
+		`3.14`,
+		`0.5`,
+		`2.0`,
+	}
+
+	for _, input := range tests {
+		l := NewLexer(input)
+		p := NewParser(l)
+		program := p.ParseProgram()
+
+		if len(p.Errors()) > 0 {
+			t.Fatalf("Parser errors for %s: %v", input, p.Errors())
+		}
+
+		exprStmt, ok := program.Statements[0].(*ExpressionStatement)
+		if !ok {
+			t.Fatalf("Expected *ExpressionStatement, got %T", program.Statements[0])
+		}
+
+		_, ok = exprStmt.Expression.(*FloatLiteral)
+		if !ok {
+			t.Fatalf("Expected *FloatLiteral for %s, got %T", input, exprStmt.Expression)
+		}
+	}
+}
+
+func TestParseNullLiteral(t *testing.T) {
+	// null is parsed as an identifier, check it parses without error
+	input := `null`
+	l := NewLexer(input)
+	p := NewParser(l)
+	_ = p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+}
+
+func TestParseThisExpression(t *testing.T) {
+	input := `this.x`
+	l := NewLexer(input)
+	p := NewParser(l)
+	_ = p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+}
+
+func TestParseSuperExpression(t *testing.T) {
+	input := `super.method()`
+	l := NewLexer(input)
+	p := NewParser(l)
+	_ = p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+}
+
+func TestParseNewExpression(t *testing.T) {
+	input := `new Point(1, 2)`
+	l := NewLexer(input)
+	p := NewParser(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+
+	exprStmt, ok := program.Statements[0].(*ExpressionStatement)
+	if !ok {
+		t.Fatalf("Expected *ExpressionStatement, got %T", program.Statements[0])
+	}
+
+	_, ok = exprStmt.Expression.(*NewExpression)
+	if !ok {
+		t.Fatalf("Expected *NewExpression, got %T", exprStmt.Expression)
+	}
+}
+
+func TestParseMapLiteral(t *testing.T) {
+	input := `map("a", 1, "b", 2)`
+	l := NewLexer(input)
+	p := NewParser(l)
+	_ = p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+}
+
+func TestParseDeferStatementMore(t *testing.T) {
+	tests := []string{
+		`defer cleanup()`,
+		`defer func() { print("deferred") }()`,
+	}
+
+	for _, input := range tests {
+		l := NewLexer(input)
+		p := NewParser(l)
+		program := p.ParseProgram()
+
+		if len(p.Errors()) > 0 {
+			t.Fatalf("Parser errors for %s: %v", input, p.Errors())
+		}
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("Expected 1 statement, got %d", len(program.Statements))
+		}
+
+		_, ok := program.Statements[0].(*DeferStatement)
+		if !ok {
+			t.Fatalf("Expected *DeferStatement, got %T", program.Statements[0])
+		}
+	}
+}
+
+func TestParseThrowStatement(t *testing.T) {
+	input := `throw "error"`
+	l := NewLexer(input)
+	p := NewParser(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+
+	if len(program.Statements) != 1 {
+		t.Fatalf("Expected 1 statement, got %d", len(program.Statements))
+	}
+
+	_, ok := program.Statements[0].(*ThrowStatement)
+	if !ok {
+		t.Fatalf("Expected *ThrowStatement, got %T", program.Statements[0])
+	}
+}
+
+func TestParseTryStatementExtended(t *testing.T) {
+	input := `
+try {
+	throw "error"
+} catch {
+	print("caught")
+} finally {
+	print("done")
+}
+`
+	l := NewLexer(input)
+	p := NewParser(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+
+	if len(program.Statements) != 1 {
+		t.Fatalf("Expected 1 statement, got %d", len(program.Statements))
+	}
+
+	_, ok := program.Statements[0].(*TryStatement)
+	if !ok {
+		t.Fatalf("Expected *TryStatement, got %T", program.Statements[0])
+	}
+}
+
+func TestParseInterfaceDeclaration(t *testing.T) {
+	input := `
+interface Reader {
+	func read()
+	func close()
+}
+`
+	l := NewLexer(input)
+	p := NewParser(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+
+	if len(program.Statements) != 1 {
+		t.Fatalf("Expected 1 statement, got %d", len(program.Statements))
+	}
+
+	_, ok := program.Statements[0].(*InterfaceDeclaration)
+	if !ok {
+		t.Fatalf("Expected *InterfaceDeclaration, got %T", program.Statements[0])
+	}
+}
+
+func TestParseDefineStatement(t *testing.T) {
+	tests := []string{
+		`x := 5`,
+		`name := "hello"`,
+	}
+
+	for _, input := range tests {
+		l := NewLexer(input)
+		p := NewParser(l)
+		program := p.ParseProgram()
+
+		if len(p.Errors()) > 0 {
+			t.Fatalf("Parser errors for %s: %v", input, p.Errors())
+		}
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("Expected 1 statement, got %d", len(program.Statements))
+		}
+
+		_, ok := program.Statements[0].(*DefineStatement)
+		if !ok {
+			t.Fatalf("Expected *DefineStatement, got %T", program.Statements[0])
+		}
+	}
+}
+
+func TestParseConstStatement(t *testing.T) {
+	input := `const PI = 3.14`
+	l := NewLexer(input)
+	p := NewParser(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+
+	if len(program.Statements) != 1 {
+		t.Fatalf("Expected 1 statement, got %d", len(program.Statements))
+	}
+
+	_, ok := program.Statements[0].(*ConstStatement)
+	if !ok {
+		t.Fatalf("Expected *ConstStatement, got %T", program.Statements[0])
+	}
+}
+
+func TestParseFallthroughStatement(t *testing.T) {
+	input := `fallthrough`
+	l := NewLexer(input)
+	p := NewParser(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Parser errors: %v", p.Errors())
+	}
+
+	if len(program.Statements) != 1 {
+		t.Fatalf("Expected 1 statement, got %d", len(program.Statements))
+	}
+
+	_, ok := program.Statements[0].(*FallthroughStatement)
+	if !ok {
+		t.Fatalf("Expected *FallthroughStatement, got %T", program.Statements[0])
+	}
+}
