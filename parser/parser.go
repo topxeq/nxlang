@@ -12,6 +12,7 @@ const (
 	_ int = iota
 	PrecedenceLowest
 	PrecedenceAssignment  // =, +=, -=, *=, /=, %=, &=, |=, ^=, <<=, >>=
+	PrecedenceTernary     // ?:
 	PrecedenceOr          // ||
 	PrecedenceAnd         // &&
 	PrecedenceEquals      // == !=
@@ -43,6 +44,9 @@ var precedences = map[TokenType]int{
 	TokenXorAssign:    PrecedenceAssignment,
 	TokenLShiftAssign: PrecedenceAssignment,
 	TokenRShiftAssign: PrecedenceAssignment,
+
+	// Ternary operator
+	TokenQuestion: PrecedenceTernary,
 
 	// Other operators
 	TokenOr:          PrecedenceOr,
@@ -346,24 +350,9 @@ func (p *Parser) parseLetStatement() *LetStatement {
 		stmt.Value = p.parseExpression(PrecedenceLowest)
 	}
 
-	// Consume semicolon if present (but not if next token is ')' which indicates for loop context)
+	// Consume semicolon if present
 	if p.peekTokenIs(TokenSemicolon) {
-		// Check if we're in a for loop context by looking for ')' after the semicolon
-		// Save current position
-		_savedCur := p.curToken
-		savedPeek := p.peekToken
-
-		// Advance to check next token
-		p.nextToken() // consume semicolon
-		isForLoopContext := p.peekTokenIs(TokenRightParen)
-		// Restore position
-		p.curToken = _savedCur
-		p.peekToken = savedPeek
-
-		// Only consume semicolon if not in for loop context
-		if !isForLoopContext {
-			p.nextToken()
-		}
+		p.nextToken()
 	}
 
 	return stmt
@@ -417,24 +406,9 @@ func (p *Parser) parseConstStatement() *ConstStatement {
 	p.nextToken()
 	stmt.Value = p.parseExpression(PrecedenceLowest)
 
-	// Consume semicolon if present (but not if next token is ')' which indicates for loop context)
+	// Consume semicolon if present
 	if p.peekTokenIs(TokenSemicolon) {
-		// Check if we're in a for loop context by looking for ')' after the semicolon
-		// Save current position
-		_savedCur := p.curToken
-		savedPeek := p.peekToken
-
-		// Advance to check next token
-		p.nextToken() // consume semicolon
-		isForLoopContext := p.peekTokenIs(TokenRightParen)
-		// Restore position
-		p.curToken = _savedCur
-		p.peekToken = savedPeek
-
-		// Only consume semicolon if not in for loop context
-		if !isForLoopContext {
-			p.nextToken()
-		}
+		p.nextToken()
 	}
 
 	return stmt

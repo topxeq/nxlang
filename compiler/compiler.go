@@ -1867,6 +1867,40 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 		return nil
 
+	case *parser.TernaryExpression:
+		// Compile ternary: condition ? trueExpr : falseExpr
+		// Similar to if-else but as an expression
+
+		// Compile condition
+		if err := c.Compile(n.Condition); err != nil {
+			return err
+		}
+
+		// Emit jump if false with placeholder offset
+		jumpFalsePos := c.emit(OpJmpIfFalse, 0xFFFF)
+
+		// Compile true expression
+		if err := c.Compile(n.TrueExpr); err != nil {
+			return err
+		}
+
+		// Emit jump to end with placeholder offset
+		jumpPos := c.emit(OpJmp, 0xFFFF)
+
+		// Patch jump false offset to point to false expression
+		afterTruePos := len(c.currentInstructions())
+		c.changeOperand(jumpFalsePos, afterTruePos)
+
+		// Compile false expression
+		if err := c.Compile(n.FalseExpr); err != nil {
+			return err
+		}
+
+		// Patch jump offset to end
+		afterFalsePos := len(c.currentInstructions())
+		c.changeOperand(jumpPos, afterFalsePos)
+		return nil
+
 	case *parser.CallExpression:
 		// Compile arguments first (stack order: args first, then function)
 		for _, arg := range n.Arguments {

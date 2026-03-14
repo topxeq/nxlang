@@ -23,6 +23,18 @@ func main() {
 		return
 	}
 
+	// Handle version flag
+	if args[0] == "--version" || args[0] == "-v" || args[0] == "version" {
+		fmt.Printf("Nxlang %s\n", Version())
+		return
+	}
+
+	// Handle help flag
+	if args[0] == "--help" || args[0] == "-h" || args[0] == "help" {
+		printUsage()
+		return
+	}
+
 	switch args[0] {
 	case "run":
 		if len(args) < 2 {
@@ -267,4 +279,20 @@ func printRuntimeError(err error, vmobj *vm.VM) {
 	} else {
 		fmt.Printf("Runtime error: %v\n", err)
 	}
+}
+
+// printUsage prints usage information
+func printUsage() {
+	fmt.Printf("Nxlang %s - A Go-like scripting language\n\n", Version())
+	fmt.Println("Usage:")
+	fmt.Println("  nx                  Start REPL")
+	fmt.Println("  nx <file.nx>        Run a script file")
+	fmt.Println("  nx run <file>       Run a .nx or .nxb file")
+	fmt.Println("  nx compile <file>   Compile .nx to .nxb bytecode")
+	fmt.Println("  nx repl             Start REPL")
+	fmt.Println("  nx edit             Launch built-in editor (coming soon)")
+	fmt.Println("")
+	fmt.Println("Options:")
+	fmt.Println("  -v, --version       Print version information")
+	fmt.Println("  -h, --help          Print this help message")
 }
