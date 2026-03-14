@@ -205,7 +205,7 @@ func compileFile(inputPath, outputPath string) {
 
 // startREPL starts the interactive read-eval-print loop
 func startREPL() {
-	fmt.Println("Nxlang REPL (type 'exit' to quit)")
+	fmt.Printf("Nxlang %s REPL (type 'exit' to quit)\n", Version())
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for {
