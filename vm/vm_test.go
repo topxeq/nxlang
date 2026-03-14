@@ -4753,3 +4753,189 @@ func TestComprehensiveBuiltinFunctions(t *testing.T) {
 		}
 	}
 }
+
+func TestBuiltinMathMore(t *testing.T) {
+	tests := []struct {
+		source  string
+		checkFn func(types.Object) bool
+	}{
+		{"abs(-5)", func(r types.Object) bool { return r.Equals(types.Int(5)) }},
+		{"abs(5)", func(r types.Object) bool { return r.Equals(types.Int(5)) }},
+		{"min(3, 7)", func(r types.Object) bool { return r.Equals(types.Int(3)) }},
+		{"max(3, 7)", func(r types.Object) bool { return r.Equals(types.Int(7)) }},
+		{"floor(3.7)", func(r types.Object) bool { return r.Equals(types.Float(3)) }},
+		{"ceil(3.2)", func(r types.Object) bool { return r.Equals(types.Float(4)) }},
+		{"round(3.5)", func(r types.Object) bool { return r.Equals(types.Float(4)) }},
+		{"sqrt(16)", func(r types.Object) bool { return r.Equals(types.Float(4.0)) }},
+		{"pow(2, 3)", func(r types.Object) bool { return r.Equals(types.Float(8.0)) }},
+		{"sin(0)", func(r types.Object) bool { return r.Equals(types.Float(0.0)) }},
+		{"cos(0)", func(r types.Object) bool { return r.Equals(types.Float(1.0)) }},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !tt.checkFn(result) {
+			t.Errorf("Source: %s, Unexpected result: %v", tt.source, result)
+		}
+	}
+}
+
+func TestBuiltinStringMore(t *testing.T) {
+	tests := []struct {
+		source  string
+		checkFn func(types.Object) bool
+	}{
+		{"toUpper(\"hello\")", func(r types.Object) bool { return r.Equals(types.String("HELLO")) }},
+		{"toLower(\"HELLO\")", func(r types.Object) bool { return r.Equals(types.String("hello")) }},
+		{"trim(\"  hello  \")", func(r types.Object) bool { return r.Equals(types.String("hello")) }},
+		{"trimLeft(\"  hello  \")", func(r types.Object) bool { return r.Equals(types.String("hello  ")) }},
+		{"trimRight(\"  hello  \")", func(r types.Object) bool { return r.Equals(types.String("  hello")) }},
+		{"hasPrefix(\"hello world\", \"hello\")", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"hasSuffix(\"hello world\", \"world\")", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"contains(\"hello\", \"ell\")", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"replace(\"hello\", \"l\", \"L\")", func(r types.Object) bool { return r.Equals(types.String("heLLo")) }},
+		{"split(\"a,b,c\", \",\")", func(r types.Object) bool { arr, ok := r.(*collections.Array); return ok && len(arr.Elements) == 3 }},
+		{"join([\"a\", \"b\", \"c\"], \",\")", func(r types.Object) bool { return r.Equals(types.String("a,b,c")) }},
+		{"repeat(\"ab\", 3)", func(r types.Object) bool { return r.Equals(types.String("ababab")) }},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !tt.checkFn(result) {
+			t.Errorf("Source: %s, Unexpected result: %v", tt.source, result)
+		}
+	}
+}
+
+func TestBuiltinArrayMore(t *testing.T) {
+	tests := []struct {
+		source  string
+		checkFn func(types.Object) bool
+	}{
+		{"append([1, 2], 3)", func(r types.Object) bool { arr, ok := r.(*collections.Array); return ok && len(arr.Elements) == 3 }},
+		{"firstArr([1, 2, 3])", func(r types.Object) bool { return r.Equals(types.Int(1)) }},
+		{"lastArr([1, 2, 3])", func(r types.Object) bool { return r.Equals(types.Int(3)) }},
+		{"reverseArr([1, 2, 3])", func(r types.Object) bool { arr, ok := r.(*collections.Array); return ok && arr.Elements[0].Equals(types.Int(3)) }},
+		{"toSorted([3, 1, 2])", func(r types.Object) bool { arr, ok := r.(*collections.Array); return ok && arr.Elements[0].Equals(types.Int(1)) }},
+		{"indexOfArr([1, 2, 3], 2)", func(r types.Object) bool { return r.Equals(types.Int(1)) }},
+		{"contains([1, 2, 3], 2)", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"sliceArr([1, 2, 3, 4], 1, 3)", func(r types.Object) bool { arr, ok := r.(*collections.Array); return ok && len(arr.Elements) == 2 }},
+		{"concatArr([1, 2], [3, 4])", func(r types.Object) bool { arr, ok := r.(*collections.Array); return ok && len(arr.Elements) == 4 }},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !tt.checkFn(result) {
+			t.Errorf("Source: %s, Unexpected result: %v", tt.source, result)
+		}
+	}
+}
+
+func TestBuiltinTypeConversionMore(t *testing.T) {
+	tests := []struct {
+		source  string
+		checkFn func(types.Object) bool
+	}{
+		{"int(\"42\")", func(r types.Object) bool { return r.Equals(types.Int(42)) }},
+		{"int(3.7)", func(r types.Object) bool { return r.Equals(types.Int(3)) }},
+		{"float(\"3.14\")", func(r types.Object) bool { return r.Equals(types.Float(3.14)) }},
+		{"float(42)", func(r types.Object) bool { return r.Equals(types.Float(42.0)) }},
+		{"str(42)", func(r types.Object) bool { return r.Equals(types.String("42")) }},
+		{"str(3.14)", func(r types.Object) bool { return r.Equals(types.String("3.14")) }},
+		{"bool(1)", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"bool(0)", func(r types.Object) bool { return r.Equals(types.Bool(false)) }},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !tt.checkFn(result) {
+			t.Errorf("Source: %s, Unexpected result: %v", tt.source, result)
+		}
+	}
+}
+
+func TestBuiltinEncoding(t *testing.T) {
+	tests := []struct {
+		source  string
+		checkFn func(types.Object) bool
+	}{
+		{"md5(\"hello\")", func(r types.Object) bool { s := r.ToStr(); return len(s) == 32 }},
+		{"sha1(\"hello\")", func(r types.Object) bool { s := r.ToStr(); return len(s) == 40 }},
+		{"sha256(\"hello\")", func(r types.Object) bool { s := r.ToStr(); return len(s) == 64 }},
+		{"base64Encode(\"hello\")", func(r types.Object) bool { return r.Equals(types.String("aGVsbG8=")) }},
+		{"base64Decode(\"aGVsbG8=\")", func(r types.Object) bool { return r.Equals(types.String("hello")) }},
+		{"hexEncode(\"hello\")", func(r types.Object) bool { return r.Equals(types.String("68656c6c6f")) }},
+		{"hexDecode(\"68656c6c6f\")", func(r types.Object) bool { return r.Equals(types.String("hello")) }},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !tt.checkFn(result) {
+			t.Errorf("Source: %s, Unexpected result: %v", tt.source, result)
+		}
+	}
+}
+
+func TestBuiltinIsFunctions(t *testing.T) {
+	tests := []struct {
+		source  string
+		checkFn func(types.Object) bool
+	}{
+		{"isInt(42)", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"isInt(3.14)", func(r types.Object) bool { return r.Equals(types.Bool(false)) }},
+		{"isFloat(3.14)", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"isString(\"hello\")", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"isArray([1, 2])", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"isMap(map())", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"isBool(true)", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"isFunction(func() {})", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"isNil(nil)", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"isEmpty([])", func(r types.Object) bool { return r.Equals(types.Bool(true)) }},
+		{"isEmpty([1])", func(r types.Object) bool { return r.Equals(types.Bool(false)) }},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !tt.checkFn(result) {
+			t.Errorf("Source: %s, Unexpected result: %v", tt.source, result)
+		}
+	}
+}
+
+func TestBuiltinRange(t *testing.T) {
+	tests := []struct {
+		source  string
+		checkFn func(types.Object) bool
+	}{
+		{"range(5)", func(r types.Object) bool { arr, ok := r.(*collections.Array); return ok && len(arr.Elements) == 5 }},
+		{"range(2, 5)", func(r types.Object) bool { arr, ok := r.(*collections.Array); return ok && len(arr.Elements) == 3 }},
+		{"range(0, 10, 2)", func(r types.Object) bool { arr, ok := r.(*collections.Array); return ok && len(arr.Elements) == 5 }},
+		{"sum(range(10))", func(r types.Object) bool { return r.Equals(types.Int(45)) }},
+	}
+
+	for _, tt := range tests {
+		result := runSource(t, tt.source)
+		if !tt.checkFn(result) {
+			t.Errorf("Source: %s, Unexpected result: %v", tt.source, result)
+		}
+	}
+}
+
+func TestBuiltinRandom(t *testing.T) {
+	// Test that random functions return values in expected range
+	result := runSource(t, "randInt(10)")
+	if r, ok := result.(types.Int); !ok || r < 0 || r >= 10 {
+		t.Errorf("randInt(10) returned unexpected value: %v", result)
+	}
+
+	result = runSource(t, "randFloat()")
+	if r, ok := result.(types.Float); !ok || r < 0 || r >= 1 {
+		t.Errorf("randFloat() returned unexpected value: %v", result)
+	}
+
+	// randBool should return a boolean
+	result = runSource(t, "randBool()")
+	if _, ok := result.(types.Bool); !ok {
+		t.Errorf("randBool() should return bool, got: %v", result)
+	}
+}
